@@ -1,0 +1,240 @@
+# OpenHammer Roadmap
+
+## Phase 1: Digital Tabletop Foundation
+
+Build a functional board where you can place and move model tokens with measurement tools.
+
+- [x] Set up monorepo workspace structure (`packages/core`, `packages/client`, `packages/server`)
+  - npm workspaces with `@openhammer/core`, `@openhammer/client`, `@openhammer/server`
+  - Server has minimal Express skeleton with health endpoint
+- [x] Configure TypeScript (strict mode), Vite, Vitest, Tailwind CSS
+  - Shared `tsconfig.base.json` with strict mode, ES2022 target, bundler module resolution
+  - Client uses Vite resolve aliases to import core source directly (no build step needed)
+  - Tailwind v3 configured in client only; Vitest workspace runs core + client tests
+- [x] Set up the `RulesEdition` interface and edition registry in `packages/core`
+  - `RulesEdition` interface at `core/src/rules/RulesEdition.ts` with phase management, movement, coherency, engagement range methods
+  - Registry at `core/src/rules/registry.ts` — simple Map-based register/get/list
+- [x] Implement the 10th Edition skeleton (phase list, basic movement rules)
+  - `core/src/editions/wh40k10th.ts` — 6 phases (command through morale), 1" engagement range, 2" coherency, 2-neighbor coherency for 6+ model units
+  - Auto-registers via side-effect import from `core/src/editions/index.ts`
+- [x] Edition selection on game creation (defaults to 10th Edition)
+  - `GameCreation` component with edition dropdown, board size inputs, defaults to 60x44
+- [x] Define core game state types (`GameState`, `Board`, `Model`, `Unit`, `TurnState`, `Action`)
+  - `core/src/types/` — geometry (Point, Circle, Rect) and game types (GameState, Model, Unit, Player, TurnState)
+  - Models track baseSizeMm + pre-computed baseSizeInches, wounds/maxWounds, moveCharacteristic, status
+- [x] Implement action/dispatch state engine (pure reducer, serializable actions)
+  - 12 action types: PLACE_MODEL, REMOVE_MODEL, MOVE_MODEL, SET_MODEL_WOUNDS, ROTATE_MODEL, ADD_UNIT, REMOVE_UNIT, ADD_PLAYER, ADVANCE_PHASE, NEXT_TURN, SET_BOARD_SIZE, SET_EDITION
+  - Pure immutable reducer with cascading cleanup (removing last model in unit removes the unit)
+  - 14 unit tests covering all actions + immutability + edge cases
+- [x] Implement measurement utilities (distance, `distanceBetweenModels`, `isWithin`, `modelsInRange`)
+  - Edge-to-edge distance (Warhammer standard), coherency checking with configurable range + minNeighbors
+  - 12 unit tests covering geometry, base sizes, coherency pass/fail scenarios
+- [x] PixiJS canvas with a 44"x60" board (configurable)
+  - PixiJS 8 Application initialized async in React useEffect; 20px/inch scale factor
+  - Board grid with minor (1") and major (6") lines; board auto-centered in viewport
+- [x] Place circular model tokens on the board via click
+  - Place tool creates 32mm base models at click position; tokens rendered as colored circles scaled to base size
+- [x] Select models (click) and multi-select (box select or shift-click)
+  - Click to select, shift-click to toggle, drag on empty space for box select
+  - Selection ring highlight on selected models; selection state in Zustand UIStore
+- [x] Drag models to move them with real-time position display
+  - Optimistic visual drag (direct PixiJS token movement), dispatch on mouseup
+  - Multi-model drag maintains relative offsets; positions clamped to board bounds
+- [x] Movement range circle displayed while dragging (configurable radius)
+  - Blue semi-transparent circle shown at drag origin using model's moveCharacteristic
+- [x] Ruler/measurement tool: click two points to see distance in inches
+  - Click-to-start, click-to-end ruler with distance label; uses core `distance()` function
+- [x] Pan and zoom camera controls
+  - Middle-mouse drag to pan; scroll wheel to zoom (0.25x–3x) toward cursor position
+- [x] Undo/redo (action history)
+  - Zustand gameStore with past/future stacks (max 200 entries); Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y shortcuts
+- [x] Right-click context menu on models (remove, set wounds, etc.)
+  - React component positioned at click coords; remove model, set wounds with inline number input
+  - Click-outside to dismiss; wound values clamped and model auto-destroyed at 0
+- [x] Basic UI panel: unit list sidebar, tool selection bar
+  - Left sidebar: turn info (round + current phase), unit list with model counts, unattached models, selection info
+  - Top toolbar: Select/Place/Measure buttons with active state, Undo/Redo buttons
+  - Keyboard shortcuts: V/P/M for tools, Delete/Backspace to remove selected, Escape to deselect
+
+## Phase 2: Terrain & Line of Sight
+
+- [x] Place terrain as polygonal shapes with editable vertices
+  - Two placement modes: Template (select preset, click to place) and Draw (click vertices, finish to close polygon)
+  - `TerrainPiece` type with polygon vertices, height, traits, label stored in `GameState.terrain`
+  - Terrain rendering via `TerrainLayer` with color-coded fills by trait (purple=obscuring, green=dense, amber=defensible)
+  - Terrain selection via click; selected terrain shows yellow highlight outline
+  - Right-click context menu on terrain for editing traits/height and removal
+  - `TerrainPlacementPreview` shows the polygon being drawn in real-time
+- [x] Assign terrain traits (obscuring, dense, breachable, defensible, etc.)
+  - 6 traits: obscuring, dense, breachable, defensible, unstable, smoke
+  - Toggle traits via right-click context menu with checkbox-style UI
+  - `TERRAIN_TRAIT_DESCRIPTIONS` provides tooltip text for each trait
+- [x] Terrain height metadata
+  - Stored as `height` (inches) on `TerrainPiece`; displayed below terrain label on canvas
+  - Editable via right-click context menu with number input
+- [x] Implement LoS raycasting in `packages/core/src/los/`
+  - Segment-polygon intersection using cross-product orientation method
+  - `pointInPolygon` via ray-casting algorithm
+  - `checkLineOfSight` returns `LoSResult` with clear/blocked status, blocking terrain IDs, dense terrain IDs, and first intersection point
+  - Obscuring terrain fully blocks LoS; dense terrain is reported for hit penalty without blocking
+  - 15 unit tests covering segment intersection, point-in-polygon, and full LoS scenarios
+- [x] LoS tool: select two models, draw a line, check if terrain blocks it
+  - LoS tool (L key): click first model (source), click second model (target) to check
+  - First click highlights the source model; second click runs the check
+- [x] LoS visualization (clear/blocked indicator with ray drawn on canvas)
+  - Green line = clear, red line = blocked
+  - "CLEAR" / "BLOCKED" label at midpoint; "(Dense)" appended when dense terrain is in the path
+  - Red X marker drawn at the first intersection point when blocked
+  - Endpoint circles on both models
+- [x] Terrain templates: common shapes (ruins rectangle, forest oval, etc.)
+  - 8 templates: Ruins (Small/Large/L-Shaped), Forest (Small/Large), Crate Stack, Barricade, Hill
+  - Each template defines polygon, height, and default traits
+  - `offsetPolygon` utility to place template at click position
+  - Template selector panel on right side when Terrain tool is active
+
+## Phase 3: Unit Management & Army Lists
+
+- [x] Define unit profiles with stats (M, T, Sv, W, Ld, OC, etc.)
+  - `ModelStats` interface: move, toughness, save, wounds, leadership, objectiveControl, optional invulnSave
+  - `stats` field added to `Model` type; all test helpers and client code updated
+- [x] Define weapon profiles with stats (A, BS/WS, S, AP, D) and abilities
+  - `Weapon` interface: name, type (melee/ranged), range, attacks, skill, strength, ap, damage, abilities[]
+  - Weapons stored on `Unit` (shared across the unit's models, matching 10th Ed datasheet structure)
+- [x] Implement OpenHammer JSON army list schema and validation
+  - `OpenHammerArmyList` schema with schemaVersion, editionId, armyName, faction, units, editionData
+  - `validateArmyList()` validates all fields recursively: required strings, edition existence, model stats, weapon types
+  - Returns structured `ArmyListValidationError[]` with JSON paths for precise error feedback
+  - 10 validation tests covering valid lists, missing fields, bad editions, invalid models/weapons
+- [x] Build army list importer (validate, transform, hydrate into game state)
+  - `importArmyList()` takes validated army list + player ID, creates Units and Models in GameState
+  - Models placed in a 2" spaced grid from a configurable start position (staging area)
+  - Weapons mapped to `Weapon` type with auto-generated IDs; keywords and abilities preserved
+  - 5 importer tests covering unit/model creation, stat correctness, grid placement, immutability
+- [x] Build JSON file/paste import UI flow with validation and error feedback
+  - `ImportArmyDialog` modal: file upload (.json) or paste JSON text
+  - Real-time validation error display with per-field paths highlighted
+  - Success message on import; auto-creates player with color assignment
+  - Accessible from "Import Army List" button in the unit sidebar
+- [x] Deploy units as groups: placing a unit places all its models in coherency
+  - Importer places all models in a compact grid layout within the staging area
+  - Models are grouped by unit with proper unitId linkage
+- [x] Unit coherency checking (2" between models, special rules for 6+ model units)
+  - `checkCoherency()` in measurement module with configurable range and minNeighbors
+  - 10th Edition: 2" range, 1 neighbor for <6 models, 2 neighbors for 6+ models
+  - Already implemented and tested in Phase 1; wired through edition interface
+- [x] Wound tracking per model with automatic model removal at 0 wounds
+  - Sidebar shows per-model wound counters with +/- buttons when unit is expanded
+  - Reducer clamps wounds to [0, maxWounds] and auto-sets status to 'destroyed' at 0
+  - Destroyed models are filtered from canvas rendering and sidebar display
+  - Full stat line (M/T/Sv/W/Ld/OC), weapons, and keywords shown in expanded unit view
+- [ ] (Stretch) Implement converter architecture for external formats
+- [ ] (Stretch) Add first external converter (Battlescribe .rosz -> OpenHammer JSON)
+- [ ] Improve model base size accuracy
+  - Battlescribe JSON does not include base sizes; currently inferred from keywords (Vehicle→60mm, Infantry→32mm, etc.)
+  - Options: per-model override in context menu/unit panel, static lookup table of known unit names → base sizes, or editable preview during import
+  - Related: allow users to adjust base size after placement via right-click or unit detail panel
+
+## Phase 4: Turn Structure & Dice
+
+- [x] Turn tracker UI: round number, active player, current phase
+  - Bottom-center bar showing round number, active player (name + color dot), phase sequence
+  - Phase pills highlight current phase (blue), completed phases (dimmed), upcoming phases (gray)
+- [x] Phase advancement with visual indicator
+  - "Next Phase" button advances through phases; becomes "Next Turn" on the last phase
+  - NEXT_TURN cycles through players and increments round number when the last player finishes
+  - Phase changes and turn changes are logged to the game log
+- [x] Wire up 10th Edition phase sequence (command, movement, shooting, charge, fight, morale)
+  - 6 phases displayed in order from the 10th Edition definition; auto-sets first active player
+- [x] Built-in dice roller with configurable dice pools
+  - Collapsible panel (bottom-right): configurable dice count (1-50) and threshold (2+-6+)
+  - Quick-select purpose buttons: To Hit, To Wound, Save, Damage, Battleshock
+  - `rollDice()`, `countSuccesses()`, `countFailures()`, `sumDice()` in `core/dice/`
+  - 7 dice tests covering roll ranges, success/failure counting, summing
+- [x] Dice roll results displayed prominently with hit/wound/save thresholds
+  - Individual dice shown as colored squares: green for pass, red for fail
+  - Summary line: X pass / Y fail
+  - All rolls logged to game log with full results
+- [x] Command point tracker per player
+  - Top-right panel: per-player CP display with +/- buttons
+  - `commandPoints` field on Player type; `SET_COMMAND_POINTS` action with clamping
+  - CP changes logged with old/new values and reason
+- [x] Battle round summary / log panel
+  - Collapsible "Game Log" panel showing phase changes, dice rolls, CP changes
+  - Color-coded entries: blue for phase changes, yellow for dice, purple for CP
+  - Auto-scrolls to latest entry; `GameLog` type with `LogEntry` union in core types
+
+## Phase 5: Multiplayer
+
+- [x] WebSocket server for game rooms (`packages/server`)
+  - Express + `ws` WebSocket server on port 3001
+  - `rooms.ts`: room management with `createRoom`, `joinRoom`, `handleDisconnect`, `handleAction`, `broadcast`
+  - Rooms keyed by 6-character alphanumeric code; auto-cleanup after 60s when empty
+  - Server applies actions via `gameReducer` (authoritative state) before broadcasting
+- [x] Create room -> get shareable link
+  - Host creates room and receives a 6-char room code (e.g. `ABC123`)
+  - Game creation screen has Local/Online tab switcher; Online tab shows Host Game / Join Game options
+- [x] Join room -> sync full game state on connect
+  - Joining client sends room code + player name; receives full `STATE_SNAPSHOT` on connect
+  - Server adds player to game state with auto-assigned color
+- [x] Real-time action broadcasting (one player acts, other sees it live)
+  - Client dispatches actions locally and sends to server via `DISPATCH_ACTION` message
+  - Server validates, applies to authoritative state, broadcasts `ACTION_BROADCAST` to other clients
+  - Dispatching client receives `STATE_SNAPSHOT` for reconciliation
+- [x] Player role assignment (Player 1, Player 2, Spectator)
+  - First player → player1, second → player2, subsequent → spectator
+  - Spectators receive all state updates and chat but cannot dispatch actions
+  - Role shown in lobby and system chat messages
+- [x] Optimistic updates with host-authoritative reconciliation
+  - Client applies actions locally for instant feedback, server sends back authoritative state snapshot
+  - On `STATE_SNAPSHOT`, client replaces game state entirely (server wins on conflict)
+- [x] Reconnection handling with state catch-up
+  - Auto-reconnect after 3 seconds on disconnect; rejoins last known room
+  - On rejoin, full state snapshot is sent to catch up; connection status indicator in lobby
+  - System messages notify all players of connect/disconnect events
+- [x] Chat panel for in-game communication
+  - Collapsible chat panel (only visible in multiplayer); text input + send button
+  - Messages broadcast to all clients in the room including sender (echo)
+  - System messages for player join/disconnect events
+  - 100-message rolling buffer in client store
+
+## Phase 6: Quality of Life
+
+- [x] Save/load game state to JSON files
+  - Save button downloads full GameState as timestamped JSON file
+  - Load button reads a JSON file, validates top-level structure, and replaces game state
+  - Both accessible from the toolbar (Save / Load buttons)
+- [x] Deployment zone overlays (configurable by mission)
+  - `DeploymentZone` type with polygon, playerId, label, color stored in GameState
+  - `DeploymentZoneLayer` renders zones as transparent colored polygons with labels
+  - 3 mission presets: Dawn of War (long edges), Hammer and Anvil (short edges), Search and Destroy (diagonal quarters)
+  - Preset selector in the unit sidebar; Clear Zones button
+- [x] Objective markers (placeable, numbered)
+  - `ObjectiveMarker` type with position, number, optional label and controllingPlayerId
+  - `ObjectiveLayer` renders markers as numbered rings with 1.5" control range indicator
+  - Objective tool (O key): click board to place auto-numbered objectives
+  - Marker color changes to controlling player's color when assigned
+- [x] Aura range visualization (select model, show X" aura ring)
+  - `AuraOverlay` shows a purple 6" aura ring when a single model is selected (select tool)
+  - Ring with label disappears when selection changes or is cleared
+- [x] Quick-roll sequences: select attacking unit -> select target -> auto-roll to-hit -> to-wound -> saves
+  - Collapsible Quick Roll panel appears when a unit with weapons is selected
+  - Select weapon from unit's weapon list, pick target from enemy units dropdown
+  - "Roll Attack Sequence" button runs full to-hit → to-wound → save chain
+  - 10th Ed wound threshold calculation (S vs T: 2x=2+, greater=3+, equal=4+, less=5+, half=6+)
+  - Each step shows individual dice as green/red squares with success count
+  - Damage summary calculated from unsaved wounds × damage characteristic
+  - All rolls logged to the game log
+- [x] Rules enforcement levels (off / warn / enforce) per rule category
+  - `RulesConfig` type with coherency, movementRange, phaseRestrictions, lineOfSight fields
+  - `EnforcementLevel` type: 'off' | 'warn' | 'enforce'; defaults to warn for coherency/movement, off for others
+  - Collapsible "Rules" panel with per-category toggle buttons (Off / Warn / Enforce)
+  - `SET_RULES_CONFIG` action; config stored in GameState and synced in multiplayer
+- [x] Mobile-responsive touch controls
+  - Single-finger drag to pan the board
+  - Two-finger pinch to zoom (0.25x–3x)
+  - Tap to select models (10px movement threshold to distinguish from drag)
+  - `touch-none` CSS to prevent browser gesture interference
+- [x] Dark/light theme
+  - Theme toggle button in toolbar (Dark/Light label)
+  - Tailwind `darkMode: 'class'` with `dark:` variants on layout background
+  - Preference persisted in `localStorage` and applied on page load via `<html class="dark">`

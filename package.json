@@ -1,0 +1,19 @@
+{
+  "name": "openhammer",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w packages/client",
+    "dev:server": "npm run dev -w packages/server",
+    "build": "npm run build -w packages/core && npm run build -w packages/client && npm run build -w packages/server",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
