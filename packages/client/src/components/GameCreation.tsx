@@ -15,6 +15,7 @@ export function GameCreation() {
   const handleCreate = () => {
     useGameStore.getState().resetGame({ editionId, boardWidth, boardHeight });
     useUIStore.getState().setGameCreated(true);
+    useUIStore.getState().setShowGameSetup(true);
   };
 
   return (

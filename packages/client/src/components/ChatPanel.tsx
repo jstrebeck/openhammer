@@ -24,16 +24,16 @@ export function ChatPanel() {
   };
 
   return (
-    <div className="absolute bottom-16 right-[272px] w-64">
+    <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-3 py-1.5 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 text-sm text-gray-300 hover:bg-gray-700 transition-colors text-left"
+        className="w-full px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors text-left"
       >
         Chat ({messages.length}) {expanded ? '▾' : '▸'}
       </button>
 
       {expanded && (
-        <div className="mt-1 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg flex flex-col" style={{ height: 240 }}>
+        <div className="flex flex-col" style={{ maxHeight: 200 }}>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {messages.length === 0 && (
               <div className="text-xs text-gray-500">No messages yet.</div>

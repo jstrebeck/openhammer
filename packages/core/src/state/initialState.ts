@@ -1,5 +1,11 @@
 import type { GameState } from '../types/index';
-import { DEFAULT_RULES_CONFIG } from '../types/index';
+import {
+  DEFAULT_RULES_CONFIG,
+  createEmptyTurnTracking,
+  createEmptyShootingState,
+  createEmptyChargeState,
+  createEmptyFightState,
+} from '../types/index';
 import { DEFAULT_EDITION_ID } from '../rules/registry';
 
 export function createInitialGameState(options?: {
@@ -25,7 +31,25 @@ export function createInitialGameState(options?: {
       activePlayerId: '',
       currentPhaseIndex: 0,
     },
+    turnTracking: createEmptyTurnTracking(),
+    shootingState: createEmptyShootingState(),
+    chargeState: createEmptyChargeState(),
+    fightState: createEmptyFightState(),
+    battleShocked: [],
+    score: {},
+    stratagemsUsedThisPhase: [],
+    gameStarted: false,
+    embarkedUnits: {},
+    reserves: {},
+    hoverModeUnits: [],
+    weaponsFired: {},
+    attachedUnits: {},
     log: { entries: [] },
     rulesConfig: { ...DEFAULT_RULES_CONFIG },
+    smokescreenUnits: [],
+    goToGroundUnits: [],
+    epicChallengeUnits: [],
+    cpGainedThisRound: {},
+    persistingEffects: [],
   };
 }

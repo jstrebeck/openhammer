@@ -22,6 +22,22 @@ const mockEdition: RulesEdition = {
   getCoherencyMinModels(_unitSize) {
     return 1;
   },
+  getPhaseActionMap() {
+    return { phase1: ['admin'] };
+  },
+  getWoundThreshold(strength, toughness) {
+    if (strength >= toughness * 2) return 2;
+    if (strength > toughness) return 3;
+    if (strength === toughness) return 4;
+    if (strength * 2 <= toughness) return 6;
+    return 5;
+  },
+  canUnitShoot() {
+    return { allowed: true };
+  },
+  canUnitCharge() {
+    return { allowed: true };
+  },
 };
 
 describe('Edition Registry', () => {

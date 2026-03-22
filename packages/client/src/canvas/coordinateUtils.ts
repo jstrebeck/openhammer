@@ -1,4 +1,5 @@
-import type { Point } from '@openhammer/core';
+import type { Point, BaseShape } from '@openhammer/core';
+import { baseShapeDimensionsInches } from '@openhammer/core';
 import { PIXELS_PER_INCH } from './constants';
 
 /** Convert game-space inches to screen pixels */
@@ -20,4 +21,13 @@ export function toWorld(screenX: number, screenY: number): Point {
 /** Convert base size in inches to screen pixel radius */
 export function baseRadiusToPixels(baseSizeInches: number): number {
   return (baseSizeInches / 2) * PIXELS_PER_INCH;
+}
+
+/** Convert a BaseShape to pixel dimensions (width × height) */
+export function baseShapeToPixels(shape: BaseShape): { width: number; height: number } {
+  const dims = baseShapeDimensionsInches(shape);
+  return {
+    width: dims.width * PIXELS_PER_INCH,
+    height: dims.height * PIXELS_PER_INCH,
+  };
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ClientMessage, ServerMessage, PlayerRole, GameAction } from '@openhammer/core';
+import { gameReducer } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
 
@@ -53,12 +54,14 @@ function handleServerMessage(msg: ServerMessage) {
       lastRoomId = msg.payload.roomId;
       store.setRoom(msg.payload.roomId, msg.payload.role, msg.payload.playerId);
       useUIStore.getState().setGameCreated(true);
+      useUIStore.getState().setShowGameSetup(true);
       break;
 
     case 'ROOM_JOINED':
       lastRoomId = msg.payload.roomId;
       store.setRoom(msg.payload.roomId, msg.payload.role, msg.payload.playerId);
       useUIStore.getState().setGameCreated(true);
+      useUIStore.getState().setShowGameSetup(true);
       break;
 
     case 'STATE_SNAPSHOT':
@@ -70,7 +73,16 @@ function handleServerMessage(msg: ServerMessage) {
       break;
 
     case 'ACTION_BROADCAST':
-      useGameStore.getState().dispatch(msg.payload.action);
+      // Apply locally without re-dispatching to server (avoid echo loop)
+      useGameStore.setState((s) => {
+        const newState = gameReducer(s.gameState, msg.payload.action);
+        if (newState === s.gameState) return s;
+        return {
+          gameState: newState,
+          past: [...s.past, s.gameState].slice(-200),
+          future: [],
+        };
+      });
       break;
 
     case 'CHAT_BROADCAST':

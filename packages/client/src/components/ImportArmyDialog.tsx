@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
-import { validateArmyList, importArmyList } from '@openhammer/core';
+import { validateArmyList, buildArmyUnits } from '@openhammer/core';
 import type { ArmyListValidationError, BattlescribeRoster, DeploymentZone } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
+import { useMultiplayerStore } from '../networking/useMultiplayer';
 import { PLAYER_COLORS } from '../canvas/constants';
 
 interface Props {
@@ -68,11 +69,20 @@ export function ImportArmyDialog({ onClose }: Props) {
     const playerIds = Object.keys(gameState.players);
     const armyName = roster.roster.name ?? roster.roster.forces?.[0]?.catalogueName ?? 'Army';
     const nextColor = PLAYER_COLORS[playerIds.length % PLAYER_COLORS.length];
-    const playerId = crypto.randomUUID();
-    useGameStore.getState().dispatch({
-      type: 'ADD_PLAYER',
-      payload: { player: { id: playerId, name: armyName, color: nextColor, commandPoints: 0 } },
-    });
+
+    // In multiplayer, use the existing player; in local, create a new one
+    const mpPlayerId = useMultiplayerStore.getState().playerId;
+    const mpRoomId = useMultiplayerStore.getState().roomId;
+    let playerId: string;
+    if (mpRoomId && mpPlayerId && gameState.players[mpPlayerId]) {
+      playerId = mpPlayerId;
+    } else {
+      playerId = crypto.randomUUID();
+      useGameStore.getState().dispatch({
+        type: 'ADD_PLAYER',
+        payload: { player: { id: playerId, name: armyName, color: nextColor, commandPoints: 0 } },
+      });
+    }
 
     // Compute bounds from zone polygon, or fall back to a default staging area
     let bounds: { x: number; y: number; width: number; height: number } | undefined;
@@ -97,19 +107,13 @@ export function ImportArmyDialog({ onClose }: Props) {
       ? { x: bounds.x, y: bounds.y }
       : { x: 5, y: 5 + playerIds.length * 15 };
 
-    const newState = importArmyList(
-      useGameStore.getState().gameState,
-      roster,
-      playerId,
-      startPosition,
-      bounds,
-    );
-
-    useGameStore.setState((s) => ({
-      gameState: newState,
-      past: [...s.past, s.gameState].slice(-200),
-      future: [],
-    }));
+    // Player 1 faces right (90°), Player 2 faces left (270°)
+    const facing = playerIds.length === 0 ? 90 : 270;
+    const units = buildArmyUnits(roster, playerId, startPosition, bounds, facing);
+    useGameStore.getState().dispatch({
+      type: 'IMPORT_ARMY',
+      payload: { units },
+    });
 
     setStep('done');
   };

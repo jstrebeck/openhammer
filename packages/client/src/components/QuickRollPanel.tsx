@@ -94,16 +94,16 @@ export function QuickRollPanel() {
   if (!attackerUnit || attackerUnit.weapons.length === 0) return null;
 
   return (
-    <div className="absolute bottom-16 left-[528px] w-72">
+    <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-3 py-1.5 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 text-sm text-gray-300 hover:bg-gray-700 transition-colors text-left"
+        className="w-full px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors text-left"
       >
         Quick Roll {expanded ? '▾' : '▸'}
       </button>
 
       {expanded && (
-        <div className="mt-1 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg p-3 space-y-3">
+        <div className="p-3 space-y-3">
           <div className="text-xs text-gray-400">Attacker: {attackerUnit.name}</div>
 
           {/* Weapon select */}
@@ -183,6 +183,7 @@ export function QuickRollPanel() {
 }
 
 /** Calculate wound threshold based on S vs T (10th edition rules) */
+
 function calcWoundThreshold(strength: number, toughness: number): number {
   if (strength >= toughness * 2) return 2;
   if (strength > toughness) return 3;

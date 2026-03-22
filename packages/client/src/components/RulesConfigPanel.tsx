@@ -31,16 +31,16 @@ export function RulesConfigPanel() {
   };
 
   return (
-    <div className="absolute top-14 left-[248px]">
+    <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="px-3 py-1.5 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+        className="w-full px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors text-left"
       >
         Rules {expanded ? '▾' : '▸'}
       </button>
 
       {expanded && (
-        <div className="mt-1 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg p-3 space-y-3 w-56">
+        <div className="p-3 space-y-3">
           {(Object.keys(RULE_LABELS) as (keyof RulesConfig)[]).map((key) => (
             <div key={key}>
               <div className="text-xs text-gray-400 mb-1">{RULE_LABELS[key]}</div>

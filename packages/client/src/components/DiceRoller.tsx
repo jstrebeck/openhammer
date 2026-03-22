@@ -20,17 +20,17 @@ export function DiceRoller() {
   const quickPurposes = ['To Hit', 'To Wound', 'Save', 'Damage', 'Battleshock'];
 
   return (
-    <div className="absolute bottom-16 right-3 w-64">
+    <div>
       {/* Toggle button */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-3 py-1.5 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 text-sm text-gray-300 hover:bg-gray-700 transition-colors text-left"
+        className="w-full px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors text-left"
       >
         Dice Roller {expanded ? '▾' : '▸'}
       </button>
 
       {expanded && (
-        <div className="mt-1 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg p-3 space-y-3">
+        <div className="p-3 space-y-3">
           {/* Quick purpose buttons */}
           <div className="flex flex-wrap gap-1">
             {quickPurposes.map((p) => (
@@ -112,3 +112,4 @@ export function DiceRoller() {
     </div>
   );
 }
+

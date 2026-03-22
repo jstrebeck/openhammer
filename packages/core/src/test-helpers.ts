@@ -17,6 +17,7 @@ export function makeModel(overrides: Partial<Model> = {}): Model {
     position: { x: 10, y: 10 },
     baseSizeMm: 32,
     baseSizeInches: 32 / 25.4,
+    baseShape: { type: 'circle', diameterMm: 32 },
     facing: 0,
     wounds: 2,
     maxWounds: 2,
@@ -48,4 +49,21 @@ export function makePlayer(overrides: Partial<Player> = {}): Player {
     commandPoints: 0,
     ...overrides,
   };
+}
+
+export function makeTransport(overrides: Partial<Unit> = {}): Unit {
+  return makeUnit({
+    name: 'Rhino',
+    keywords: ['VEHICLE', 'TRANSPORT'],
+    transportCapacity: 12,
+    ...overrides,
+  });
+}
+
+export function makeAircraftUnit(overrides: Partial<Unit> = {}): Unit {
+  return makeUnit({
+    name: 'Stormraven',
+    keywords: ['VEHICLE', 'FLY', 'AIRCRAFT'],
+    ...overrides,
+  });
 }

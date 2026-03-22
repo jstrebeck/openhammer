@@ -6,7 +6,8 @@ export type TerrainTrait =
   | 'breachable'
   | 'defensible'
   | 'unstable'
-  | 'smoke';
+  | 'smoke'
+  | 'ruins';
 
 export interface TerrainPiece {
   id: string;
@@ -23,4 +24,5 @@ export const TERRAIN_TRAIT_DESCRIPTIONS: Record<TerrainTrait, string> = {
   defensible: 'Units in this terrain get +1 to hit in melee when charged',
   unstable: 'Models moving over this terrain risk mortal wounds',
   smoke: 'Temporarily blocks line of sight (typically one turn)',
+  ruins: 'Only INFANTRY, BEASTS, and FLY units can move through this terrain',
 };

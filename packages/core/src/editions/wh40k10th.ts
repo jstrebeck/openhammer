@@ -1,4 +1,5 @@
-import type { RulesEdition } from '../rules/RulesEdition';
+import type { RulesEdition, PhaseActionMap } from '../rules/RulesEdition';
+import type { MoveType } from '../types/index';
 
 export const wh40k10thEdition: RulesEdition = {
   id: 'wh40k-10th',
@@ -19,7 +20,7 @@ export const wh40k10thEdition: RulesEdition = {
     return next < this.phases.length ? next : null;
   },
 
-  getMaxMoveDistance(moveCharacteristic: number, moveType: 'normal' | 'advance' | 'fall_back'): number {
+  getMaxMoveDistance(moveCharacteristic: number, moveType: MoveType): number {
     switch (moveType) {
       case 'normal':
         return moveCharacteristic;
@@ -28,6 +29,8 @@ export const wh40k10thEdition: RulesEdition = {
         return moveCharacteristic;
       case 'fall_back':
         return moveCharacteristic;
+      case 'stationary':
+        return 0;
     }
   },
 
@@ -40,7 +43,45 @@ export const wh40k10thEdition: RulesEdition = {
   },
 
   getCoherencyMinModels(unitSize: number): number {
-    // In 10th edition, units of 6+ models must have each model within 2" of 2 other models
     return unitSize >= 6 ? 2 : 1;
+  },
+
+  getPhaseActionMap(): PhaseActionMap {
+    return {
+      command: ['admin'],
+      movement: ['movement', 'admin'],
+      shooting: ['shooting', 'admin'],
+      charge: ['charge', 'admin'],
+      fight: ['fight', 'admin'],
+      morale: ['admin'],
+    };
+  },
+
+  getWoundThreshold(strength: number, toughness: number): number {
+    if (strength >= toughness * 2) return 2;
+    if (strength > toughness) return 3;
+    if (strength === toughness) return 4;
+    if (strength * 2 <= toughness) return 6;
+    return 5; // strength < toughness
+  },
+
+  canUnitShoot(moveType: MoveType | undefined): { allowed: boolean; reason?: string } {
+    if (moveType === 'advance') {
+      return { allowed: false, reason: 'Unit Advanced this turn and cannot shoot (unless weapon has Assault)' };
+    }
+    if (moveType === 'fall_back') {
+      return { allowed: false, reason: 'Unit Fell Back this turn and cannot shoot' };
+    }
+    return { allowed: true };
+  },
+
+  canUnitCharge(moveType: MoveType | undefined): { allowed: boolean; reason?: string } {
+    if (moveType === 'advance') {
+      return { allowed: false, reason: 'Unit Advanced this turn and cannot charge' };
+    }
+    if (moveType === 'fall_back') {
+      return { allowed: false, reason: 'Unit Fell Back this turn and cannot charge' };
+    }
+    return { allowed: true };
   },
 };

@@ -17,8 +17,8 @@ export function useKeyboardShortcuts() {
         case 'v':
           useUIStore.getState().setTool('select');
           break;
-        case 'p':
-          useUIStore.getState().setTool('place');
+        case 'r':
+          useUIStore.getState().setTool('rotate');
           break;
         case 'm':
           useUIStore.getState().setTool('measure');

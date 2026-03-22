@@ -1,24 +1,19 @@
 import { useGameStore } from '../store/gameStore';
-import { useMultiplayerStore } from '../networking/useMultiplayer';
 
 export function CommandPointTracker() {
   const gameState = useGameStore((s) => s.gameState);
   const dispatch = useGameStore((s) => s.dispatch);
-  const roomId = useMultiplayerStore((s) => s.roomId);
 
   const players = Object.values(gameState.players);
   if (players.length === 0) return null;
 
-  // Push down when multiplayer RoomInfo is showing above
-  const topClass = roomId ? 'top-[160px]' : 'top-14';
-
   return (
-    <div className={`absolute ${topClass} right-3 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg p-2 space-y-1`}>
+    <div className="space-y-1">
       <div className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Command Points</div>
       {players.map((player) => (
         <div key={player.id} className="flex items-center gap-2 px-1">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: player.color }} />
-          <span className="text-xs text-gray-300 flex-1 truncate max-w-[80px]">{player.name}</span>
+          <span className="text-xs text-gray-300 flex-1 truncate">{player.name}</span>
           <button
             onClick={() =>
               dispatch({

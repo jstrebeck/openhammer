@@ -50,19 +50,19 @@ export const TERRAIN_TEMPLATES: TerrainTemplate[] = [
     name: 'Ruins (Small)',
     polygon: rect(6, 4),
     height: 5,
-    traits: ['obscuring', 'breachable', 'defensible'],
+    traits: ['obscuring', 'breachable', 'defensible', 'ruins'],
   },
   {
     name: 'Ruins (Large)',
     polygon: rect(10, 6),
     height: 8,
-    traits: ['obscuring', 'breachable', 'defensible'],
+    traits: ['obscuring', 'breachable', 'defensible', 'ruins'],
   },
   {
     name: 'Ruins (L-Shaped)',
     polygon: lShape(8, 6, 3),
     height: 6,
-    traits: ['obscuring', 'breachable', 'defensible'],
+    traits: ['obscuring', 'breachable', 'defensible', 'ruins'],
   },
   {
     name: 'Forest (Small)',

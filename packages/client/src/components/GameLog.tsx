@@ -44,16 +44,16 @@ export function GameLog() {
   };
 
   return (
-    <div className="absolute bottom-16 left-[248px] w-72">
+    <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-3 py-1.5 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 text-sm text-gray-300 hover:bg-gray-700 transition-colors text-left"
+        className="w-full px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors text-left"
       >
         Game Log ({log.entries.length}) {expanded ? '▾' : '▸'}
       </button>
 
       {expanded && (
-        <div className="mt-1 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg max-h-60 overflow-y-auto">
+        <div className="max-h-48 overflow-y-auto">
           {log.entries.length === 0 ? (
             <div className="p-3 text-xs text-gray-500">No log entries yet.</div>
           ) : (

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Point, TerrainTemplate } from '@openhammer/core';
 
-export type Tool = 'select' | 'place' | 'measure' | 'terrain' | 'los' | 'objective';
+export type Tool = 'select' | 'rotate' | 'measure' | 'terrain' | 'los' | 'objective';
 
 interface ContextMenuState {
   type: 'model' | 'terrain';
@@ -37,6 +37,12 @@ interface UIStore {
   setLoSSourceModelId: (id: string | null) => void;
   gameCreated: boolean;
   setGameCreated: (created: boolean) => void;
+  showGameSetup: boolean;
+  setShowGameSetup: (show: boolean) => void;
+  gameSetupComplete: boolean;
+  setGameSetupComplete: (complete: boolean) => void;
+  showDeploymentZones: boolean;
+  setShowDeploymentZones: (show: boolean) => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
 }
@@ -100,6 +106,15 @@ export const useUIStore = create<UIStore>((set) => ({
 
   gameCreated: false,
   setGameCreated: (created) => set({ gameCreated: created }),
+
+  showGameSetup: false,
+  setShowGameSetup: (show) => set({ showGameSetup: show }),
+
+  gameSetupComplete: false,
+  setGameSetupComplete: (complete) => set({ gameSetupComplete: complete }),
+
+  showDeploymentZones: true,
+  setShowDeploymentZones: (show) => set({ showDeploymentZones: show }),
 
   theme: (localStorage.getItem('oh-theme') ?? 'dark') as 'dark' | 'light',
   toggleTheme: () =>

@@ -1,6 +1,7 @@
 import type { BattlescribeRoster, BattlescribeSelection, BattlescribeProfile } from './schema';
-import type { GameState, Model, Unit, Weapon, ModelStats } from '../types/index';
-import { baseSizeToInches } from '../types/index';
+import type { GameState, Model, Unit, Weapon, ModelStats, BaseShape } from '../types/index';
+import { baseSizeToInches, baseShapeEffectiveDiameterMm } from '../types/index';
+import { lookupBaseShape } from './baseLookup';
 import { gameReducer } from '../state/reducer';
 
 /**
@@ -15,24 +16,25 @@ export interface DeploymentBounds {
   height: number; // height (inches)
 }
 
-export function importArmyList(
-  state: GameState,
+/**
+ * Build the list of units and models from a roster without applying to state.
+ * Used by the IMPORT_ARMY action so imports go through dispatch and multiplayer.
+ */
+export function buildArmyUnits(
   roster: BattlescribeRoster,
   playerId: string,
   startPosition: { x: number; y: number } = { x: 5, y: 5 },
   bounds?: DeploymentBounds,
-): GameState {
-  let current = state;
-  const modelSpacing = 1.5;  // inches between models within a unit
-  const unitGapX = 2;        // horizontal gap between units
-  const unitGapY = 2;        // vertical gap between unit rows
+  facing: number = 0,
+): Array<{ unit: Unit; models: Model[] }> {
+  const modelSpacing = 1.5;
+  const unitGapX = 2;
+  const unitGapY = 2;
 
   const startX = bounds?.x ?? startPosition.x;
   const startY = bounds?.y ?? startPosition.y;
   const zoneWidth = bounds?.width ?? 50;
-  const zoneHeight = bounds?.height ?? 40;
 
-  // First pass: compute each unit's block size, then lay them out in a flow layout
   interface UnitBlock {
     parsed: ParsedSelection;
     width: number;
@@ -50,8 +52,6 @@ export function importArmyList(
       const totalModels = parsed.modelGroups.reduce((sum, g) => sum + g.count, 0);
       if (totalModels === 0) continue;
 
-      // Each unit block: lay models in rows that fit within a reasonable width
-      // Use up to 5 models per row, or fewer if the unit is small
       const modelsPerRow = Math.min(5, totalModels);
       const rows = Math.ceil(totalModels / modelsPerRow);
       const blockWidth = modelsPerRow * modelSpacing;
@@ -61,13 +61,13 @@ export function importArmyList(
     }
   }
 
-  // Flow layout: place blocks left-to-right, wrapping to next row when width exceeded
+  const result: Array<{ unit: Unit; models: Model[] }> = [];
+
   let cursorX = 0;
   let cursorY = 0;
   let rowMaxHeight = 0;
 
   for (const block of blocks) {
-    // Wrap to next row if this block would exceed zone width
     if (cursorX > 0 && cursorX + block.width > zoneWidth) {
       cursorX = 0;
       cursorY += rowMaxHeight + unitGapY;
@@ -88,14 +88,16 @@ export function importArmyList(
           y: startY + cursorY + localRow * modelSpacing,
         };
 
+        const effectiveDiameterMm = baseShapeEffectiveDiameterMm(modelGroup.baseShape);
         models.push({
           id: modelId,
           unitId,
           name: modelGroup.name,
           position,
-          baseSizeMm: modelGroup.baseSizeMm,
-          baseSizeInches: baseSizeToInches(modelGroup.baseSizeMm),
-          facing: 0,
+          baseSizeMm: effectiveDiameterMm,
+          baseSizeInches: baseSizeToInches(effectiveDiameterMm),
+          baseShape: modelGroup.baseShape,
+          facing,
           wounds: modelGroup.stats.wounds,
           maxWounds: modelGroup.stats.wounds,
           moveCharacteristic: modelGroup.stats.move,
@@ -127,9 +129,25 @@ export function importArmyList(
       points: block.parsed.points,
     };
 
-    current = gameReducer(current, { type: 'ADD_UNIT', payload: { unit, models } });
+    result.push({ unit, models });
   }
 
+  return result;
+}
+
+export function importArmyList(
+  state: GameState,
+  roster: BattlescribeRoster,
+  playerId: string,
+  startPosition: { x: number; y: number } = { x: 5, y: 5 },
+  bounds?: DeploymentBounds,
+  facing: number = 0,
+): GameState {
+  const units = buildArmyUnits(roster, playerId, startPosition, bounds, facing);
+  let current = state;
+  for (const { unit, models } of units) {
+    current = gameReducer(current, { type: 'ADD_UNIT', payload: { unit, models } });
+  }
   return current;
 }
 
@@ -137,7 +155,7 @@ interface ModelGroup {
   name: string;
   count: number;
   stats: ModelStats;
-  baseSizeMm: number;
+  baseShape: BaseShape;
 }
 
 interface ParsedSelection {
@@ -165,7 +183,7 @@ function parseSelection(selection: BattlescribeSelection): ParsedSelection | nul
       name: stats.profileName,
       count: selection.number ?? 1,
       stats: stats.stats,
-      baseSizeMm: inferBaseSize(keywords),
+      baseShape: inferBaseShape(stats.profileName, keywords),
     });
   } else if (selection.type === 'unit') {
     // Multi-model unit: look for model sub-selections and also the parent profile
@@ -186,7 +204,7 @@ function parseSelection(selection: BattlescribeSelection): ParsedSelection | nul
           name: sub.name,
           count: sub.number ?? 1,
           stats: stats.stats,
-          baseSizeMm: inferBaseSize(keywords),
+          baseShape: inferBaseShape(sub.name, keywords),
         });
       }
     } else if (parentStats) {
@@ -195,7 +213,7 @@ function parseSelection(selection: BattlescribeSelection): ParsedSelection | nul
         name: parentStats.profileName,
         count: selection.number ?? 1,
         stats: parentStats.stats,
-        baseSizeMm: inferBaseSize(keywords),
+        baseShape: inferBaseShape(parentStats.profileName, keywords),
       });
     }
   }
@@ -348,13 +366,22 @@ function parseAP(str: string): number {
   return isNaN(num) ? 0 : num;
 }
 
-/** Infer base size from keywords. Defaults to 32mm for infantry, larger for vehicles/monsters. */
-function inferBaseSize(keywords: string[]): number {
+/**
+ * Infer base shape from model name (via lookup table) then fall back to keywords.
+ * Returns a BaseShape describing the model's actual footprint.
+ */
+function inferBaseShape(modelName: string, keywords: string[]): BaseShape {
+  // Try lookup table first (covers vehicles, named units, etc.)
+  const looked = lookupBaseShape(modelName);
+  if (looked) return looked;
+
+  // Fall back to keyword-based heuristic (circle approximation)
   const kwSet = new Set(keywords.map((k) => k.toLowerCase()));
-  if (kwSet.has('vehicle') || kwSet.has('monster')) return 60;
-  if (kwSet.has('cavalry') || kwSet.has('mounted')) return 60;
-  if (kwSet.has('walker') || kwSet.has('dreadnought')) return 60;
-  if (kwSet.has('beast') || kwSet.has('swarm')) return 40;
-  if (kwSet.has('character') || kwSet.has('officer')) return 28;
-  return 32; // default infantry
+  if (kwSet.has('vehicle'))    return { type: 'rect', widthMm: 120, heightMm: 70 };
+  if (kwSet.has('monster'))    return { type: 'circle', diameterMm: 60 };
+  if (kwSet.has('cavalry') || kwSet.has('mounted')) return { type: 'oval', widthMm: 75, heightMm: 42 };
+  if (kwSet.has('walker') || kwSet.has('dreadnought')) return { type: 'circle', diameterMm: 60 };
+  if (kwSet.has('beast') || kwSet.has('swarm')) return { type: 'circle', diameterMm: 40 };
+  if (kwSet.has('character') || kwSet.has('officer')) return { type: 'circle', diameterMm: 28 };
+  return { type: 'circle', diameterMm: 32 }; // default infantry
 }

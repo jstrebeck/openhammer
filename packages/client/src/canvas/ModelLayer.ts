@@ -1,20 +1,98 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import type { Model, Unit, Player, Point } from '@openhammer/core';
+import type { Model, Unit, Player, Point, BaseShape } from '@openhammer/core';
+import { isEmbarkedPosition } from '@openhammer/core';
 import { PIXELS_PER_INCH, SELECTION_COLOR, PLAYER_COLORS } from './constants';
-import { toScreen, baseRadiusToPixels } from './coordinateUtils';
+import { toScreen, baseShapeToPixels } from './coordinateUtils';
+
+/** Colors used for relative-to-local-player rendering */
+const LOCAL_PLAYER_COLOR = '#3b82f6';   // blue — always "you"
+const OPPONENT_PLAYER_COLOR = '#ef4444'; // red — always "them"
+
+interface ShapePixels {
+  type: 'circle' | 'oval' | 'rect';
+  width: number;   // pixels
+  height: number;  // pixels
+  /** Longest half-axis in pixels — used for facing indicator length */
+  maxRadius: number;
+}
+
+function toShapePixels(shape: BaseShape): ShapePixels {
+  const { width, height } = baseShapeToPixels(shape);
+  return {
+    type: shape.type,
+    width,
+    height,
+    maxRadius: Math.max(width, height) / 2,
+  };
+}
 
 interface TokenState {
   container: Container;
-  circle: Graphics;
+  /** Inner container that rotates with model facing (for non-circular shapes) */
+  rotatable: Container;
+  baseGraphic: Graphics;
   label: Text;
   selectionRing: Graphics;
   woundText: Text;
+  facingIndicator: Graphics;
+  /** Pulsing red ring for battle-shocked units */
+  battleShockedRing: Graphics;
+  /** Green glow for charged units */
+  chargedGlow: Graphics;
+  /** Purple border for fight-eligible units */
+  fightEligibleRing: Graphics;
+  currentColor: number;
+  shape: ShapePixels;
+}
+
+/** Draw the base shape onto a Graphics object */
+function drawBaseShape(g: Graphics, shape: ShapePixels, color: number, alpha: number): void {
+  g.clear();
+  switch (shape.type) {
+    case 'circle':
+      g.circle(0, 0, shape.width / 2);
+      break;
+    case 'oval':
+      g.ellipse(0, 0, shape.width / 2, shape.height / 2);
+      break;
+    case 'rect':
+      g.roundRect(-shape.width / 2, -shape.height / 2, shape.width, shape.height, 3);
+      break;
+  }
+  g.fill({ color, alpha });
+  g.stroke({ color: 0xffffff, width: 1, alpha: 0.5 });
+}
+
+/** Draw selection ring around a shape */
+function drawSelectionRing(g: Graphics, shape: ShapePixels): void {
+  g.clear();
+  const pad = 3;
+  switch (shape.type) {
+    case 'circle':
+      g.circle(0, 0, shape.width / 2 + pad);
+      break;
+    case 'oval':
+      g.ellipse(0, 0, shape.width / 2 + pad, shape.height / 2 + pad);
+      break;
+    case 'rect':
+      g.roundRect(
+        -shape.width / 2 - pad, -shape.height / 2 - pad,
+        shape.width + pad * 2, shape.height + pad * 2,
+        5,
+      );
+      break;
+  }
+  g.stroke({ color: SELECTION_COLOR, width: 2 });
 }
 
 export class ModelLayer {
   private parent: Container;
   private container: Container;
   private tokens: Map<string, TokenState> = new Map();
+  /** Model IDs currently being dragged — sync skips position updates for these */
+  private draggingIds: Set<string> = new Set();
+  /** Model IDs currently being rotated — sync skips facing updates for these */
+  private rotatingIds: Set<string> = new Set();
 
   constructor(parent: Container) {
     this.parent = parent;
@@ -23,17 +101,44 @@ export class ModelLayer {
     parent.addChild(this.container);
   }
 
+  /** Mark models as being dragged — sync will skip their position updates */
+  setDragging(ids: string[]): void {
+    this.draggingIds = new Set(ids);
+  }
+
+  /** Clear dragging state — sync resumes position updates from game state */
+  clearDragging(): void {
+    this.draggingIds.clear();
+  }
+
+  /** Mark models as being rotated — sync will skip their facing updates */
+  setRotating(ids: string[]): void {
+    this.rotatingIds = new Set(ids);
+  }
+
+  /** Clear rotating state — sync resumes facing updates from game state */
+  clearRotating(): void {
+    this.rotatingIds.clear();
+  }
+
   sync(
     models: Record<string, Model>,
     units: Record<string, Unit>,
     players: Record<string, Player>,
     selectedIds: string[],
+    localPlayerId?: string | null,
+    battleShocked?: string[],
+    chargedUnits?: string[],
+    fightEligibleUnits?: string[],
   ): void {
     const selectedSet = new Set(selectedIds);
+    const battleShockedSet = new Set(battleShocked ?? []);
+    const chargedSet = new Set(chargedUnits ?? []);
+    const fightEligibleSet = new Set(fightEligibleUnits ?? []);
 
-    // Remove tokens for deleted models
+    // Remove tokens for deleted/embarked models
     for (const [id, token] of this.tokens) {
-      if (!models[id] || models[id].status === 'destroyed') {
+      if (!models[id] || models[id].status === 'destroyed' || isEmbarkedPosition(models[id].position)) {
         this.container.removeChild(token.container);
         token.container.destroy({ children: true });
         this.tokens.delete(id);
@@ -43,17 +148,32 @@ export class ModelLayer {
     // Add or update tokens
     for (const model of Object.values(models)) {
       if (model.status === 'destroyed') continue;
+      if (isEmbarkedPosition(model.position)) continue;
 
       let token = this.tokens.get(model.id);
       if (!token) {
-        token = this.createToken(model, units, players);
+        token = this.createToken(model, units, players, localPlayerId);
         this.tokens.set(model.id, token);
       }
 
-      // Update position
-      const screen = toScreen(model.position);
-      token.container.x = screen.x;
-      token.container.y = screen.y;
+      // Update color if it changed (e.g. local player ID became known)
+      const desiredColor = this.getDisplayColor(model, units, players, localPlayerId);
+      if (token.currentColor !== desiredColor) {
+        drawBaseShape(token.baseGraphic, token.shape, desiredColor, 0.8);
+        token.currentColor = desiredColor;
+      }
+
+      // Update position — skip if model is currently being dragged
+      if (!this.draggingIds.has(model.id)) {
+        const screen = toScreen(model.position);
+        token.container.x = screen.x;
+        token.container.y = screen.y;
+      }
+
+      // Update facing — skip if model is currently being rotated
+      if (!this.rotatingIds.has(model.id)) {
+        this.applyFacing(token, model.facing);
+      }
 
       // Update selection ring
       const isSelected = selectedSet.has(model.id);
@@ -66,6 +186,22 @@ export class ModelLayer {
       } else {
         token.woundText.visible = false;
       }
+
+      // Battle-shocked indicator (pulsing red ring)
+      const isBattleShocked = battleShockedSet.has(model.unitId);
+      token.battleShockedRing.visible = isBattleShocked;
+      if (isBattleShocked) {
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+        token.battleShockedRing.alpha = 0.4 + 0.6 * pulse;
+      }
+
+      // Charged indicator (green glow)
+      const isCharged = chargedSet.has(model.unitId);
+      token.chargedGlow.visible = isCharged;
+
+      // Fight-eligible indicator (purple border)
+      const isFightEligible = fightEligibleSet.has(model.unitId);
+      token.fightEligibleRing.visible = isFightEligible;
     }
   }
 
@@ -78,38 +214,106 @@ export class ModelLayer {
     token.container.y = screen.y;
   }
 
-  private createToken(model: Model, units: Record<string, Unit>, players: Record<string, Player>): TokenState {
+  /** Directly set token rotation (for rotate preview, bypassing game state) */
+  setTokenRotation(modelId: string, facingDeg: number): void {
+    const token = this.tokens.get(modelId);
+    if (!token) return;
+    this.applyFacing(token, facingDeg);
+  }
+
+  /** Apply facing to a token — rotates the shape and updates the facing indicator */
+  private applyFacing(token: TokenState, facingDeg: number): void {
+    // Rotate the shape container (only visually meaningful for non-circles)
+    if (token.shape.type !== 'circle') {
+      token.rotatable.rotation = (facingDeg - 90) * (Math.PI / 180);
+    }
+    // Facing indicator always drawn in world space (on the outer container)
+    this.drawFacingIndicator(token.facingIndicator, token.shape.maxRadius, facingDeg);
+  }
+
+  private drawFacingIndicator(g: Graphics, radius: number, facingDeg: number): void {
+    g.clear();
+    const rad = (facingDeg - 90) * (Math.PI / 180); // 0° = up
+    const endX = Math.cos(rad) * radius;
+    const endY = Math.sin(rad) * radius;
+    g.moveTo(0, 0);
+    g.lineTo(endX, endY);
+    g.stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
+    // Small arrowhead
+    const headLen = Math.min(6, radius * 0.4);
+    const a1 = rad + Math.PI * 0.8;
+    const a2 = rad - Math.PI * 0.8;
+    g.moveTo(endX, endY);
+    g.lineTo(endX + Math.cos(a1) * headLen, endY + Math.sin(a1) * headLen);
+    g.stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
+    g.moveTo(endX, endY);
+    g.lineTo(endX + Math.cos(a2) * headLen, endY + Math.sin(a2) * headLen);
+    g.stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
+  }
+
+  /** Compute the display color for a model based on local player perspective */
+  private getDisplayColor(
+    model: Model,
+    units: Record<string, Unit>,
+    players: Record<string, Player>,
+    localPlayerId?: string | null,
+  ): number {
+    const unit = units[model.unitId];
+    if (localPlayerId && unit) {
+      // Relative coloring: your models are blue, opponent's are red
+      const color = unit.playerId === localPlayerId ? LOCAL_PLAYER_COLOR : OPPONENT_PLAYER_COLOR;
+      return parseInt(color.replace('#', ''), 16);
+    }
+    // Fallback for local/non-multiplayer: use the player's assigned color
+    const player = unit ? players[unit.playerId] : undefined;
+    const color = player?.color ?? PLAYER_COLORS[0];
+    return parseInt(color.replace('#', ''), 16);
+  }
+
+  private createToken(
+    model: Model,
+    units: Record<string, Unit>,
+    players: Record<string, Player>,
+    localPlayerId?: string | null,
+  ): TokenState {
     const container = new Container();
     container.label = `token-${model.id}`;
 
-    const radius = baseRadiusToPixels(model.baseSizeInches);
+    const shape = toShapePixels(model.baseShape);
+    const colorNum = this.getDisplayColor(model, units, players, localPlayerId);
 
-    // Determine color
-    const unit = units[model.unitId];
-    const player = unit ? players[unit.playerId] : undefined;
-    const color = player?.color ?? PLAYER_COLORS[0];
-    const colorNum = parseInt(color.replace('#', ''), 16);
-
-    // Selection ring
+    // Selection ring (in outer container — doesn't rotate)
     const selectionRing = new Graphics();
-    selectionRing.circle(0, 0, radius + 3);
-    selectionRing.stroke({ color: SELECTION_COLOR, width: 2 });
+    drawSelectionRing(selectionRing, shape);
     selectionRing.visible = false;
     container.addChild(selectionRing);
 
-    // Base circle
-    const circle = new Graphics();
-    circle.circle(0, 0, radius);
-    circle.fill({ color: colorNum, alpha: 0.8 });
-    circle.stroke({ color: 0xffffff, width: 1, alpha: 0.5 });
-    container.addChild(circle);
+    // Rotatable inner container for the base shape
+    const rotatable = new Container();
+    container.addChild(rotatable);
 
-    // Label
+    // Base shape
+    const baseGraphic = new Graphics();
+    drawBaseShape(baseGraphic, shape, colorNum, 0.8);
+    rotatable.addChild(baseGraphic);
+
+    // Apply initial facing rotation for non-circles
+    if (shape.type !== 'circle') {
+      rotatable.rotation = (model.facing - 90) * (Math.PI / 180);
+    }
+
+    // Facing indicator — in outer container (world-space, not rotated with shape)
+    const facingIndicator = new Graphics();
+    this.drawFacingIndicator(facingIndicator, shape.maxRadius, model.facing);
+    container.addChild(facingIndicator);
+
+    // Label (outer container — always upright)
     const displayName = model.name.charAt(0).toUpperCase();
+    const labelSize = Math.max(8, Math.min(shape.width, shape.height) / 2);
     const label = new Text({
       text: displayName,
       style: {
-        fontSize: Math.max(8, radius),
+        fontSize: labelSize,
         fill: 0xffffff,
         fontFamily: 'monospace',
       },
@@ -117,7 +321,7 @@ export class ModelLayer {
     label.anchor.set(0.5);
     container.addChild(label);
 
-    // Wound counter
+    // Wound counter (outer container — always upright, below shape)
     const woundText = new Text({
       text: '',
       style: {
@@ -128,12 +332,76 @@ export class ModelLayer {
       },
     });
     woundText.anchor.set(0.5);
-    woundText.y = radius + 6;
+    woundText.y = shape.height / 2 + 6;
     woundText.visible = false;
     container.addChild(woundText);
 
+    // Battle-shocked ring (red pulsing ring, slightly larger than selection ring)
+    const battleShockedRing = new Graphics();
+    const bsPad = 5;
+    switch (shape.type) {
+      case 'circle':
+        battleShockedRing.circle(0, 0, shape.width / 2 + bsPad);
+        break;
+      case 'oval':
+        battleShockedRing.ellipse(0, 0, shape.width / 2 + bsPad, shape.height / 2 + bsPad);
+        break;
+      case 'rect':
+        battleShockedRing.roundRect(
+          -shape.width / 2 - bsPad, -shape.height / 2 - bsPad,
+          shape.width + bsPad * 2, shape.height + bsPad * 2, 5,
+        );
+        break;
+    }
+    battleShockedRing.stroke({ color: 0xff2222, width: 2.5 });
+    battleShockedRing.visible = false;
+    container.addChild(battleShockedRing);
+
+    // Charged glow (green glow ring)
+    const chargedGlow = new Graphics();
+    const cgPad = 4;
+    switch (shape.type) {
+      case 'circle':
+        chargedGlow.circle(0, 0, shape.width / 2 + cgPad);
+        break;
+      case 'oval':
+        chargedGlow.ellipse(0, 0, shape.width / 2 + cgPad, shape.height / 2 + cgPad);
+        break;
+      case 'rect':
+        chargedGlow.roundRect(
+          -shape.width / 2 - cgPad, -shape.height / 2 - cgPad,
+          shape.width + cgPad * 2, shape.height + cgPad * 2, 5,
+        );
+        break;
+    }
+    chargedGlow.fill({ color: 0x22c55e, alpha: 0.15 });
+    chargedGlow.stroke({ color: 0x22c55e, width: 2, alpha: 0.6 });
+    chargedGlow.visible = false;
+    container.addChild(chargedGlow);
+
+    // Fight-eligible ring (purple border)
+    const fightEligibleRing = new Graphics();
+    const fePad = 6;
+    switch (shape.type) {
+      case 'circle':
+        fightEligibleRing.circle(0, 0, shape.width / 2 + fePad);
+        break;
+      case 'oval':
+        fightEligibleRing.ellipse(0, 0, shape.width / 2 + fePad, shape.height / 2 + fePad);
+        break;
+      case 'rect':
+        fightEligibleRing.roundRect(
+          -shape.width / 2 - fePad, -shape.height / 2 - fePad,
+          shape.width + fePad * 2, shape.height + fePad * 2, 5,
+        );
+        break;
+    }
+    fightEligibleRing.stroke({ color: 0x8b5cf6, width: 2, alpha: 0.7 });
+    fightEligibleRing.visible = false;
+    container.addChild(fightEligibleRing);
+
     this.container.addChild(container);
 
-    return { container, circle, label, selectionRing, woundText };
+    return { container, rotatable, baseGraphic, label, selectionRing, woundText, facingIndicator, battleShockedRing, chargedGlow, fightEligibleRing, currentColor: colorNum, shape };
   }
 }
