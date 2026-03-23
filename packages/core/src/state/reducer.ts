@@ -4,16 +4,21 @@ import {
   createEmptyShootingState,
   createEmptyChargeState,
   createEmptyFightState,
+  createEmptyDeploymentState,
   CORE_STRATAGEMS,
+  SETUP_PHASE_ORDER,
 } from '../types/index';
+import type { SetupPhase } from '../types/index';
+import { validateDeploymentPosition, validateArmy } from '../army-list/armyValidation';
 import type { GameAction } from './actions';
 import { getEdition } from '../rules/registry';
 import type { ActionCategory } from '../rules/RulesEdition';
-import { distance, distanceBetweenModels, checkCoherency, isWithinRange, getModelBoundingBox, doesPathCrossModel, closestEnemyModel, distanceToPoint } from '../measurement/index';
+import { distance, distanceBetweenModels, checkCoherency, isWithinRange, getModelBoundingBox, doesPathCrossModel, closestEnemyModel, distanceToPoint, getPivotCost } from '../measurement/index';
 import { isUnitInEngagementRange, getEngagementShootingMode, getEngagedEnemyUnits, weaponHasAbility, getWoundAllocationTarget } from '../combat/index';
 import { pointInPolygon } from '../los/index';
 import { canEmbark, canDisembark, EMBARKED_POSITION, getEmbarkedModelCount, getTransportForUnit } from '../transport/index';
 import { isAircraftUnit, validateAircraftMovement, AIRCRAFT_MOVE_DISTANCE, canChargeAircraft } from '../aircraft/index';
+import { evaluateScoring } from '../missions/index';
 
 // --- Phase validation helpers ---
 
@@ -111,6 +116,26 @@ function getActionCategory(actionType: string): ActionCategory | null {
     case 'RESOLVE_DESPERATE_ESCAPE':
     case 'ADD_PERSISTING_EFFECT':
     case 'REMOVE_PERSISTING_EFFECT':
+    // Sprint H: Pre-Game Setup
+    case 'DESIGNATE_WARLORD':
+    case 'SET_POINTS_LIMIT':
+    case 'SET_FACTION_KEYWORD':
+    case 'SELECT_DETACHMENT':
+    case 'ASSIGN_ENHANCEMENT':
+    case 'REMOVE_ENHANCEMENT':
+    case 'VALIDATE_ARMY':
+    case 'DETERMINE_ATTACKER_DEFENDER':
+    case 'BEGIN_DEPLOYMENT':
+    case 'DEPLOY_UNIT':
+    case 'DETERMINE_FIRST_TURN':
+    case 'RESOLVE_REDEPLOYMENT':
+    case 'ADVANCE_SETUP_PHASE':
+    // Sprint I: Mission System & Game Lifecycle
+    case 'SET_MISSION':
+    case 'SELECT_SECONDARY':
+    case 'END_TURN':
+    case 'END_BATTLE_ROUND':
+    case 'END_BATTLE':
       return 'admin';
 
     // Overwatch uses shooting actions out-of-phase
@@ -256,15 +281,19 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
               const maxDist = edition.getMaxMoveDistance(model.moveCharacteristic, moveType);
               const advanceBonus = moveType === 'advance' ? (state.turnTracking.advanceRolls[model.unitId] ?? 0) : 0;
               const totalAllowed = maxDist + advanceBonus;
-              const distMoved = distance(model.position, position);
+
+              // Use the original position from DECLARE_MOVEMENT (not current position)
+              // to correctly measure total distance moved during this activation
+              const originPos = state.turnTracking.preMovementPositions[modelId] ?? model.position;
+              const distMoved = distance(originPos, position);
 
               if (distMoved > totalAllowed + 0.01) {
                 if (state.rulesConfig.movementRange === 'enforce') {
-                  // Clamp to max distance
+                  // Clamp to max distance from original position
                   const ratio = totalAllowed / distMoved;
                   const clampedPosition = {
-                    x: model.position.x + (position.x - model.position.x) * ratio,
-                    y: model.position.y + (position.y - model.position.y) * ratio,
+                    x: originPos.x + (position.x - originPos.x) * ratio,
+                    y: originPos.y + (position.y - originPos.y) * ratio,
                   };
                   return {
                     ...state,
@@ -981,17 +1010,29 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'DECLARE_MOVEMENT': {
       const { unitId, moveType } = action.payload;
-      if (!state.units[unitId]) return state;
+      const declUnit = state.units[unitId];
+      if (!declUnit) return state;
+
+      // Capture original model positions for movement distance validation
+      const preMovementPositions = { ...state.turnTracking.preMovementPositions };
+      for (const modelId of declUnit.modelIds) {
+        const model = state.models[modelId];
+        if (model && model.status === 'active') {
+          preMovementPositions[modelId] = { ...model.position };
+        }
+      }
+
       return {
         ...state,
         turnTracking: {
           ...state.turnTracking,
           unitMovement: { ...state.turnTracking.unitMovement, [unitId]: moveType },
           unitsActivated: { ...state.turnTracking.unitsActivated, [unitId]: true },
+          preMovementPositions,
         },
         log: appendLog(state.log, {
           type: 'message',
-          text: `${state.units[unitId].name} declared ${moveType === 'fall_back' ? 'Fall Back' : moveType === 'stationary' ? 'Remain Stationary' : moveType === 'advance' ? 'Advance' : 'Normal'} move`,
+          text: `${declUnit.name} declared ${moveType === 'fall_back' ? 'Fall Back' : moveType === 'stationary' ? 'Remain Stationary' : moveType === 'advance' ? 'Advance' : 'Normal'} move`,
           timestamp: Date.now(),
         }),
       };
@@ -1012,7 +1053,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'COMMIT_MOVEMENT': {
-      const { unitId, positions } = action.payload;
+      const { unitId, positions, facings } = action.payload;
       const unit = state.units[unitId];
       if (!unit) return state;
 
@@ -1023,7 +1064,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
       // Validate movement if enforcement is on
       if (state.rulesConfig.movementRange !== 'off') {
-        const errors = validateMovement(state, unitId, moveType, positions, edition);
+        const errors = validateMovement(state, unitId, moveType, positions, edition, facings);
         if (errors.length > 0) {
           if (state.rulesConfig.movementRange === 'enforce') {
             return {
@@ -1047,12 +1088,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
-      // Apply positions
+      // Apply positions and facings
       const newModels = { ...state.models };
       for (const [modelId, pos] of Object.entries(positions)) {
         const model = newModels[modelId];
         if (model) {
-          newModels[modelId] = { ...model, position: pos };
+          const newFacing = facings?.[modelId];
+          newModels[modelId] = {
+            ...model,
+            position: pos,
+            ...(newFacing !== undefined ? { facing: newFacing } : {}),
+          };
         }
       }
 
@@ -2361,6 +2407,32 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      // One Leader cap: check if bodyguard already has a leader attached
+      for (const [existingLeaderId, existingBodyguardId] of Object.entries(state.attachedUnits)) {
+        if (existingBodyguardId === bodyguardUnitId) {
+          return {
+            ...state,
+            log: appendLog(state.log, {
+              type: 'message',
+              text: `[BLOCKED] ${bodyguardUnit.name} already has a Leader attached (${state.units[existingLeaderId]?.name ?? existingLeaderId})`,
+              timestamp: Date.now(),
+            }),
+          };
+        }
+      }
+
+      // Check if this leader is already attached somewhere
+      if (state.attachedUnits[leaderUnitId]) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            type: 'message',
+            text: `[BLOCKED] ${leaderUnit.name} is already attached to another unit`,
+            timestamp: Date.now(),
+          }),
+        };
+      }
+
       return {
         ...state,
         attachedUnits: { ...state.attachedUnits, [leaderUnitId]: bodyguardUnitId },
@@ -2803,6 +2875,562 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    // ===== Sprint H: Phase 30 — Army Construction & Validation =====
+
+    case 'DESIGNATE_WARLORD': {
+      const { modelId } = action.payload;
+      const model = state.models[modelId];
+      if (!model) return state;
+      return {
+        ...state,
+        warlordModelId: modelId,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `${model.name} designated as Warlord`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'SET_POINTS_LIMIT': {
+      const { pointsLimit } = action.payload;
+      return {
+        ...state,
+        pointsLimit,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Points limit set to ${pointsLimit}`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'SET_FACTION_KEYWORD': {
+      const { keyword } = action.payload;
+      return {
+        ...state,
+        factionKeyword: keyword,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Faction keyword set to "${keyword}"`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'SELECT_DETACHMENT': {
+      const { detachment } = action.payload;
+      return {
+        ...state,
+        detachment,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Detachment selected: ${detachment.name}`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'ASSIGN_ENHANCEMENT': {
+      const { enhancement, modelId } = action.payload;
+      const model = state.models[modelId];
+      if (!model) return state;
+      const assigned = { ...enhancement, assignedToModelId: modelId };
+      return {
+        ...state,
+        enhancements: [...state.enhancements, assigned],
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Enhancement "${enhancement.name}" assigned to ${model.name}`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'REMOVE_ENHANCEMENT': {
+      const { enhancementId } = action.payload;
+      const removed = state.enhancements.find(e => e.id === enhancementId);
+      return {
+        ...state,
+        enhancements: state.enhancements.filter(e => e.id !== enhancementId),
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Enhancement "${removed?.name ?? enhancementId}" removed`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'VALIDATE_ARMY': {
+      const { playerId } = action.payload;
+      const errors = validateArmy(state, playerId);
+      if (errors.length > 0) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            type: 'message',
+            text: `Army validation: ${errors.length} issue(s) found — ${errors.join('; ')}`,
+            timestamp: Date.now(),
+          }),
+        };
+      }
+      return {
+        ...state,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: 'Army validation passed',
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    // ===== Sprint H: Phase 31 — Deployment Sequence =====
+
+    case 'DETERMINE_ATTACKER_DEFENDER': {
+      const { attackerId, defenderId } = action.payload;
+      if (!state.players[attackerId] || !state.players[defenderId]) return state;
+      return {
+        ...state,
+        attackerId,
+        defenderId,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `${state.players[attackerId].name} is Attacker, ${state.players[defenderId].name} is Defender`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'BEGIN_DEPLOYMENT': {
+      const { firstDeployingPlayerId } = action.payload;
+      const playerIds = Object.keys(state.players);
+
+      // Build lists of units remaining to deploy for each player
+      // Exclude units already in reserves and infiltrators
+      const unitsRemaining: Record<string, string[]> = {};
+      const infiltratorUnits: string[] = [];
+
+      for (const pid of playerIds) {
+        const playerUnits = Object.values(state.units)
+          .filter(u => u.playerId === pid)
+          .filter(u => !state.reserves[u.id]); // Not in reserves
+
+        const regularUnits: string[] = [];
+        for (const unit of playerUnits) {
+          if (unit.abilities.some(a => a.toUpperCase().includes('INFILTRATOR'))) {
+            infiltratorUnits.push(unit.id);
+          } else {
+            regularUnits.push(unit.id);
+          }
+        }
+        unitsRemaining[pid] = regularUnits;
+      }
+
+      return {
+        ...state,
+        deploymentState: {
+          currentDeployingPlayerId: firstDeployingPlayerId,
+          unitsRemaining,
+          deploymentStarted: false,
+          infiltratorUnits,
+        },
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Deployment begins. ${state.players[firstDeployingPlayerId]?.name ?? 'Player'} deploys first.`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'DEPLOY_UNIT': {
+      const { unitId, positions } = action.payload;
+      const unit = state.units[unitId];
+      if (!unit) return state;
+
+      // Apply positions to models
+      const newModels = { ...state.models };
+      for (const [modelId, pos] of Object.entries(positions)) {
+        const model = newModels[modelId];
+        if (model) {
+          newModels[modelId] = { ...model, position: pos };
+        }
+      }
+
+      // Remove from deployment state's remaining units
+      const ds = state.deploymentState;
+      const newUnitsRemaining = { ...ds.unitsRemaining };
+      for (const pid of Object.keys(newUnitsRemaining)) {
+        newUnitsRemaining[pid] = newUnitsRemaining[pid].filter(id => id !== unitId);
+      }
+
+      // Also remove from infiltrator list if applicable
+      const newInfiltratorUnits = ds.infiltratorUnits.filter(id => id !== unitId);
+
+      // Alternate to next player, skipping players with no units remaining
+      const playerIds = Object.keys(state.players);
+      const currentIdx = playerIds.indexOf(ds.currentDeployingPlayerId);
+
+      // Check if deployment is complete (all regular units placed)
+      const allRegularDeployed = Object.values(newUnitsRemaining).every(ids => ids.length === 0);
+      const allInfiltratorsDeployed = newInfiltratorUnits.length === 0;
+
+      let nextDeployer = ds.currentDeployingPlayerId;
+      if (!(allRegularDeployed && allInfiltratorsDeployed)) {
+        // Try to alternate to the next player who still has units
+        for (let i = 1; i <= playerIds.length; i++) {
+          const candidateId = playerIds[(currentIdx + i) % playerIds.length];
+          if ((newUnitsRemaining[candidateId]?.length ?? 0) > 0) {
+            nextDeployer = candidateId;
+            break;
+          }
+        }
+        // If no other player has units, stay on current player (shouldn't happen if allRegularDeployed is false)
+      }
+
+      return {
+        ...state,
+        models: newModels,
+        deploymentState: {
+          ...ds,
+          currentDeployingPlayerId: nextDeployer,
+          unitsRemaining: newUnitsRemaining,
+          deploymentStarted: true,
+          infiltratorUnits: newInfiltratorUnits,
+        },
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `${unit.name} deployed`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'DETERMINE_FIRST_TURN': {
+      const { playerId } = action.payload;
+      if (!state.players[playerId]) return state;
+      return {
+        ...state,
+        firstTurnPlayerId: playerId,
+        turnState: {
+          ...state.turnState,
+          activePlayerId: playerId,
+        },
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `${state.players[playerId].name} takes the first turn`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'RESOLVE_REDEPLOYMENT': {
+      const { unitId, positions } = action.payload;
+      const unit = state.units[unitId];
+      if (!unit) return state;
+
+      const newModels = { ...state.models };
+      for (const [modelId, pos] of Object.entries(positions)) {
+        const model = newModels[modelId];
+        if (model) {
+          newModels[modelId] = { ...model, position: pos };
+        }
+      }
+
+      return {
+        ...state,
+        models: newModels,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `${unit.name} redeployed`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'ADVANCE_SETUP_PHASE': {
+      const currentIdx = SETUP_PHASE_ORDER.indexOf(state.setupPhase);
+      if (currentIdx < 0 || currentIdx >= SETUP_PHASE_ORDER.length - 1) return state;
+      const nextPhase = SETUP_PHASE_ORDER[currentIdx + 1];
+      return {
+        ...state,
+        setupPhase: nextPhase,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Setup phase: ${nextPhase}`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    // ===== Sprint I: Mission System & Game Lifecycle =====
+
+    case 'SET_MISSION': {
+      const { mission } = action.payload;
+
+      // Create deployment zones from mission definition, mapping roles to player IDs
+      const newZones: Record<string, import('../types/index').DeploymentZone> = {};
+      for (const zone of mission.deploymentMap) {
+        const playerId = zone.role === 'attacker' ? state.attackerId : state.defenderId;
+        const player = playerId ? state.players[playerId] : undefined;
+        const zoneId = crypto.randomUUID();
+        newZones[zoneId] = {
+          id: zoneId,
+          playerId: playerId ?? '',
+          polygon: zone.polygon,
+          label: zone.label,
+          color: player?.color ?? (zone.role === 'attacker' ? '#3b82f6' : '#ef4444'),
+        };
+      }
+
+      // Create objectives from mission definition
+      const newObjectives: Record<string, import('../types/index').ObjectiveMarker> = {};
+      for (const obj of mission.objectivePlacements) {
+        const objId = crypto.randomUUID();
+        newObjectives[objId] = {
+          id: objId,
+          position: obj.position,
+          number: obj.number,
+          label: obj.label,
+        };
+      }
+
+      return {
+        ...state,
+        mission,
+        board: { width: mission.battlefieldSize.width, height: mission.battlefieldSize.height },
+        deploymentZones: newZones,
+        objectives: newObjectives,
+        maxBattleRounds: mission.maxBattleRounds,
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Mission set: ${mission.name}`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'SELECT_SECONDARY': {
+      const { playerId, conditionIds } = action.payload;
+      return {
+        ...state,
+        secondaryObjectives: {
+          ...state.secondaryObjectives,
+          [playerId]: conditionIds,
+        },
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Player ${state.players[playerId]?.name ?? playerId} selected ${conditionIds.length} secondary objectives`,
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'END_TURN': {
+      // End-of-turn sequence:
+      // 1. Clear turn-scoped effects (charge bonus, movement flags)
+      // 2. Calculate objective control (inline)
+      // 3. Evaluate end-of-turn scoring
+
+      // Step 1: Clear turn-scoped effects on turnTracking
+      const clearedTracking: import('../types/index').TurnTracking = {
+        ...state.turnTracking,
+        unitsActivated: {},
+        unitsCompleted: {},
+        embarkedThisPhase: [],
+        disembarkedThisPhase: [],
+        surgeMoveUsedThisPhase: {},
+      };
+
+      // Step 2: Calculate objective control (same logic as CALCULATE_OBJECTIVE_CONTROL)
+      const updatedObjectives = { ...state.objectives };
+      const editionForOC = getEdition(state.editionId);
+      if (editionForOC) {
+        for (const obj of Object.values(updatedObjectives)) {
+          const ocByPlayer: Record<string, number> = {};
+          for (const model of Object.values(state.models)) {
+            if (model.status === 'destroyed') continue;
+            const unit = state.units[model.unitId];
+            if (!unit) continue;
+            const dist = distanceToPoint(model, obj.position);
+            if (dist <= 3) {
+              const isBattleShocked = state.battleShocked.includes(unit.id);
+              const oc = isBattleShocked ? 0 : model.stats.objectiveControl;
+              ocByPlayer[unit.playerId] = (ocByPlayer[unit.playerId] ?? 0) + oc;
+            }
+          }
+          const playerEntries = Object.entries(ocByPlayer).filter(([, oc]) => oc > 0);
+          if (playerEntries.length === 0) {
+            updatedObjectives[obj.id] = { ...obj, controllingPlayerId: undefined };
+          } else if (playerEntries.length === 1) {
+            updatedObjectives[obj.id] = { ...obj, controllingPlayerId: playerEntries[0][0] };
+          } else {
+            const maxOC = Math.max(...playerEntries.map(([, oc]) => oc));
+            const winners = playerEntries.filter(([, oc]) => oc === maxOC);
+            updatedObjectives[obj.id] = {
+              ...obj,
+              controllingPlayerId: winners.length === 1 ? winners[0][0] : undefined,
+            };
+          }
+        }
+      }
+
+      // Step 3: Evaluate end-of-turn scoring
+      const stateForScoring: GameState = { ...state, objectives: updatedObjectives, turnTracking: clearedTracking };
+      const turnScoring = evaluateScoring(stateForScoring, 'end_of_turn');
+      const newScore = { ...state.score };
+      for (const [pid, delta] of Object.entries(turnScoring.scoreDeltas)) {
+        newScore[pid] = (newScore[pid] ?? 0) + delta;
+      }
+
+      return {
+        ...state,
+        turnTracking: clearedTracking,
+        objectives: updatedObjectives,
+        score: newScore,
+        scoringLog: [...state.scoringLog, ...turnScoring.entries],
+        // Clear phase-duration effects
+        smokescreenUnits: [],
+        goToGroundUnits: [],
+        epicChallengeUnits: [],
+        outOfPhaseAction: undefined,
+        persistingEffects: state.persistingEffects.filter(e => e.expiresAt.type !== 'phase_end' && e.expiresAt.type !== 'turn_end'),
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `End of turn for ${state.players[state.turnState.activePlayerId]?.name ?? 'Unknown'}` +
+            (turnScoring.entries.length > 0
+              ? `. VP scored: ${turnScoring.entries.map(e => `${state.players[e.playerId]?.name ?? e.playerId} +${e.vpScored} (${e.conditionName})`).join(', ')}`
+              : ''),
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
+    case 'END_BATTLE_ROUND': {
+      // End-of-battle-round sequence:
+      // 1. Score VP per mission (end_of_round conditions)
+      // 2. Clear round-scoped effects
+      // 3. Increment round counter
+      // 4. Check final round
+
+      // Step 1: Evaluate end-of-round scoring
+      const roundScoring = evaluateScoring(state, 'end_of_round');
+      const roundScore = { ...state.score };
+      for (const [pid, delta] of Object.entries(roundScoring.scoreDeltas)) {
+        roundScore[pid] = (roundScore[pid] ?? 0) + delta;
+      }
+
+      // Step 2: Check if this is the final round
+      const isLastRound = state.turnState.roundNumber >= state.maxBattleRounds;
+
+      // Step 3: Clear round-scoped effects and advance
+      const playerIds = Object.keys(state.players);
+      const newActivePlayer = state.firstTurnPlayerId ?? playerIds[0] ?? '';
+
+      let newState: GameState = {
+        ...state,
+        score: roundScore,
+        scoringLog: [...state.scoringLog, ...roundScoring.entries],
+        // Increment round if not last
+        turnState: isLastRound ? state.turnState : {
+          roundNumber: state.turnState.roundNumber + 1,
+          activePlayerId: newActivePlayer,
+          currentPhaseIndex: 0,
+        },
+        // Reset all per-turn tracking for new round
+        turnTracking: isLastRound ? state.turnTracking : createEmptyTurnTracking(),
+        shootingState: isLastRound ? state.shootingState : createEmptyShootingState(),
+        chargeState: isLastRound ? state.chargeState : createEmptyChargeState(),
+        fightState: isLastRound ? state.fightState : createEmptyFightState(),
+        stratagemsUsedThisPhase: isLastRound ? state.stratagemsUsedThisPhase : [],
+        smokescreenUnits: [],
+        goToGroundUnits: [],
+        epicChallengeUnits: [],
+        outOfPhaseAction: undefined,
+        cpGainedThisRound: isLastRound ? state.cpGainedThisRound : {},
+        // Clear round-end persisting effects
+        persistingEffects: state.persistingEffects.filter(e => {
+          if (e.expiresAt.type === 'phase_end' || e.expiresAt.type === 'turn_end') return false;
+          if (e.expiresAt.type === 'round_end') return false;
+          return true;
+        }),
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `End of Battle Round ${state.turnState.roundNumber}` +
+            (roundScoring.entries.length > 0
+              ? `. VP scored: ${roundScoring.entries.map(e => `${state.players[e.playerId]?.name ?? e.playerId} +${e.vpScored} (${e.conditionName})`).join(', ')}`
+              : '') +
+            (isLastRound ? '. Final round complete!' : ''),
+          timestamp: Date.now(),
+        }),
+      };
+
+      // If final round, auto-trigger end of battle
+      if (isLastRound) {
+        newState = gameReducer(newState, { type: 'END_BATTLE', payload: { reason: 'max_rounds' } });
+      }
+
+      return newState;
+    }
+
+    case 'END_BATTLE': {
+      const { reason } = action.payload;
+
+      // 1. Undeployed Reserves count as destroyed
+      const updatedModels = { ...state.models };
+      const destroyedReserveUnits: string[] = [];
+      for (const [unitId, reserve] of Object.entries(state.reserves)) {
+        const unit = state.units[unitId];
+        if (!unit) continue;
+        destroyedReserveUnits.push(unit.name);
+        for (const modelId of unit.modelIds) {
+          const model = updatedModels[modelId];
+          if (model && model.status !== 'destroyed') {
+            updatedModels[modelId] = { ...model, status: 'destroyed', wounds: 0 };
+          }
+        }
+      }
+
+      // 2. Evaluate end-of-battle scoring
+      const battleScoring = evaluateScoring({ ...state, models: updatedModels }, 'end_of_battle');
+      const finalScores: Record<string, number> = { ...state.score };
+      for (const [pid, delta] of Object.entries(battleScoring.scoreDeltas)) {
+        finalScores[pid] = (finalScores[pid] ?? 0) + delta;
+      }
+
+      // 3. Determine winner
+      const playerIds = Object.keys(state.players);
+      let winnerId: string | null = null;
+      if (playerIds.length >= 2) {
+        const scores = playerIds.map(pid => ({ pid, vp: finalScores[pid] ?? 0 }));
+        scores.sort((a, b) => b.vp - a.vp);
+        if (scores[0].vp > scores[1].vp) {
+          winnerId = scores[0].pid;
+        }
+        // else tie = draw (winnerId stays null)
+      }
+
+      return {
+        ...state,
+        models: updatedModels,
+        score: finalScores,
+        scoringLog: [...state.scoringLog, ...battleScoring.entries],
+        gameResult: {
+          winnerId,
+          finalScores,
+          reason,
+        },
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `Battle ended (${reason})!` +
+            (destroyedReserveUnits.length > 0 ? ` Reserves destroyed: ${destroyedReserveUnits.join(', ')}.` : '') +
+            (winnerId
+              ? ` Winner: ${state.players[winnerId]?.name ?? winnerId} (${finalScores[winnerId] ?? 0} VP)`
+              : ` Result: Draw (${playerIds.map(p => `${state.players[p]?.name ?? p}: ${finalScores[p] ?? 0}`).join(', ')})`),
+          timestamp: Date.now(),
+        }),
+      };
+    }
+
     default:
       return state;
   }
@@ -2816,6 +3444,7 @@ function validateMovement(
   moveType: import('../types/index').MoveType,
   newPositions: Record<string, import('../types/geometry').Point>,
   edition: import('../rules/RulesEdition').RulesEdition,
+  newFacings?: Record<string, number>,
 ): string[] {
   const errors: string[] = [];
   const unit = state.units[unitId];
@@ -2833,10 +3462,21 @@ function validateMovement(
     const newPos = newPositions[modelId];
     if (!newPos) continue;
 
-    const distMoved = distance(model.position, newPos);
+    // Use original position from DECLARE_MOVEMENT for distance calculation
+    const originPos = state.turnTracking.preMovementPositions[modelId] ?? model.position;
+    const distMoved = distance(originPos, newPos);
     const maxDist = edition.getMaxMoveDistance(model.moveCharacteristic, moveType);
     const advanceBonus = moveType === 'advance' ? (state.turnTracking.advanceRolls[unitId] ?? 0) : 0;
-    const totalAllowed = maxDist + advanceBonus;
+    let totalAllowed = maxDist + advanceBonus;
+
+    // Pivot cost: if facing changed, deduct pivot cost from movement budget
+    if (newFacings && newFacings[modelId] !== undefined) {
+      const facingChanged = Math.abs(newFacings[modelId] - model.facing) > 0.01;
+      if (facingChanged) {
+        const pivotCost = getPivotCost(model, unit.keywords);
+        totalAllowed -= pivotCost;
+      }
+    }
 
     if (distMoved > totalAllowed + 0.01) { // small epsilon for floating point
       errors.push(`${model.name} moved ${distMoved.toFixed(1)}" but max is ${totalAllowed.toFixed(1)}"`);
@@ -2862,12 +3502,12 @@ function validateMovement(
 
       if (isEnemy) {
         // FLY units can move through enemy models
-        if (!unitHasFly && doesPathCrossModel(model.position, newPos, otherModel)) {
+        if (!unitHasFly && doesPathCrossModel(originPos, newPos, otherModel)) {
           errors.push(`${model.name} cannot move through enemy model ${otherModel.name} (no FLY)`);
         }
       } else if (isFriendlyMonsterVehicle && otherUnit.id !== unitId) {
         // Only FLY MONSTER/VEHICLE can move through friendly MONSTER/VEHICLE
-        if (!(unitHasFly && unitIsMonsterOrVehicle) && doesPathCrossModel(model.position, newPos, otherModel)) {
+        if (!(unitHasFly && unitIsMonsterOrVehicle) && doesPathCrossModel(originPos, newPos, otherModel)) {
           errors.push(`${model.name} cannot move through friendly ${otherModel.name} (need FLY + MONSTER/VEHICLE)`);
         }
       }
@@ -2890,7 +3530,7 @@ function validateMovement(
 
       // Terrain height movement cost: >2" terrain costs vertical distance
       if (terrain.height > 2) {
-        const startsInTerrain = pointInPolygon(model.position, terrain.polygon);
+        const startsInTerrain = pointInPolygon(originPos, terrain.polygon);
         if (!startsInTerrain && endsInTerrain) {
           // Climbing up: add terrain height to distance moved
           const adjustedDist = distMoved + terrain.height;

@@ -17,7 +17,7 @@ export function RoomInfo() {
   };
 
   return (
-    <div className="absolute top-3 right-3 bg-gray-800/90 backdrop-blur rounded-lg border border-gray-700 shadow-lg p-3 space-y-2 min-w-[160px]">
+    <div className="p-3 border-b border-gray-700 space-y-2">
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
         <span className="text-xs text-gray-400">{connected ? 'Connected' : 'Reconnecting...'}</span>

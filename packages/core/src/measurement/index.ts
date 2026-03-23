@@ -387,3 +387,44 @@ export function closestEnemyModel(
 
   return closest;
 }
+
+// ===== Pivot Rules =====
+
+/**
+ * Calculate the pivot cost for a model based on its base shape and keywords.
+ *
+ * 10th Edition pivot rules:
+ * - Round base (circle): 0" pivot cost
+ * - Non-round base (oval/rect): 1" pivot cost
+ * - MONSTER/VEHICLE with non-round base: 2" pivot cost
+ * - Round base VEHICLE wider than 32mm with flight stand: 2" pivot cost
+ *
+ * The first pivot in a move costs movement; subsequent pivots are free.
+ */
+export function getPivotCost(
+  model: Model,
+  keywords: string[],
+  options?: {
+    /** True if this is a round-base VEHICLE on a flight stand (e.g., large flyers) */
+    hasFlightStand?: boolean;
+  },
+): number {
+  const isRound = model.baseShape.type === 'circle';
+  const isMonsterOrVehicle = keywords.includes('MONSTER') || keywords.includes('VEHICLE');
+  const isVehicle = keywords.includes('VEHICLE');
+
+  if (isRound && model.baseShape.type === 'circle') {
+    // Round base VEHICLE wider than 32mm with flight stand: 2" cost
+    if (isVehicle && model.baseShape.diameterMm > 32 && options?.hasFlightStand) {
+      return 2;
+    }
+    return 0;
+  }
+
+  // Non-round base
+  if (isMonsterOrVehicle) {
+    return 2;
+  }
+
+  return 1;
+}

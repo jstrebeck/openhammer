@@ -114,6 +114,8 @@ export interface AttackContext {
   attackerCharged: boolean;
   /** Number of active models in the attacking unit */
   attackerModelCount: number;
+  /** External hit modifier applied to attacker (e.g., Stealth/Smokescreen = -1) */
+  targetHitModifier?: number;
 }
 
 function hasAbility(ctx: AttackContext, name: string): boolean {
@@ -187,6 +189,13 @@ export function resolveAttackSequence(
     if (hasAbility(ctx, 'INDIRECT FIRE')) {
       hitModifier -= 1;
       triggered.push('Indirect Fire (-1 to Hit)');
+    }
+    // External hit modifier (e.g., Stealth/Smokescreen = -1)
+    if (ctx.targetHitModifier) {
+      hitModifier += ctx.targetHitModifier;
+      if (ctx.targetHitModifier < 0) {
+        triggered.push(`Stealth (-1 to Hit)`);
+      }
     }
   }
   // Clamp modifier to ±1
@@ -361,13 +370,38 @@ export function resolveSave(
   saveCharacteristic: number,
   ap: number,
   invulnSave?: number,
+  options?: {
+    /** Bonus to save from cover/stratagems (e.g., +1 from Smokescreen/Go to Ground) */
+    coverSaveModifier?: number;
+    /** Bonus invulnerable save from stratagems (e.g., 6+ from Go to Ground) */
+    bonusInvulnSave?: number;
+  },
 ): {
   saveRoll: DiceRoll;
   saved: boolean;
 } {
-  const modifiedSave = saveCharacteristic - ap;
-  const effectiveSave = invulnSave
-    ? Math.min(modifiedSave, invulnSave)
+  // Apply cover save modifier (e.g., Benefit of Cover = +1, which means -1 to the characteristic number)
+  let effectiveSaveChar = saveCharacteristic;
+  if (options?.coverSaveModifier) {
+    // +1 save means the number goes down (better): 4+ becomes 3+
+    // But cover doesn't help models with 3+ or better save vs AP 0
+    if (!(saveCharacteristic <= 3 && ap === 0)) {
+      effectiveSaveChar = saveCharacteristic - options.coverSaveModifier;
+    }
+  }
+
+  const modifiedSave = effectiveSaveChar - ap;
+
+  // Consider bonus invuln save (e.g., 6+ from Go to Ground)
+  let bestInvuln = invulnSave;
+  if (options?.bonusInvulnSave) {
+    bestInvuln = bestInvuln
+      ? Math.min(bestInvuln, options.bonusInvulnSave)
+      : options.bonusInvulnSave;
+  }
+
+  const effectiveSave = bestInvuln
+    ? Math.min(modifiedSave, bestInvuln)
     : modifiedSave;
 
   const saveRoll = rollDice(1, 6, 'Save', effectiveSave);
@@ -804,4 +838,133 @@ export function validateStrategicReservesArrival(
   }
 
   return errors;
+}
+
+// ===== Stratagem Combat Integration =====
+
+/**
+ * Get hit and save modifiers for a target unit affected by Smokescreen.
+ * Smokescreen grants Stealth (-1 to Hit) and Benefit of Cover (+1 save).
+ */
+export function getSmokescreenModifiers(state: GameState, targetUnitId: string): {
+  hitModifier: number;
+  coverSaveModifier: number;
+} {
+  if (state.smokescreenUnits.includes(targetUnitId)) {
+    return { hitModifier: -1, coverSaveModifier: 1 };
+  }
+  return { hitModifier: 0, coverSaveModifier: 0 };
+}
+
+/**
+ * Get save modifiers for a target unit affected by Go to Ground.
+ * Go to Ground grants 6+ invulnerable save and Benefit of Cover (+1 save).
+ */
+export function getGoToGroundModifiers(state: GameState, targetUnitId: string): {
+  coverSaveModifier: number;
+  bonusInvulnSave: number | undefined;
+} {
+  if (state.goToGroundUnits.includes(targetUnitId)) {
+    return { coverSaveModifier: 1, bonusInvulnSave: 6 };
+  }
+  return { coverSaveModifier: 0, bonusInvulnSave: undefined };
+}
+
+/**
+ * Check if an attacking unit's CHARACTER model gains Precision from Epic Challenge.
+ * Epic Challenge grants Precision to CHARACTER melee attacks — bypasses Bodyguard allocation.
+ */
+export function isEpicChallengePrecision(state: GameState, attackingUnitId: string): boolean {
+  return state.epicChallengeUnits.includes(attackingUnitId);
+}
+
+/**
+ * Combine all stratagem-based save modifiers for a target unit.
+ * Returns the combined coverSaveModifier and best bonusInvulnSave.
+ */
+export function getStratagemSaveModifiers(state: GameState, targetUnitId: string): {
+  coverSaveModifier: number;
+  bonusInvulnSave: number | undefined;
+} {
+  const smoke = getSmokescreenModifiers(state, targetUnitId);
+  const ground = getGoToGroundModifiers(state, targetUnitId);
+
+  // Cover bonuses are not cumulative — take the best one (max +1 from any source)
+  const coverSaveModifier = Math.max(smoke.coverSaveModifier, ground.coverSaveModifier);
+  const bonusInvulnSave = ground.bonusInvulnSave;
+
+  return { coverSaveModifier, bonusInvulnSave };
+}
+
+/**
+ * Get the combined hit modifier from stratagems for a target unit.
+ * Currently only Smokescreen grants Stealth (-1 to Hit).
+ */
+export function getStratagemHitModifier(state: GameState, targetUnitId: string): number {
+  const smoke = getSmokescreenModifiers(state, targetUnitId);
+  return smoke.hitModifier;
+}
+
+// ===== Sprint K: Attached Unit Rules =====
+
+/**
+ * Check if a bodyguard unit already has a leader attached.
+ * Enforces max one Leader CHARACTER per Attached unit.
+ */
+export function canAttachLeader(
+  state: GameState,
+  leaderUnitId: string,
+  bodyguardUnitId: string,
+): { allowed: boolean; reason?: string } {
+  const leaderUnit = state.units[leaderUnitId];
+  if (!leaderUnit) return { allowed: false, reason: 'Leader unit not found' };
+
+  if (!leaderUnit.keywords.includes('CHARACTER')) {
+    return { allowed: false, reason: 'Only CHARACTER units can be attached as Leader' };
+  }
+
+  const bodyguardUnit = state.units[bodyguardUnitId];
+  if (!bodyguardUnit) return { allowed: false, reason: 'Bodyguard unit not found' };
+
+  if (leaderUnit.playerId !== bodyguardUnit.playerId) {
+    return { allowed: false, reason: 'Leader and Bodyguard must belong to the same player' };
+  }
+
+  // Check if bodyguard already has a leader
+  for (const [existingLeaderId, existingBodyguardId] of Object.entries(state.attachedUnits)) {
+    if (existingBodyguardId === bodyguardUnitId) {
+      return { allowed: false, reason: `${bodyguardUnit.name} already has a Leader attached (${state.units[existingLeaderId]?.name})` };
+    }
+  }
+
+  // Check if this leader is already attached somewhere
+  if (state.attachedUnits[leaderUnitId]) {
+    return { allowed: false, reason: `${leaderUnit.name} is already attached to another unit` };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Check if destroying a unit in an attached pair (Leader or Bodyguard)
+ * counts as destroying a unit for VP purposes.
+ */
+export function doesAttachedUnitDestructionCountAsDestroyed(
+  state: GameState,
+  destroyedUnitId: string,
+): boolean {
+  // If this unit is a leader or bodyguard in an attached pair, destruction counts
+  if (state.attachedUnits[destroyedUnitId]) return true; // Was a leader
+  for (const bodyguardId of Object.values(state.attachedUnits)) {
+    if (bodyguardId === destroyedUnitId) return true; // Was a bodyguard
+  }
+  return false;
+}
+
+/**
+ * When one unit in an attached pair is destroyed, the surviving unit
+ * reverts to its original Starting Strength.
+ */
+export function getRevertedStartingStrength(unit: Unit): number {
+  return unit.modelIds.length; // Original model count from the unit definition
 }

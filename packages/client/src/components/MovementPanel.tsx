@@ -16,6 +16,32 @@ export function MovementPanel() {
   // Check if unit is embarked
   const isEmbarked = unit ? getTransportForUnit(gameState, unit.id) !== null : false;
 
+  const moveType = unit ? gameState.turnTracking.unitMovement[unit.id] : undefined;
+  const isCompleted = unit ? gameState.turnTracking.unitsCompleted[unit.id] : undefined;
+
+  const activeModels = unit
+    ? unit.modelIds
+        .map((id) => gameState.models[id])
+        .filter((m) => m && m.status === 'active')
+    : [];
+
+  // Hooks must be called unconditionally (before any early returns)
+  const originalPositionsRef = React.useRef<Record<string, { x: number; y: number }>>({});
+
+  React.useEffect(() => {
+    if (unit && moveType && moveType !== 'stationary' && !isCompleted) {
+      if (Object.keys(originalPositionsRef.current).length === 0) {
+        const positions: Record<string, { x: number; y: number }> = {};
+        for (const model of activeModels) {
+          positions[model.id] = { ...model.position };
+        }
+        originalPositionsRef.current = positions;
+      }
+    } else {
+      originalPositionsRef.current = {};
+    }
+  }, [moveType, isCompleted, unit?.id]);
+
   if (!unit) {
     return (
       <div className="text-xs text-gray-500 italic">Select a unit to declare movement</div>
@@ -34,13 +60,7 @@ export function MovementPanel() {
     );
   }
 
-  const moveType = gameState.turnTracking.unitMovement[unit.id];
-  const isCompleted = gameState.turnTracking.unitsCompleted[unit.id];
   const advanceRoll = gameState.turnTracking.advanceRolls[unit.id];
-
-  const activeModels = unit.modelIds
-    .map((id) => gameState.models[id])
-    .filter((m) => m && m.status === 'active');
   const moveChar = activeModels[0]?.moveCharacteristic ?? 6;
 
   const handleDeclare = (type: MoveType) => {
@@ -56,25 +76,6 @@ export function MovementPanel() {
       dispatch({ type: 'COMPLETE_UNIT_ACTIVATION', payload: { unitId: unit.id } });
     }
   };
-
-  // Capture original positions when movement is declared (for reset)
-  const originalPositionsRef = React.useRef<Record<string, { x: number; y: number }>>({});
-
-  // Store original positions whenever movement is first declared
-  React.useEffect(() => {
-    if (moveType && moveType !== 'stationary' && !isCompleted) {
-      // Only capture if we haven't captured yet (empty or different unit)
-      if (Object.keys(originalPositionsRef.current).length === 0) {
-        const positions: Record<string, { x: number; y: number }> = {};
-        for (const model of activeModels) {
-          positions[model.id] = { ...model.position };
-        }
-        originalPositionsRef.current = positions;
-      }
-    } else {
-      originalPositionsRef.current = {};
-    }
-  }, [moveType, isCompleted, unit.id]);
 
   const handleResetPositions = () => {
     for (const [modelId, pos] of Object.entries(originalPositionsRef.current)) {

@@ -236,6 +236,8 @@ export function BoardCanvas() {
           gameState.battleShocked,
           gameState.turnTracking.chargedUnits,
           gameState.fightState?.eligibleUnits,
+          gameState.warlordModelId,
+          [], // coverUnitIds — populated when needed by shooting resolution
         );
         terrainLayer.sync(gameState.terrain, uiState.selectedTerrainId);
         if (uiState.showDeploymentZones) {
@@ -297,24 +299,35 @@ export function BoardCanvas() {
           if (firstModel?.unitId) {
             const unit = gameState.units[firstModel.unitId];
             if (unit) {
-              // Find max range of ranged weapons
-              const maxRange = unit.weapons
-                .filter((w) => w.type === 'ranged' && w.range != null)
-                .reduce((max, w) => Math.max(max, w.range!), 0);
+              // Collect unique weapon ranges
+              const ranges = new Set<number>();
+              for (const w of unit.weapons) {
+                if (w.type === 'ranged' && w.range != null) {
+                  ranges.add(w.range);
+                }
+              }
 
-              if (maxRange > 0) {
+              if (ranges.size > 0) {
                 weaponRange.clear();
-                // Draw range ring from each active model in the unit
                 const activeModels = unit.modelIds
                   .map((id) => gameState.models[id])
                   .filter((m) => m && m.status === 'active');
-                for (const m of activeModels) {
-                  const cx = m.position.x * PIXELS_PER_INCH;
-                  const cy = m.position.y * PIXELS_PER_INCH;
-                  const r = maxRange * PIXELS_PER_INCH;
-                  weaponRange.circle(cx, cy, r);
-                  weaponRange.fill({ color: 0xf59e0b, alpha: 0.03 });
-                  weaponRange.stroke({ color: 0xf59e0b, width: 1, alpha: 0.3 });
+
+                // Draw range ring for each weapon range
+                for (const range of ranges) {
+                  for (const m of activeModels) {
+                    const cx = m.position.x * PIXELS_PER_INCH;
+                    const cy = m.position.y * PIXELS_PER_INCH;
+                    // Full range ring
+                    const r = range * PIXELS_PER_INCH;
+                    weaponRange.circle(cx, cy, r);
+                    weaponRange.fill({ color: 0xf59e0b, alpha: 0.03 });
+                    weaponRange.stroke({ color: 0xf59e0b, width: 1, alpha: 0.3 });
+                    // Half range ring (for Rapid Fire / Melta)
+                    const halfR = (range / 2) * PIXELS_PER_INCH;
+                    weaponRange.circle(cx, cy, halfR);
+                    weaponRange.stroke({ color: 0xf59e0b, width: 1, alpha: 0.15 });
+                  }
                 }
               } else {
                 weaponRange.clear();
@@ -555,12 +568,13 @@ export function BoardCanvas() {
       const dy = worldPos.y - dragStartWorld.current.y;
       const gs = useGameStore.getState().gameState;
       const { board } = gs;
+      const margin = gs.gameStarted ? 0 : 20;
       for (const [id, startPos] of dragModelStartPositions.current) {
-        let newX = Math.max(0, Math.min(board.width, startPos.x + dx));
-        let newY = Math.max(0, Math.min(board.height, startPos.y + dy));
+        let newX = Math.max(-margin, Math.min(board.width + margin, startPos.x + dx));
+        let newY = Math.max(-margin, Math.min(board.height + margin, startPos.y + dy));
         const clamped = clampToMoveRange(id, startPos, { x: newX, y: newY });
-        newX = Math.max(0, Math.min(board.width, clamped.x));
-        newY = Math.max(0, Math.min(board.height, clamped.y));
+        newX = Math.max(-margin, Math.min(board.width + margin, clamped.x));
+        newY = Math.max(-margin, Math.min(board.height + margin, clamped.y));
         modelLayerRef.current?.setTokenPosition(id, { x: newX, y: newY });
 
         // Draw path line from start to current position (first selected model)
@@ -644,15 +658,17 @@ export function BoardCanvas() {
     if (isDraggingModel.current && dragStartWorld.current) {
       const dx = worldPos.x - dragStartWorld.current.x;
       const dy = worldPos.y - dragStartWorld.current.y;
-      const { board } = useGameStore.getState().gameState;
+      const gsUp = useGameStore.getState().gameState;
+      const { board } = gsUp;
 
+      const marginUp = gsUp.gameStarted ? 0 : 20;
       if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
         for (const [id, startPos] of dragModelStartPositions.current) {
-          let newX = Math.max(0, Math.min(board.width, startPos.x + dx));
-          let newY = Math.max(0, Math.min(board.height, startPos.y + dy));
+          let newX = Math.max(-marginUp, Math.min(board.width + marginUp, startPos.x + dx));
+          let newY = Math.max(-marginUp, Math.min(board.height + marginUp, startPos.y + dy));
           const clamped = clampToMoveRange(id, startPos, { x: newX, y: newY });
-          newX = Math.max(0, Math.min(board.width, clamped.x));
-          newY = Math.max(0, Math.min(board.height, clamped.y));
+          newX = Math.max(-marginUp, Math.min(board.width + marginUp, clamped.x));
+          newY = Math.max(-marginUp, Math.min(board.height + marginUp, clamped.y));
           useGameStore.getState().dispatch({
             type: 'MOVE_MODEL',
             payload: { modelId: id, position: { x: newX, y: newY } },

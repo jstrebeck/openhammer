@@ -1,6 +1,6 @@
 import { CommandPointTracker } from './CommandPointTracker';
 import { ScoreTracker } from './ScoreTracker';
-import { PhaseActionPanel } from './PhaseActionPanel';
+import { ScoringConditionsPanel } from './ScoringConditionsPanel';
 import { ReservesPanel } from './ReservesPanel';
 import { StratagemPanel } from './StratagemPanel';
 import { GameLog } from './GameLog';
@@ -8,10 +8,14 @@ import { DiceRoller } from './DiceRoller';
 import { QuickRollPanel } from './QuickRollPanel';
 import { ChatPanel } from './ChatPanel';
 import { RulesConfigPanel } from './RulesConfigPanel';
+import { RoomInfo } from './RoomInfo';
 
 export function RightSideBar() {
   return (
     <div className="absolute top-0 right-0 w-80 h-full flex flex-col bg-gray-800/95 backdrop-blur border-l border-gray-700 shadow-lg overflow-y-auto">
+      {/* Multiplayer room info */}
+      <RoomInfo />
+
       {/* Command Points */}
       <div className="p-3 border-b border-gray-700">
         <CommandPointTracker />
@@ -22,9 +26,9 @@ export function RightSideBar() {
         <ScoreTracker />
       </div>
 
-      {/* Phase Actions */}
+      {/* Scoring Conditions (when a mission is active) */}
       <div className="border-b border-gray-700">
-        <PhaseActionPanel />
+        <ScoringConditionsPanel />
       </div>
 
       {/* Reserves */}

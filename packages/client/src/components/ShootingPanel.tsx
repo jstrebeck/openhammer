@@ -6,8 +6,34 @@ import {
   countSuccesses,
   getWoundThreshold,
   parseDiceExpression,
+  checkUnitVisibility,
+  canTargetWithRangedWeapon,
 } from '@openhammer/core';
-import type { Weapon, DiceRoll } from '@openhammer/core';
+import type { Weapon, DiceRoll, VisibilityStatus } from '@openhammer/core';
+
+/** Get Tailwind color class for weapon ability badge */
+function getAbilityColor(ability: string): string {
+  const upper = ability.toUpperCase();
+  if (upper.includes('LETHAL')) return 'bg-red-700/70 text-red-200';
+  if (upper.includes('SUSTAINED')) return 'bg-yellow-700/70 text-yellow-200';
+  if (upper.includes('DEVASTATING')) return 'bg-purple-700/70 text-purple-200';
+  if (upper.includes('MELTA')) return 'bg-orange-700/70 text-orange-200';
+  if (upper.includes('RAPID FIRE')) return 'bg-blue-700/70 text-blue-200';
+  if (upper.includes('BLAST')) return 'bg-red-600/70 text-red-200';
+  if (upper.includes('TORRENT')) return 'bg-green-700/70 text-green-200';
+  if (upper.includes('HEAVY')) return 'bg-gray-600/70 text-gray-200';
+  if (upper.includes('ASSAULT')) return 'bg-emerald-700/70 text-emerald-200';
+  if (upper.includes('PISTOL')) return 'bg-cyan-700/70 text-cyan-200';
+  if (upper.includes('ANTI')) return 'bg-pink-700/70 text-pink-200';
+  if (upper.includes('LANCE')) return 'bg-amber-700/70 text-amber-200';
+  if (upper.includes('TWIN')) return 'bg-indigo-700/70 text-indigo-200';
+  if (upper.includes('HAZARDOUS')) return 'bg-yellow-600/70 text-yellow-200';
+  if (upper.includes('PRECISION')) return 'bg-violet-700/70 text-violet-200';
+  if (upper.includes('INDIRECT')) return 'bg-gray-500/70 text-gray-200';
+  if (upper.includes('IGNORES COVER')) return 'bg-teal-700/70 text-teal-200';
+  if (upper.includes('ONE SHOT')) return 'bg-rose-700/70 text-rose-200';
+  return 'bg-gray-600/70 text-gray-300';
+}
 
 interface AttackResult {
   weaponName: string;
@@ -37,14 +63,24 @@ export function ShootingPanel() {
   const activeShootingUnit = gameState.shootingState.activeShootingUnit;
   const hasShot = attackerUnit ? gameState.shootingState.unitsShot.includes(attackerUnit.id) : false;
 
-  // Get enemy units
-  const enemyUnits = attackerUnit
+  // Get enemy units with visibility info
+  const enemyUnitsRaw = attackerUnit
     ? Object.values(gameState.units).filter(
         (u) =>
           u.playerId !== attackerUnit.playerId &&
           u.modelIds.some((id) => gameState.models[id]?.status === 'active'),
       )
     : [];
+
+  // Compute visibility for each enemy unit
+  const enemyUnits = enemyUnitsRaw.map((u) => {
+    let visibility: VisibilityStatus = 'fully_visible';
+    if (attackerUnit) {
+      const visResult = checkUnitVisibility(attackerUnit, u, gameState);
+      visibility = visResult.status;
+    }
+    return { ...u, visibility };
+  });
 
   const rangedWeapons = attackerUnit?.weapons.filter((w) => w.type === 'ranged') ?? [];
   const targetUnit = targetUnitId ? gameState.units[targetUnitId] : null;
@@ -359,7 +395,19 @@ export function ShootingPanel() {
                 {w.range}" | A{typeof w.attacks === 'number' ? w.attacks : w.attacks} | BS{w.skill}+ | S{w.strength} | AP{w.ap} | D{typeof w.damage === 'number' ? w.damage : w.damage}
               </div>
               {w.abilities.length > 0 && (
-                <div className="text-[10px] opacity-60 mt-0.5">{w.abilities.join(', ')}</div>
+                <div className="flex flex-wrap gap-0.5 mt-0.5">
+                  {w.abilities.map((a, i) => {
+                    const abilityColor = getAbilityColor(a);
+                    return (
+                      <span
+                        key={i}
+                        className={`inline-block px-1 py-0 rounded text-[9px] font-medium ${abilityColor}`}
+                      >
+                        {a}
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </button>
           ))}
@@ -377,9 +425,17 @@ export function ShootingPanel() {
           <option value="">Select target...</option>
           {enemyUnits.map((u) => {
             const alive = u.modelIds.filter((id) => gameState.models[id]?.status === 'active').length;
+            const notVisible = u.visibility === 'not_visible';
             return (
-              <option key={u.id} value={u.id}>
+              <option
+                key={u.id}
+                value={u.id}
+                disabled={notVisible}
+                className={notVisible ? 'text-gray-600' : ''}
+              >
                 {u.name} ({alive} model{alive !== 1 ? 's' : ''})
+                {u.visibility === 'not_visible' ? ' — Not Visible' : ''}
+                {u.visibility === 'partially_visible' ? ' — Partial' : ''}
               </option>
             );
           })}

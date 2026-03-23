@@ -20,3 +20,5 @@ export * from './networking/protocol';
 export * from './formation/index';
 export * from './transport/index';
 export * from './aircraft/index';
+export * from './missions/index';
+export * from './sequencing/index';

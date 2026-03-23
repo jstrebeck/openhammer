@@ -1,3 +1,4 @@
+import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { getEdition } from '@openhammer/core';
 
@@ -22,16 +23,21 @@ export function TurnTracker() {
   };
 
   // Auto-set active player if not set yet
-  if (!gameState.turnState.activePlayerId && playerIds.length > 0) {
-    dispatch({ type: 'NEXT_TURN' });
-  }
+  React.useEffect(() => {
+    if (!gameState.turnState.activePlayerId && playerIds.length > 0) {
+      dispatch({ type: 'NEXT_TURN' });
+    }
+  }, [gameState.turnState.activePlayerId, playerIds.length, dispatch]);
 
   return (
     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur rounded-lg shadow-lg border border-gray-700 flex items-center gap-3 px-4 py-2">
       {/* Round */}
       <div className="text-center">
         <div className="text-[10px] text-gray-500 uppercase tracking-wider">Round</div>
-        <div className="text-lg font-bold text-white leading-tight">{gameState.turnState.roundNumber}</div>
+        <div className="text-lg font-bold text-white leading-tight">
+          {gameState.turnState.roundNumber}
+          <span className="text-sm text-gray-400 font-normal">/{gameState.maxBattleRounds}</span>
+        </div>
       </div>
 
       <div className="w-px h-8 bg-gray-600" />
@@ -73,7 +79,12 @@ export function TurnTracker() {
       {/* Advance Button */}
       <button
         onClick={handleAdvancePhase}
-        className="px-3 py-1.5 rounded text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-colors"
+        disabled={!gameState.gameStarted}
+        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+          gameState.gameStarted
+            ? 'bg-green-600 hover:bg-green-700 text-white'
+            : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+        }`}
       >
         {isLastPhase ? 'Next Turn' : 'Next Phase'}
       </button>

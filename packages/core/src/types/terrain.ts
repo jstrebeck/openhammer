@@ -9,12 +9,20 @@ export type TerrainTrait =
   | 'smoke'
   | 'ruins';
 
+/** Terrain classification for rule application */
+export type TerrainType =
+  | 'area_terrain'   // Models can move through/into: Woods, Ruins, Craters
+  | 'obstacle'       // Models move over but cannot end on: Barricades, Debris
+  | 'hill';          // Open ground elevation: Hills
+
 export interface TerrainPiece {
   id: string;
   polygon: Point[];       // Vertices defining the terrain footprint (closed polygon)
   height: number;         // Height in inches for LoS purposes
   traits: TerrainTrait[];
   label: string;
+  /** Terrain type classification (defaults to 'area_terrain' if not set) */
+  terrainType?: TerrainType;
 }
 
 export const TERRAIN_TRAIT_DESCRIPTIONS: Record<TerrainTrait, string> = {

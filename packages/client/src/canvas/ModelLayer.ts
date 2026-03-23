@@ -41,6 +41,10 @@ interface TokenState {
   chargedGlow: Graphics;
   /** Purple border for fight-eligible units */
   fightEligibleRing: Graphics;
+  /** Crown/star icon for warlord model */
+  warlordIndicator: Graphics;
+  /** Shield icon for cover indicator */
+  coverIndicator: Graphics;
   currentColor: number;
   shape: ShapePixels;
 }
@@ -130,11 +134,14 @@ export class ModelLayer {
     battleShocked?: string[],
     chargedUnits?: string[],
     fightEligibleUnits?: string[],
+    warlordModelId?: string,
+    coverUnitIds?: string[],
   ): void {
     const selectedSet = new Set(selectedIds);
     const battleShockedSet = new Set(battleShocked ?? []);
     const chargedSet = new Set(chargedUnits ?? []);
     const fightEligibleSet = new Set(fightEligibleUnits ?? []);
+    const coverSet = new Set(coverUnitIds ?? []);
 
     // Remove tokens for deleted/embarked models
     for (const [id, token] of this.tokens) {
@@ -202,6 +209,12 @@ export class ModelLayer {
       // Fight-eligible indicator (purple border)
       const isFightEligible = fightEligibleSet.has(model.unitId);
       token.fightEligibleRing.visible = isFightEligible;
+
+      // Warlord indicator (gold star)
+      token.warlordIndicator.visible = warlordModelId === model.id;
+
+      // Cover indicator (shield icon)
+      token.coverIndicator.visible = coverSet.has(model.unitId);
     }
   }
 
@@ -400,8 +413,40 @@ export class ModelLayer {
     fightEligibleRing.visible = false;
     container.addChild(fightEligibleRing);
 
+    // Warlord indicator (gold star above the model)
+    const warlordIndicator = new Graphics();
+    const starSize = 5;
+    const starY = -(shape.height / 2 + 8);
+    // Draw a simple 5-pointed star
+    for (let i = 0; i < 5; i++) {
+      const outerAngle = (i * 72 - 90) * (Math.PI / 180);
+      const innerAngle = ((i * 72 + 36) - 90) * (Math.PI / 180);
+      const ox = Math.cos(outerAngle) * starSize;
+      const oy = starY + Math.sin(outerAngle) * starSize;
+      const ix = Math.cos(innerAngle) * (starSize * 0.4);
+      const iy = starY + Math.sin(innerAngle) * (starSize * 0.4);
+      if (i === 0) warlordIndicator.moveTo(ox, oy);
+      else warlordIndicator.lineTo(ox, oy);
+      warlordIndicator.lineTo(ix, iy);
+    }
+    warlordIndicator.closePath();
+    warlordIndicator.fill({ color: 0xf59e0b, alpha: 0.9 });
+    warlordIndicator.stroke({ color: 0xffffff, width: 0.5, alpha: 0.7 });
+    warlordIndicator.visible = false;
+    container.addChild(warlordIndicator);
+
+    // Cover indicator (shield icon to the side)
+    const coverIndicator = new Graphics();
+    const shieldX = shape.width / 2 + 6;
+    const shieldY = -shape.height / 2;
+    coverIndicator.roundRect(shieldX - 3, shieldY - 3, 6, 8, 1);
+    coverIndicator.fill({ color: 0x22c55e, alpha: 0.8 });
+    coverIndicator.stroke({ color: 0xffffff, width: 0.5, alpha: 0.5 });
+    coverIndicator.visible = false;
+    container.addChild(coverIndicator);
+
     this.container.addChild(container);
 
-    return { container, rotatable, baseGraphic, label, selectionRing, woundText, facingIndicator, battleShockedRing, chargedGlow, fightEligibleRing, currentColor: colorNum, shape };
+    return { container, rotatable, baseGraphic, label, selectionRing, woundText, facingIndicator, battleShockedRing, chargedGlow, fightEligibleRing, warlordIndicator, coverIndicator, currentColor: colorNum, shape };
   }
 }

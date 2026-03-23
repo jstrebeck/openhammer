@@ -1,97 +1,12 @@
 import { useState, useRef } from 'react';
-import { validateArmyList, buildArmyUnits } from '@openhammer/core';
-import type { ArmyListValidationError, BattlescribeRoster, DeploymentZone } from '@openhammer/core';
+import { validateArmyList, buildArmyUnits, MISSIONS, rollDice } from '@openhammer/core';
+import type { ArmyListValidationError, BattlescribeRoster, Mission } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
 import { useMultiplayerStore } from '../networking/useMultiplayer';
 import { PLAYER_COLORS } from '../canvas/constants';
 
-interface DeploymentPreset {
-  name: string;
-  description: string;
-  zones: { label: string; playerIndex: number; polygon: (bw: number, bh: number) => { x: number; y: number }[] }[];
-}
-
-const PRESETS: DeploymentPreset[] = [
-  {
-    name: 'Dawn of War',
-    description: 'Long edges — each player deploys along a long board edge',
-    zones: [
-      {
-        label: 'Player 1 DZ',
-        playerIndex: 0,
-        polygon: (bw, bh) => [
-          { x: 0, y: 0 },
-          { x: bw, y: 0 },
-          { x: bw, y: bh * 0.25 },
-          { x: 0, y: bh * 0.25 },
-        ],
-      },
-      {
-        label: 'Player 2 DZ',
-        playerIndex: 1,
-        polygon: (bw, bh) => [
-          { x: 0, y: bh * 0.75 },
-          { x: bw, y: bh * 0.75 },
-          { x: bw, y: bh },
-          { x: 0, y: bh },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'Hammer and Anvil',
-    description: 'Short edges — each player deploys along a short board edge',
-    zones: [
-      {
-        label: 'Player 1 DZ',
-        playerIndex: 0,
-        polygon: (bw, bh) => [
-          { x: 0, y: 0 },
-          { x: bw * 0.25, y: 0 },
-          { x: bw * 0.25, y: bh },
-          { x: 0, y: bh },
-        ],
-      },
-      {
-        label: 'Player 2 DZ',
-        playerIndex: 1,
-        polygon: (bw, bh) => [
-          { x: bw * 0.75, y: 0 },
-          { x: bw, y: 0 },
-          { x: bw, y: bh },
-          { x: bw * 0.75, y: bh },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'Search and Destroy',
-    description: 'Diagonal quarters — each player deploys in opposite corners',
-    zones: [
-      {
-        label: 'Player 1 DZ',
-        playerIndex: 0,
-        polygon: (bw, bh) => [
-          { x: 0, y: 0 },
-          { x: bw * 0.5, y: 0 },
-          { x: 0, y: bh * 0.5 },
-        ],
-      },
-      {
-        label: 'Player 2 DZ',
-        playerIndex: 1,
-        polygon: (bw, bh) => [
-          { x: bw, y: bh },
-          { x: bw * 0.5, y: bh },
-          { x: bw, y: bh * 0.5 },
-        ],
-      },
-    ],
-  },
-];
-
-type SetupStep = 'map' | 'deployment' | 'import' | 'done';
+type SetupStep = 'map' | 'rolloff' | 'import-attacker' | 'import-defender' | 'done';
 
 export function GameSetupDialog() {
   const role = useMultiplayerStore((s) => s.role);
@@ -100,54 +15,37 @@ export function GameSetupDialog() {
   const isPlayer2 = role === 'player2';
   const isLocal = !isMultiplayer;
 
-  // Player 2 in multiplayer skips straight to import
-  const initialStep: SetupStep = isPlayer2 ? 'import' : 'map';
+  // Player 2 in multiplayer skips straight to import (as defender)
+  const initialStep: SetupStep = isPlayer2 ? 'import-defender' : 'map';
   const [step, setStep] = useState<SetupStep>(initialStep);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
 
-  // Track which player is importing (0 = player 1, 1 = player 2) — only used for local games
-  const [playerImportIndex, setPlayerImportIndex] = useState(0);
+  // Roll-off state (local only — players don't exist yet during roll-off)
+  const [rollResults, setRollResults] = useState<{ p1: number; p2: number } | null>(null);
+  const [attackerPlayerIndex, setAttackerPlayerIndex] = useState<number | null>(null);
 
   // Import state
   const [jsonText, setJsonText] = useState('');
   const [errors, setErrors] = useState<ArmyListValidationError[]>([]);
-  const [validatedRoster, setValidatedRoster] = useState<BattlescribeRoster | null>(null);
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Track created player IDs so we can assign roles later
+  const createdPlayerIds = useRef<string[]>([]);
 
   const gameState = useGameStore((s) => s.gameState);
   const dispatch = useGameStore((s) => s.dispatch);
-  const deploymentZones = Object.values(gameState.deploymentZones);
 
-  const handleApplyPreset = (preset: DeploymentPreset) => {
-    // Remove existing zones
-    for (const id of Object.keys(gameState.deploymentZones)) {
-      dispatch({ type: 'REMOVE_DEPLOYMENT_ZONE', payload: { zoneId: id } });
-    }
-
-    const bw = gameState.board.width;
-    const bh = gameState.board.height;
-    const players = Object.values(gameState.players);
-
-    for (const zoneDef of preset.zones) {
-      const player = players[zoneDef.playerIndex];
-      dispatch({
-        type: 'ADD_DEPLOYMENT_ZONE',
-        payload: {
-          zone: {
-            id: crypto.randomUUID(),
-            playerId: player?.id ?? '',
-            polygon: zoneDef.polygon(bw, bh),
-            label: zoneDef.label,
-            color: player?.color ?? '#888888',
-          },
-        },
-      });
-    }
-
-    setSelectedPreset(preset.name);
+  // ─── Roll-off ───
+  const handleRollOff = () => {
+    const roll = rollDice(2, 6, 'Attacker/Defender Roll-off');
+    const p1Roll = roll.dice[0];
+    const p2Roll = roll.dice[1];
+    setRollResults({ p1: p1Roll, p2: p2Roll });
+    // Higher roll wins; ties go to player 1
+    setAttackerPlayerIndex(p1Roll >= p2Roll ? 0 : 1);
   };
 
+  // ─── File handling ───
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -156,7 +54,8 @@ export function GameSetupDialog() {
     setErrors([]);
   };
 
-  const handleValidate = () => {
+  // ─── Import & deploy ───
+  const handleValidate = (role: 'attacker' | 'defender') => {
     setErrors([]);
 
     let parsed: unknown;
@@ -173,25 +72,10 @@ export function GameSetupDialog() {
       return;
     }
 
-    setValidatedRoster(result.roster);
-
-    // If zones exist, pick one; otherwise deploy directly
-    const currentZones = Object.values(useGameStore.getState().gameState.deploymentZones);
-    if (currentZones.length > 0) {
-      // Auto-select the first unoccupied zone for convenience
-      const playerIds = Object.keys(useGameStore.getState().gameState.players);
-      const occupiedZonePlayerIds = new Set(playerIds);
-      const availableZone = currentZones.find((z) => !occupiedZonePlayerIds.has(z.playerId) || currentZones.length <= 2);
-      if (availableZone && !selectedZoneId) {
-        setSelectedZoneId(availableZone.id);
-      }
-      deployArmy(result.roster, selectedZoneId ? useGameStore.getState().gameState.deploymentZones[selectedZoneId] ?? null : availableZone ?? null);
-    } else {
-      deployArmy(result.roster, null);
-    }
+    deployArmy(result.roster, role);
   };
 
-  const deployArmy = (roster: BattlescribeRoster, zone: DeploymentZone | null) => {
+  const deployArmy = (roster: BattlescribeRoster, role: 'attacker' | 'defender') => {
     const currentState = useGameStore.getState().gameState;
     const playerIds = Object.keys(currentState.players);
     const armyName = roster.roster.name ?? roster.roster.forces?.[0]?.catalogueName ?? 'Army';
@@ -210,79 +94,100 @@ export function GameSetupDialog() {
       });
     }
 
-    let bounds: { x: number; y: number; width: number; height: number } | undefined;
-    if (zone) {
-      const xs = zone.polygon.map((p) => p.x);
-      const ys = zone.polygon.map((p) => p.y);
-      const minX = Math.min(...xs);
-      const minY = Math.min(...ys);
-      const maxX = Math.max(...xs);
-      const maxY = Math.max(...ys);
-      const inset = 1;
-      bounds = {
-        x: minX + inset,
-        y: minY + inset,
-        width: Math.max(3, maxX - minX - inset * 2),
-        height: Math.max(3, maxY - minY - inset * 2),
-      };
+    // Track player ID for role assignment later
+    createdPlayerIds.current.push(playerId);
+
+    // Place in staging area outside the board
+    const { board } = currentState;
+    const stagingHeight = Math.max(10, board.height - 4);
+    let bounds: { x: number; y: number; width: number; height: number };
+    let startPosition: { x: number; y: number };
+    let facing: number;
+
+    if (role === 'attacker') {
+      // Left of board
+      startPosition = { x: -15, y: 2 };
+      bounds = { x: -15, y: 2, width: 13, height: stagingHeight };
+      facing = 90; // faces right toward board
+    } else {
+      // Right of board
+      startPosition = { x: board.width + 2, y: 2 };
+      bounds = { x: board.width + 2, y: 2, width: 13, height: stagingHeight };
+      facing = 270; // faces left toward board
     }
 
-    const startPosition = bounds
-      ? { x: bounds.x, y: bounds.y }
-      : { x: 5, y: 5 + playerIds.length * 15 };
-
-    // Player 1 faces right (90°), Player 2 faces left (270°)
-    const facing = playerIds.length === 0 ? 90 : 270;
     const units = buildArmyUnits(roster, playerId, startPosition, bounds, facing);
     useGameStore.getState().dispatch({
       type: 'IMPORT_ARMY',
       payload: { units },
     });
 
-    // Local game: after player 1, reset form for player 2
-    if (isLocal && playerImportIndex === 0) {
-      setPlayerImportIndex(1);
-      setJsonText('');
-      setErrors([]);
-      setValidatedRoster(null);
-      setSelectedZoneId(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      // Stay on import step for player 2
-      return;
-    }
+    // Reset form and advance to next step
+    setJsonText('');
+    setErrors([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
 
-    setStep('done');
+    if (step === 'import-attacker') {
+      setStep('import-defender');
+    } else {
+      setStep('done');
+    }
   };
 
+  // ─── Finalize and close ───
   const handleClose = () => {
+    const currentState = useGameStore.getState().gameState;
+    const playerIds = createdPlayerIds.current.length >= 2
+      ? createdPlayerIds.current
+      : Object.keys(currentState.players);
+
+    // Assign attacker/defender roles if we have 2 players
+    if (playerIds.length >= 2 && attackerPlayerIndex !== null) {
+      const attackerId = playerIds[attackerPlayerIndex];
+      const defenderId = playerIds[attackerPlayerIndex === 0 ? 1 : 0];
+
+      dispatch({ type: 'DETERMINE_ATTACKER_DEFENDER', payload: { attackerId, defenderId } });
+
+      // Re-dispatch mission to regenerate zones with correct playerIds
+      if (selectedMission) {
+        dispatch({ type: 'SET_MISSION', payload: { mission: selectedMission } });
+      }
+
+      // Begin alternating deployment with attacker going first
+      dispatch({ type: 'BEGIN_DEPLOYMENT', payload: { firstDeployingPlayerId: attackerId } });
+    }
+
     useUIStore.getState().setShowGameSetup(false);
     useUIStore.getState().setGameSetupComplete(true);
   };
 
-  const playerLabel = isLocal
-    ? `Player ${playerImportIndex + 1}`
-    : isPlayer2 ? 'Your' : 'Your';
-
+  // ─── Step metadata ───
   const stepTitle = () => {
     switch (step) {
-      case 'map': return 'Game Setup — Select Map';
-      case 'deployment': return 'Game Setup — Deployment Zones';
-      case 'import': return isPlayer2 ? 'Import Your Army' : `Game Setup — Import ${playerLabel} Army`;
+      case 'map': return 'Game Setup — Select Mission';
+      case 'rolloff': return 'Game Setup — Roll Off';
+      case 'import-attacker': return 'Game Setup — Import Attacker Army';
+      case 'import-defender': return isPlayer2 ? 'Import Your Army' : 'Game Setup — Import Defender Army';
       case 'done': return 'Setup Complete';
     }
   };
 
-  const totalSteps = isLocal ? 4 : 3;
+  const totalSteps = 4;
 
-  const stepNumber = () => {
+  const stepNumber = (): number | null => {
     if (isPlayer2) return null;
     switch (step) {
       case 'map': return 1;
-      case 'deployment': return 2;
-      case 'import': return isLocal ? 3 + playerImportIndex : 3;
+      case 'rolloff': return 2;
+      case 'import-attacker': return 3;
+      case 'import-defender': return 3;
       case 'done': return null;
     }
   };
+
+  const isImportStep = step === 'import-attacker' || step === 'import-defender';
+  const importRole = step === 'import-attacker' ? 'attacker' : 'defender';
+  const importLabel = step === 'import-attacker' ? "Attacker's" : "Defender's";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -309,62 +214,180 @@ export function GameSetupDialog() {
 
         {/* Content */}
         <div className="p-5 flex-1 overflow-y-auto space-y-4">
-          {/* Step: Map Selection */}
+          {/* Step: Mission Selection */}
           {step === 'map' && (
             <div className="space-y-4">
               <div className="text-sm text-gray-300">
-                Choose a map for your game.
+                Choose a mission for your game.
               </div>
-              <div className="border border-dashed border-gray-600 rounded-lg p-8 text-center">
-                <div className="text-gray-500 text-sm">
-                  Map selection coming soon
+              <div className="grid grid-cols-2 gap-4">
+                {/* Mission list */}
+                <div className="space-y-2">
+                  {MISSIONS.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setSelectedMission(m)}
+                      className={`w-full text-left px-3 py-3 rounded border transition-colors ${
+                        selectedMission?.id === m.id
+                          ? 'border-blue-500 bg-blue-900/30'
+                          : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
+                      }`}
+                    >
+                      <div className="text-sm font-medium text-white">{m.name}</div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">
+                        {m.battlefieldSize.width}" x {m.battlefieldSize.height}" | {m.maxBattleRounds} rounds | {m.objectivePlacements.length} objectives
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        First turn: {m.firstTurnRule === 'attacker_first' ? 'Attacker' : m.firstTurnRule === 'defender_first' ? 'Defender' : 'Roll-off'}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="text-gray-600 text-xs mt-2">
-                  Default board ({gameState.board.width}" x {gameState.board.height}") will be used
+
+                {/* Mission preview */}
+                <div>
+                  {selectedMission ? (
+                    <div className="space-y-3">
+                      <div className="text-sm font-medium text-white">{selectedMission.name}</div>
+
+                      {/* Deployment map preview */}
+                      <div className="bg-gray-900 rounded border border-gray-600 p-2">
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Deployment Map</div>
+                        <svg
+                          viewBox={`0 0 ${selectedMission.battlefieldSize.width} ${selectedMission.battlefieldSize.height}`}
+                          className="w-full h-auto"
+                          style={{ maxHeight: '160px' }}
+                        >
+                          <rect width={selectedMission.battlefieldSize.width} height={selectedMission.battlefieldSize.height}
+                            fill="#1a1a2e" stroke="#333" strokeWidth="0.5" />
+                          {selectedMission.deploymentMap.map((zone, i) => (
+                            <polygon
+                              key={i}
+                              points={zone.polygon.map(p => `${p.x},${p.y}`).join(' ')}
+                              fill={zone.role === 'attacker' ? 'rgba(59,130,246,0.2)' : 'rgba(239,68,68,0.2)'}
+                              stroke={zone.role === 'attacker' ? '#3b82f6' : '#ef4444'}
+                              strokeWidth="0.5"
+                            />
+                          ))}
+                          {selectedMission.objectivePlacements.map((obj) => (
+                            <g key={obj.number}>
+                              <circle cx={obj.position.x} cy={obj.position.y} r="1.5"
+                                fill="#fbbf24" stroke="#fff" strokeWidth="0.3" />
+                              <text x={obj.position.x} y={obj.position.y + 0.5}
+                                textAnchor="middle" fill="#000" fontSize="2" fontWeight="bold">
+                                {obj.number}
+                              </text>
+                            </g>
+                          ))}
+                        </svg>
+                        <div className="flex gap-3 mt-2">
+                          {selectedMission.deploymentMap.map((zone, i) => (
+                            <div key={i} className="flex items-center gap-1 text-[10px]">
+                              <span className={`w-2 h-2 rounded-sm ${zone.role === 'attacker' ? 'bg-blue-500' : 'bg-red-500'}`} />
+                              <span className="text-gray-400">{zone.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Scoring conditions */}
+                      <div>
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Scoring</div>
+                        <div className="space-y-1">
+                          {selectedMission.scoringConditions.map((sc) => (
+                            <div key={sc.id} className="bg-gray-700/40 rounded px-2 py-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] px-1 rounded ${
+                                  sc.type === 'primary' ? 'bg-blue-700/50 text-blue-300' : 'bg-purple-700/50 text-purple-300'
+                                }`}>
+                                  {sc.type}
+                                </span>
+                                <span className="text-xs text-white font-medium">{sc.name}</span>
+                                <span className="text-[10px] text-yellow-400 ml-auto">{sc.vpAwarded} VP</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center mt-8">
+                      Select a mission to see details
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Step: Deployment Zones */}
-          {step === 'deployment' && (
+          {/* Step: Roll-off */}
+          {step === 'rolloff' && (
             <div className="space-y-4">
               <div className="text-sm text-gray-300">
-                Select a deployment zone layout for this game.
+                Roll off to determine Attacker and Defender. The winner chooses to attack or defend.
               </div>
-              <div className="space-y-2">
-                {PRESETS.map((preset) => (
+
+              {!rollResults ? (
+                <button
+                  onClick={handleRollOff}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+                >
+                  Roll Off
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex gap-8 justify-center">
+                    <div className="text-center">
+                      <div className="text-xs text-gray-400">Player 1</div>
+                      <div className={`text-4xl font-bold mt-1 ${
+                        rollResults.p1 >= rollResults.p2 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {rollResults.p1}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-400">Player 2</div>
+                      <div className={`text-4xl font-bold mt-1 ${
+                        rollResults.p2 > rollResults.p1 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        {rollResults.p2}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center text-sm">
+                    <span className="text-green-400 font-medium">
+                      Player {(attackerPlayerIndex ?? 0) + 1}
+                    </span>
+                    {' wins and is the '}
+                    <span className="text-blue-400 font-medium">Attacker</span>
+                    {'. '}
+                    <span className="text-red-400 font-medium">
+                      Player {attackerPlayerIndex === 0 ? 2 : 1}
+                    </span>
+                    {' is the '}
+                    <span className="text-red-400 font-medium">Defender</span>.
+                  </div>
                   <button
-                    key={preset.name}
-                    onClick={() => handleApplyPreset(preset)}
-                    className={`w-full text-left px-4 py-3 rounded border transition-colors ${
-                      selectedPreset === preset.name
-                        ? 'border-blue-500 bg-blue-900/30'
-                        : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
-                    }`}
+                    onClick={() => {
+                      // Swap roles
+                      setAttackerPlayerIndex(attackerPlayerIndex === 0 ? 1 : 0);
+                    }}
+                    className="w-full px-3 py-1.5 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 text-xs"
                   >
-                    <div className="text-sm font-medium text-white">{preset.name}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{preset.description}</div>
+                    Swap Attacker / Defender
                   </button>
-                ))}
-              </div>
-              {selectedPreset && (
-                <div className="text-xs text-green-400">
-                  "{selectedPreset}" deployment zones applied
                 </div>
               )}
             </div>
           )}
 
-          {/* Step: Import Army */}
-          {step === 'import' && (
+          {/* Step: Import Army (attacker or defender) */}
+          {isImportStep && (
             <>
               <div className="text-sm text-gray-300">
                 {isPlayer2
                   ? 'Import your army list to join the game.'
-                  : isLocal
-                    ? `Import the army list for ${playerLabel}.`
-                    : 'Import your army list.'}
+                  : `Import the ${importLabel} army list.`}
               </div>
               <div>
                 <input
@@ -394,31 +417,6 @@ export function GameSetupDialog() {
                 />
               </div>
 
-              {/* Zone selection if zones exist */}
-              {deploymentZones.length > 0 && (
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">Deploy into zone:</label>
-                  <div className="flex gap-2">
-                    {deploymentZones.map((zone) => (
-                      <button
-                        key={zone.id}
-                        onClick={() => setSelectedZoneId(zone.id)}
-                        className={`flex-1 px-3 py-2 rounded border transition-colors ${
-                          selectedZoneId === zone.id
-                            ? 'border-blue-500 bg-blue-900/30'
-                            : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 justify-center">
-                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: zone.color }} />
-                          <span className="text-xs font-medium text-white">{zone.label}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {errors.length > 0 && (
                 <div className="bg-red-900/30 border border-red-700 rounded p-3">
                   <div className="text-sm text-red-300 font-medium mb-1">Validation errors:</div>
@@ -439,10 +437,10 @@ export function GameSetupDialog() {
           {step === 'done' && (
             <div className="bg-green-900/30 border border-green-700 rounded p-4">
               <div className="text-sm text-green-300 font-medium">
-                {isLocal ? 'Both armies deployed successfully!' : 'Army deployed successfully!'}
+                {isLocal ? 'Both armies ready for deployment!' : 'Army imported successfully!'}
               </div>
               <div className="text-xs text-green-400 mt-1">
-                Models have been placed on the board.
+                Models have been placed in staging areas beside the board. Drag them into your deployment zones during the deployment phase.
               </div>
             </div>
           )}
@@ -463,13 +461,18 @@ export function GameSetupDialog() {
           <div className="flex gap-2">
             {step === 'map' && (
               <button
-                onClick={() => setStep('deployment')}
+                onClick={() => {
+                  if (selectedMission) {
+                    dispatch({ type: 'SET_MISSION', payload: { mission: selectedMission } });
+                  }
+                  setStep('rolloff');
+                }}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
               >
                 Next
               </button>
             )}
-            {step === 'deployment' && (
+            {step === 'rolloff' && (
               <>
                 <button
                   onClick={() => setStep('map')}
@@ -478,43 +481,69 @@ export function GameSetupDialog() {
                   Back
                 </button>
                 <button
-                  onClick={() => setStep('import')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  onClick={() => setStep('import-attacker')}
+                  disabled={attackerPlayerIndex === null}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
               </>
             )}
-            {step === 'import' && (
+            {step === 'import-attacker' && (
               <>
-                {!isPlayer2 && playerImportIndex === 0 && (
-                  <button
-                    onClick={() => setStep('deployment')}
-                    className="px-4 py-2 bg-gray-700 text-gray-200 rounded hover:bg-gray-600 text-sm"
-                  >
-                    Back
-                  </button>
-                )}
+                <button
+                  onClick={() => setStep('rolloff')}
+                  className="px-4 py-2 bg-gray-700 text-gray-200 rounded hover:bg-gray-600 text-sm"
+                >
+                  Back
+                </button>
                 <button
                   onClick={() => {
-                    // Local game player 1 skip: advance to player 2
-                    if (isLocal && playerImportIndex === 0) {
-                      setPlayerImportIndex(1);
-                      setJsonText('');
-                      setErrors([]);
-                      setValidatedRoster(null);
-                      setSelectedZoneId(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                      return;
-                    }
-                    handleClose();
+                    setJsonText('');
+                    setErrors([]);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                    setStep('import-defender');
                   }}
                   className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
                 >
                   Skip
                 </button>
                 <button
-                  onClick={handleValidate}
+                  onClick={() => handleValidate('attacker')}
+                  disabled={!jsonText.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Import & Deploy
+                </button>
+              </>
+            )}
+            {step === 'import-defender' && !isPlayer2 && (
+              <>
+                <button
+                  onClick={() => handleClose()}
+                  className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => handleValidate('defender')}
+                  disabled={!jsonText.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Import & Deploy
+                </button>
+              </>
+            )}
+            {step === 'import-defender' && isPlayer2 && (
+              <>
+                <button
+                  onClick={() => handleClose()}
+                  className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={() => handleValidate('defender')}
                   disabled={!jsonText.trim()}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -527,7 +556,7 @@ export function GameSetupDialog() {
                 onClick={handleClose}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
               >
-                Start Game
+                Begin Deployment
               </button>
             )}
           </div>

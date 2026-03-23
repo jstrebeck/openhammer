@@ -101,6 +101,29 @@ export function canEmbark(
   return { allowed: true };
 }
 
+// ===== Sprint K: Destroyed Transport Distance Tiers =====
+
+/**
+ * Determine if an embarked model is destroyed when its transport is destroyed.
+ * 10th Edition rules: roll D6 per model.
+ * - Models within 3" of a point: destroyed on 1
+ * - Models within 6" of a point: destroyed on 1–3
+ *
+ * @param dieResult - The D6 roll result
+ * @param distanceFromWreck - Distance from the model's disembark point to the wreck
+ * @returns true if the model is destroyed
+ */
+export function isModelDestroyedInTransport(dieResult: number, distanceFromWreck: number): boolean {
+  if (distanceFromWreck <= 3) {
+    return dieResult <= 1;
+  }
+  if (distanceFromWreck <= 6) {
+    return dieResult <= 3;
+  }
+  // Beyond 6" — model survives
+  return false;
+}
+
 /** Validate whether a unit can disembark from a transport */
 export function canDisembark(
   state: GameState,

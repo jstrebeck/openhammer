@@ -1,5 +1,5 @@
 import type { Point } from '../types/geometry';
-import type { Model, Unit, Player, DiceRoll, DeploymentZone, ObjectiveMarker, RulesConfig, MoveType, ReserveEntry } from '../types/index';
+import type { Model, Unit, Player, DiceRoll, DeploymentZone, ObjectiveMarker, RulesConfig, MoveType, ReserveEntry, Detachment, Enhancement, Mission } from '../types/index';
 import type { TerrainPiece } from '../types/terrain';
 
 export type GameAction =
@@ -37,7 +37,7 @@ export type GameAction =
   // --- Phase 8: Movement ---
   | { type: 'DECLARE_MOVEMENT'; payload: { unitId: string; moveType: MoveType } }
   | { type: 'ROLL_ADVANCE'; payload: { unitId: string; roll: DiceRoll } }
-  | { type: 'COMMIT_MOVEMENT'; payload: { unitId: string; positions: Record<string, Point> } }
+  | { type: 'COMMIT_MOVEMENT'; payload: { unitId: string; positions: Record<string, Point>; facings?: Record<string, number> } }
 
   // --- Phase 9: Shooting ---
   | { type: 'DECLARE_SHOOTING'; payload: { unitId: string } }
@@ -134,4 +134,28 @@ export type GameAction =
 
   // --- Phase 26: Persisting Effects ---
   | { type: 'ADD_PERSISTING_EFFECT'; payload: { effect: import('../types/index').PersistingEffect } }
-  | { type: 'REMOVE_PERSISTING_EFFECT'; payload: { effectId: string } };
+  | { type: 'REMOVE_PERSISTING_EFFECT'; payload: { effectId: string } }
+
+  // --- Phase 30: Army Construction & Validation ---
+  | { type: 'DESIGNATE_WARLORD'; payload: { modelId: string } }
+  | { type: 'SET_POINTS_LIMIT'; payload: { pointsLimit: number } }
+  | { type: 'SET_FACTION_KEYWORD'; payload: { keyword: string } }
+  | { type: 'SELECT_DETACHMENT'; payload: { detachment: Detachment } }
+  | { type: 'ASSIGN_ENHANCEMENT'; payload: { enhancement: Enhancement; modelId: string } }
+  | { type: 'REMOVE_ENHANCEMENT'; payload: { enhancementId: string } }
+  | { type: 'VALIDATE_ARMY'; payload: { playerId: string } }
+
+  // --- Phase 31: Deployment Sequence ---
+  | { type: 'DETERMINE_ATTACKER_DEFENDER'; payload: { attackerId: string; defenderId: string; roll?: { player1Roll: DiceRoll; player2Roll: DiceRoll } } }
+  | { type: 'BEGIN_DEPLOYMENT'; payload: { firstDeployingPlayerId: string } }
+  | { type: 'DEPLOY_UNIT'; payload: { unitId: string; positions: Record<string, Point> } }
+  | { type: 'DETERMINE_FIRST_TURN'; payload: { playerId: string; roll?: { player1Roll: DiceRoll; player2Roll: DiceRoll } } }
+  | { type: 'RESOLVE_REDEPLOYMENT'; payload: { unitId: string; positions: Record<string, Point> } }
+  | { type: 'ADVANCE_SETUP_PHASE' }
+
+  // --- Sprint I: Mission System & Game Lifecycle ---
+  | { type: 'SET_MISSION'; payload: { mission: Mission } }
+  | { type: 'SELECT_SECONDARY'; payload: { playerId: string; conditionIds: string[] } }
+  | { type: 'END_TURN' }
+  | { type: 'END_BATTLE_ROUND' }
+  | { type: 'END_BATTLE'; payload: { reason: 'max_rounds' | 'concede' | 'tabled' } };

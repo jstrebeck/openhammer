@@ -177,6 +177,8 @@ export interface TurnTracking {
   disembarkedThisPhase: string[];
   /** Units that used a surge move this phase (one per phase per unit) */
   surgeMoveUsedThisPhase: Record<string, boolean>;
+  /** Original model positions at DECLARE_MOVEMENT time, keyed by modelId */
+  preMovementPositions: Record<string, import('./geometry').Point>;
 }
 
 export function createEmptyTurnTracking(): TurnTracking {
@@ -189,6 +191,7 @@ export function createEmptyTurnTracking(): TurnTracking {
     embarkedThisPhase: [],
     disembarkedThisPhase: [],
     surgeMoveUsedThisPhase: {},
+    preMovementPositions: {},
   };
 }
 
@@ -298,6 +301,138 @@ export interface PersistingEffect {
   data?: Record<string, unknown>;
 }
 
+// --- Sprint I: Mission System & Game Lifecycle ---
+
+/** Scoring condition timing */
+export type ScoringTiming = 'end_of_turn' | 'end_of_round' | 'end_of_battle';
+
+/** Scoring condition — defines when/how to score VP */
+export interface ScoringCondition {
+  id: string;
+  name: string;
+  description: string;
+  timing: ScoringTiming;
+  type: 'primary' | 'secondary';
+  /** VP awarded when condition is met */
+  vpAwarded: number;
+  /** Max VP from this condition across the entire game */
+  maxVp?: number;
+  /** Condition evaluator ID — resolved at runtime by evaluateScoringCondition() */
+  conditionId: string;
+}
+
+export type FirstTurnRule = 'attacker_first' | 'defender_first' | 'roll_off';
+
+/** Mission deployment zone template (relative to player role, not specific player ID) */
+export interface MissionDeploymentZone {
+  role: 'attacker' | 'defender';
+  polygon: Point[];
+  label: string;
+}
+
+/** Mission definition */
+export interface Mission {
+  id: string;
+  name: string;
+  battlefieldSize: { width: number; height: number };
+  deploymentMap: MissionDeploymentZone[];
+  objectivePlacements: Array<{
+    position: Point;
+    number: number;
+    label?: string;
+  }>;
+  maxBattleRounds: number;
+  scoringConditions: ScoringCondition[];
+  firstTurnRule: FirstTurnRule;
+}
+
+/** Game result — set at end of battle */
+export interface GameResult {
+  winnerId: string | null; // null = draw
+  finalScores: Record<string, number>;
+  reason: 'max_rounds' | 'concede' | 'tabled';
+}
+
+/** Scoring log entry — records each VP award */
+export interface ScoringLogEntry {
+  roundNumber: number;
+  playerId: string;
+  conditionId: string;
+  conditionName: string;
+  vpScored: number;
+  timestamp: number;
+}
+
+// --- Pre-Game Setup (Sprint H) ---
+
+/** Setup phase state machine: muster → createBattlefield → determineRoles → placeObjectives → deploy → redeployments → determineFirstTurn → scoutMoves → ready */
+export type SetupPhase =
+  | 'muster'
+  | 'createBattlefield'
+  | 'determineRoles'
+  | 'placeObjectives'
+  | 'deploy'
+  | 'redeployments'
+  | 'determineFirstTurn'
+  | 'scoutMoves'
+  | 'ready';
+
+/** The ordered setup phase progression */
+export const SETUP_PHASE_ORDER: SetupPhase[] = [
+  'muster',
+  'createBattlefield',
+  'determineRoles',
+  'placeObjectives',
+  'deploy',
+  'redeployments',
+  'determineFirstTurn',
+  'scoutMoves',
+  'ready',
+];
+
+export interface Detachment {
+  id: string;
+  name: string;
+  rules?: string;
+  /** Detachment-specific stratagems */
+  stratagems?: Stratagem[];
+  /** Detachment-specific enhancements */
+  enhancements?: Enhancement[];
+}
+
+export interface Enhancement {
+  id: string;
+  name: string;
+  pointsCost: number;
+  /** Which model this enhancement is assigned to (model ID) */
+  assignedToModelId?: string;
+  /** Keywords the model must have to be eligible */
+  eligibleKeywords?: string[];
+  /** Description of the enhancement's effect */
+  description?: string;
+}
+
+/** Tracks alternating deployment state */
+export interface DeploymentState {
+  /** Player ID whose turn it is to deploy */
+  currentDeployingPlayerId: string;
+  /** Unit IDs that still need to be deployed, per player */
+  unitsRemaining: Record<string, string[]>;
+  /** Whether the first unit has been deployed (determines who alternates) */
+  deploymentStarted: boolean;
+  /** Unit IDs of infiltrators that will be placed during alternation */
+  infiltratorUnits: string[];
+}
+
+export function createEmptyDeploymentState(): DeploymentState {
+  return {
+    currentDeployingPlayerId: '',
+    unitsRemaining: {},
+    deploymentStarted: false,
+    infiltratorUnits: [],
+  };
+}
+
 // --- Reserves ---
 
 export interface ReserveEntry {
@@ -390,6 +525,42 @@ export interface GameState {
   cpGainedThisRound: Record<string, number>;
   /** Active persisting effects (survive phase changes, embark/disembark, attach/detach) */
   persistingEffects: PersistingEffect[];
+
+  // --- Sprint H: Pre-Game Setup ---
+
+  /** Current setup phase (pre-game state machine) */
+  setupPhase: SetupPhase;
+  /** Model ID designated as the Warlord */
+  warlordModelId?: string;
+  /** Army points limit (set by mission or manually) */
+  pointsLimit?: number;
+  /** Shared faction keyword for army validation */
+  factionKeyword?: string;
+  /** Selected detachment */
+  detachment?: Detachment;
+  /** Assigned enhancements */
+  enhancements: Enhancement[];
+  /** Attacker player ID (determined by roll-off) */
+  attackerId?: string;
+  /** Defender player ID (determined by roll-off) */
+  defenderId?: string;
+  /** Alternating deployment state */
+  deploymentState: DeploymentState;
+  /** Player who goes first (determined after deployment) */
+  firstTurnPlayerId?: string;
+
+  // --- Sprint I: Mission System & Game Lifecycle ---
+
+  /** Active mission (set via SET_MISSION) */
+  mission?: Mission;
+  /** Maximum battle rounds (default 5, overridden by mission) */
+  maxBattleRounds: number;
+  /** Game result (set at end of battle) */
+  gameResult?: GameResult;
+  /** Log of all VP scored */
+  scoringLog: ScoringLogEntry[];
+  /** Player-selected secondary objective condition IDs: playerId → conditionId[] */
+  secondaryObjectives: Record<string, string[]>;
 }
 
 /** Helper to compute base size in inches from mm */

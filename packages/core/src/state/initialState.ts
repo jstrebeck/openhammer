@@ -5,6 +5,7 @@ import {
   createEmptyShootingState,
   createEmptyChargeState,
   createEmptyFightState,
+  createEmptyDeploymentState,
 } from '../types/index';
 import { DEFAULT_EDITION_ID } from '../rules/registry';
 
@@ -51,5 +52,13 @@ export function createInitialGameState(options?: {
     epicChallengeUnits: [],
     cpGainedThisRound: {},
     persistingEffects: [],
+    // Sprint H: Pre-Game Setup
+    setupPhase: 'muster',
+    enhancements: [],
+    deploymentState: createEmptyDeploymentState(),
+    // Sprint I: Mission System & Game Lifecycle
+    maxBattleRounds: 5,
+    scoringLog: [],
+    secondaryObjectives: {},
   };
 }

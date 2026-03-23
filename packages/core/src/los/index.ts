@@ -1,12 +1,22 @@
 import type { Point } from '../types/geometry';
-import type { Model } from '../types/index';
+import type { Model, Unit, GameState } from '../types/index';
 import type { TerrainPiece } from '../types/terrain';
+import { distanceBetweenModels } from '../measurement/index';
 
 export interface LoSResult {
   clear: boolean;
   blockingTerrainIds: string[];
   denseTerrainIds: string[];   // Terrain that imposes penalties but doesn't fully block
   intersectionPoint: Point | null; // First point where LoS is blocked
+}
+
+/** Visibility status for a model or unit */
+export type VisibilityStatus = 'fully_visible' | 'partially_visible' | 'not_visible';
+
+export interface VisibilityResult {
+  status: VisibilityStatus;
+  /** Per-model visibility (for unit checks) */
+  modelVisibility?: Record<string, VisibilityStatus>;
 }
 
 /**
@@ -184,4 +194,281 @@ function onSegment(a: Point, b: Point, p: Point): boolean {
     Math.min(a.y, b.y) <= p.y + 1e-10 &&
     p.y <= Math.max(a.y, b.y) + 1e-10
   );
+}
+
+// ===== Sprint J: Visibility & Targeting =====
+
+/**
+ * Check if a unit has AIRCRAFT or TOWERING keyword.
+ * AIRCRAFT/TOWERING models can see and be seen through/over terrain that normally blocks LoS.
+ */
+function isAircraftOrTowering(unit: Unit): boolean {
+  return unit.keywords.some(k => k === 'AIRCRAFT' || k === 'TOWERING');
+}
+
+/**
+ * Check line of sight between two models, with AIRCRAFT/TOWERING exceptions.
+ * AIRCRAFT/TOWERING models ignore terrain for LoS purposes (can see through/over).
+ *
+ * @param from - Observing model
+ * @param to - Target model
+ * @param terrain - All terrain on the board
+ * @param fromUnit - Unit of the observing model (for keyword checks)
+ * @param toUnit - Unit of the target model (for keyword checks)
+ */
+export function checkLineOfSightWithKeywords(
+  from: Model,
+  to: Model,
+  terrain: Record<string, TerrainPiece>,
+  fromUnit?: Unit,
+  toUnit?: Unit,
+): LoSResult {
+  // If either model is AIRCRAFT/TOWERING, terrain doesn't block LoS
+  if ((fromUnit && isAircraftOrTowering(fromUnit)) ||
+      (toUnit && isAircraftOrTowering(toUnit))) {
+    return {
+      clear: true,
+      blockingTerrainIds: [],
+      denseTerrainIds: [],
+      intersectionPoint: null,
+    };
+  }
+  return checkLineOfSight(from, to, terrain);
+}
+
+/**
+ * Check if a model is "fully visible" from an observer model.
+ * A model is fully visible if every part of it is visible — simplified as:
+ * LoS from observer to the target center is clear and no obscuring terrain blocks.
+ *
+ * Models in the observed unit do NOT block LoS to their own unit members.
+ * Models in the observing unit do NOT block LoS from their own unit members.
+ *
+ * @param observer - The observing model
+ * @param target - The target model being observed
+ * @param terrain - Terrain on the board
+ * @param allModels - All models in game (for intervening model checks)
+ * @param observerUnit - Unit of the observer (for see-through-own-unit)
+ * @param targetUnit - Unit of the target (for see-through-target-unit)
+ */
+export function isModelFullyVisible(
+  observer: Model,
+  target: Model,
+  terrain: Record<string, TerrainPiece>,
+  allModels: Model[],
+  observerUnit?: Unit,
+  targetUnit?: Unit,
+): boolean {
+  // AIRCRAFT/TOWERING: can see/be seen through terrain
+  if ((observerUnit && isAircraftOrTowering(observerUnit)) ||
+      (targetUnit && isAircraftOrTowering(targetUnit))) {
+    return true;
+  }
+
+  // Check terrain LoS
+  const los = checkLineOfSight(observer, target, terrain);
+  if (!los.clear) return false;
+
+  // Check if any intervening models block LoS (simplified: model base blocks)
+  // Skip models in the observer's or target's own unit
+  for (const model of allModels) {
+    if (model.id === observer.id || model.id === target.id) continue;
+    if (model.status !== 'active') continue;
+
+    // Models in the observer's own unit don't block
+    if (observerUnit && observerUnit.modelIds.includes(model.id)) continue;
+    // Models in the target's own unit don't block (can see through for visibility check)
+    if (targetUnit && targetUnit.modelIds.includes(model.id)) continue;
+
+    // Check if this model's base intersects the LoS line
+    const radius = model.baseSizeInches / 2;
+    if (doesCircleIntersectSegment(model.position, radius, observer.position, target.position)) {
+      return false;
+    }
+  }
+
+  // If LoS passes through dense terrain (but not obscuring), model is visible but not "fully"
+  // Dense terrain means you can see the target but not every part
+  if (los.denseTerrainIds.length > 0) return false;
+
+  return true;
+}
+
+/**
+ * Check if a circle (model base) intersects a line segment (LoS ray).
+ */
+function doesCircleIntersectSegment(
+  center: Point,
+  radius: number,
+  segStart: Point,
+  segEnd: Point,
+): boolean {
+  const dx = segEnd.x - segStart.x;
+  const dy = segEnd.y - segStart.y;
+  const fx = segStart.x - center.x;
+  const fy = segStart.y - center.y;
+
+  const a = dx * dx + dy * dy;
+  if (a < 1e-10) return false;
+
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - radius * radius;
+
+  let discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return false;
+
+  discriminant = Math.sqrt(discriminant);
+  const t1 = (-b - discriminant) / (2 * a);
+  const t2 = (-b + discriminant) / (2 * a);
+
+  return t1 < 1 && t2 > 0;
+}
+
+/**
+ * Determine the visibility status of a target unit from an attacking unit.
+ * "Fully Visible" = every model in the target unit is fully visible from every model in the attacking unit.
+ * "Partially Visible" = at least one model is visible.
+ * "Not Visible" = no models are visible.
+ */
+export function checkUnitVisibility(
+  attackingUnit: Unit,
+  targetUnit: Unit,
+  state: GameState,
+): VisibilityResult {
+  const attackerModels = attackingUnit.modelIds
+    .map(id => state.models[id])
+    .filter((m): m is Model => m != null && m.status === 'active');
+  const targetModels = targetUnit.modelIds
+    .map(id => state.models[id])
+    .filter((m): m is Model => m != null && m.status === 'active');
+
+  if (attackerModels.length === 0 || targetModels.length === 0) {
+    return { status: 'not_visible', modelVisibility: {} };
+  }
+
+  const allModels = Object.values(state.models).filter(m => m.status === 'active');
+  const modelVis: Record<string, VisibilityStatus> = {};
+  let allFullyVisible = true;
+  let anyVisible = false;
+
+  for (const target of targetModels) {
+    let thisModelFullyVisible = true;
+    let thisModelVisible = false;
+
+    for (const attacker of attackerModels) {
+      const los = checkLineOfSightWithKeywords(
+        attacker, target, state.terrain, attackingUnit, targetUnit,
+      );
+      if (los.clear) {
+        thisModelVisible = true;
+        // Check full visibility (no intervening models, no dense terrain)
+        const fullyVis = isModelFullyVisible(
+          attacker, target, state.terrain, allModels, attackingUnit, targetUnit,
+        );
+        if (!fullyVis) {
+          thisModelFullyVisible = false;
+        }
+      } else {
+        thisModelFullyVisible = false;
+      }
+    }
+
+    if (thisModelVisible) {
+      anyVisible = true;
+      modelVis[target.id] = thisModelFullyVisible ? 'fully_visible' : 'partially_visible';
+    } else {
+      modelVis[target.id] = 'not_visible';
+    }
+    if (!thisModelFullyVisible) allFullyVisible = false;
+  }
+
+  let status: VisibilityStatus;
+  if (allFullyVisible && anyVisible) {
+    status = 'fully_visible';
+  } else if (anyVisible) {
+    status = 'partially_visible';
+  } else {
+    status = 'not_visible';
+  }
+
+  return { status, modelVisibility: modelVis };
+}
+
+// ===== Engagement Range Targeting Restrictions =====
+
+/**
+ * Check if a target unit is a valid ranged attack target considering ER restrictions.
+ *
+ * Rules:
+ * - Cannot target enemy units in Engagement Range of friendly units with ranged attacks
+ * - Exception: Big Guns Never Tire (MONSTER/VEHICLE can shoot ranged at engaged enemies)
+ * - Exception: Pistols can fire at enemies in ER
+ * - Blast weapons cannot target units in ER of friendly units
+ *
+ * @returns Object with `allowed` flag and optional `reason` for denial
+ */
+export function canTargetWithRangedWeapon(
+  attackingUnit: Unit,
+  targetUnit: Unit,
+  state: GameState,
+  weapon: { abilities: string[]; type: string },
+  engagementRange: number,
+): { allowed: boolean; reason?: string } {
+  // Only applies to ranged weapons
+  if (weapon.type === 'melee') return { allowed: true };
+
+  // Check if the target unit is in ER of any friendly (to the attacker) unit
+  const targetModels = targetUnit.modelIds
+    .map(id => state.models[id])
+    .filter((m): m is Model => m != null && m.status === 'active');
+
+  const targetInFriendlyER = isTargetInFriendlyEngagementRange(
+    attackingUnit.playerId, targetModels, state, engagementRange,
+  );
+
+  if (!targetInFriendlyER) return { allowed: true };
+
+  // Target IS in ER of friendly units — check exceptions
+
+  // Check Blast restriction first — Blast weapons NEVER target units in ER of friendlies
+  const isBlast = weapon.abilities.some(a => a.toUpperCase().includes('BLAST'));
+  if (isBlast) {
+    return { allowed: false, reason: 'Blast weapons cannot target units in Engagement Range of friendly units' };
+  }
+
+  // Pistol exception: can fire at enemies in ER
+  const isPistol = weapon.abilities.some(a => a.toUpperCase().includes('PISTOL'));
+  if (isPistol) return { allowed: true };
+
+  // Big Guns Never Tire: MONSTER/VEHICLE can shoot ranged at engaged enemies
+  const isBGNT = attackingUnit.keywords.some(k => k === 'MONSTER' || k === 'VEHICLE');
+  if (isBGNT) return { allowed: true };
+
+  return { allowed: false, reason: 'Cannot target units in Engagement Range of friendly units with ranged attacks' };
+}
+
+/**
+ * Check if any model in targetModels is within engagement range of a friendly unit
+ * (friendly to the attacking player).
+ */
+function isTargetInFriendlyEngagementRange(
+  attackerPlayerId: string,
+  targetModels: Model[],
+  state: GameState,
+  engagementRange: number,
+): boolean {
+  for (const targetModel of targetModels) {
+    for (const otherModel of Object.values(state.models)) {
+      if (otherModel.status !== 'active') continue;
+      if (otherModel.id === targetModel.id) continue;
+      const otherUnit = state.units[otherModel.unitId];
+      if (!otherUnit) continue;
+      // "Friendly" means belonging to the attacker's player
+      if (otherUnit.playerId !== attackerPlayerId) continue;
+      if (distanceBetweenModels(targetModel, otherModel) <= engagementRange) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
