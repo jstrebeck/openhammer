@@ -3,3 +3,4 @@ export { chargeReducer } from './chargeReducer';
 export { transportReducer } from './transportReducer';
 export { aircraftReducer } from './aircraftReducer';
 export { commandReducer } from './commandReducer';
+export { movementReducer } from './movementReducer';
