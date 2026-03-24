@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  resolveAttackSequence,
-  applyFactionAndDetachmentRules,
-  applyDefensiveDetachmentRules,
-} from '../../combat/index';
-import type { AttackContext } from '../../combat/index';
+import { resolveAttackSequence } from '../../combat/attackPipeline';
+import type { AttackContext } from '../../combat/attackPipeline';
+import { applyFactionAndDetachmentRules, applyDefensiveDetachmentRules } from '../../combat/factionModifiers';
 import type { GameState, Unit, Weapon, Detachment } from '../../types/index';
 import { createInitialGameState } from '../../state/initialState';
 import { gameReducer } from '../../state/reducer';

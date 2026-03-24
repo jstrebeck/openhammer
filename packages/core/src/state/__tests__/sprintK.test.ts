@@ -12,11 +12,7 @@ import {
   isAircraftUnit,
 } from '../../aircraft/index';
 import { isModelDestroyedInTransport } from '../../transport/index';
-import {
-  canAttachLeader,
-  doesAttachedUnitDestructionCountAsDestroyed,
-  getRevertedStartingStrength,
-} from '../../combat/index';
+import { canAttachLeader, doesAttachedUnitDestructionCountAsDestroyed, getRevertedStartingStrength } from '../../combat/woundAllocation';
 import '../../editions/index';
 
 // ===== Test Helpers =====

@@ -1,19 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import {
-  parseWeaponAbility,
-  parseWeaponAbilities,
-  weaponHasAbility,
-  calculateAttacks,
-  resolveAttackSequence,
-  resolveFeelNoPain,
-  parseUnitAbility,
-  unitHasAbility,
-  getUnitAbilityValue,
-  canUnitShootWithAbilities,
-  getWoundThreshold,
-} from '../../combat/index';
+import { parseWeaponAbility, parseWeaponAbilities, weaponHasAbility, parseUnitAbility, unitHasAbility, getUnitAbilityValue } from '../../combat/abilities';
+import { calculateAttacks, resolveAttackSequence, getWoundThreshold } from '../../combat/attackPipeline';
+import type { AttackContext } from '../../combat/attackPipeline';
+import { resolveFeelNoPain } from '../../combat/saves';
+import { canUnitShootWithAbilities } from '../../combat/shooting';
 import type { Weapon, Unit } from '../../types/index';
-import type { AttackContext } from '../../combat/index';
 import '../../editions/index';
 
 // ===============================================

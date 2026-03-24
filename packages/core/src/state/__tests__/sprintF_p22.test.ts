@@ -3,16 +3,10 @@ import { gameReducer } from '../reducer';
 import { createInitialGameState } from '../initialState';
 import type { GameState, Weapon } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
-import {
-  resolveAttackSequence,
-  getEngagementShootingMode,
-  getWoundAllocationTarget,
-  isUnitInEngagementRange,
-  getEngagedEnemyUnits,
-  weaponHasAbility,
-  parseWeaponAbility,
-  calculateAttacks,
-} from '../../combat/index';
+import { weaponHasAbility, parseWeaponAbility } from '../../combat/abilities';
+import { resolveAttackSequence, calculateAttacks } from '../../combat/attackPipeline';
+import { getEngagementShootingMode, isUnitInEngagementRange, getEngagedEnemyUnits } from '../../combat/shooting';
+import { getWoundAllocationTarget } from '../../combat/woundAllocation';
 import { applyBenefitOfCover } from '../../terrain/cover';
 import '../../editions/index';
 

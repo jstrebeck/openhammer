@@ -3,18 +3,12 @@ import { gameReducer } from '../reducer';
 import { createInitialGameState } from '../initialState';
 import type { GameState, DiceRoll, Weapon } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
-import {
-  resolveAttackSequence,
-  resolveSave,
-  parseWeaponAbilities,
-  getSmokescreenModifiers,
-  getGoToGroundModifiers,
-  getStratagemSaveModifiers,
-  getStratagemHitModifier,
-  isEpicChallengePrecision,
-  getAttachedUnitWoundTarget,
-} from '../../combat/index';
-import type { AttackContext } from '../../combat/index';
+import { parseWeaponAbilities } from '../../combat/abilities';
+import { resolveAttackSequence } from '../../combat/attackPipeline';
+import type { AttackContext } from '../../combat/attackPipeline';
+import { resolveSave } from '../../combat/saves';
+import { getSmokescreenModifiers, getGoToGroundModifiers, getStratagemSaveModifiers, getStratagemHitModifier, isEpicChallengePrecision } from '../../combat/stratagems';
+import { getAttachedUnitWoundTarget } from '../../combat/woundAllocation';
 import '../../editions/index';
 
 // ===== Test Helpers =====

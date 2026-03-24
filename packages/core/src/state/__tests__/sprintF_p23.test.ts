@@ -3,18 +3,10 @@ import { gameReducer } from '../reducer';
 import { createInitialGameState } from '../initialState';
 import type { GameState, DeploymentZone } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
-import {
-  validateDeepStrikeArrival,
-  validateInfiltratorsDeployment,
-  validateScoutMove,
-  unitHasStealth,
-  getAttachedUnitWoundTarget,
-  validateStrategicReservesArrival,
-  unitHasAbility,
-  getUnitAbilityValue,
-  resolveAttackSequence,
-  parseWeaponAbility,
-} from '../../combat/index';
+import { unitHasStealth, unitHasAbility, getUnitAbilityValue, parseWeaponAbility } from '../../combat/abilities';
+import { resolveAttackSequence } from '../../combat/attackPipeline';
+import { getAttachedUnitWoundTarget } from '../../combat/woundAllocation';
+import { validateDeepStrikeArrival, validateInfiltratorsDeployment, validateScoutMove, validateStrategicReservesArrival } from '../../deployment/validators';
 import '../../editions/index';
 
 // ===== Test Helpers =====

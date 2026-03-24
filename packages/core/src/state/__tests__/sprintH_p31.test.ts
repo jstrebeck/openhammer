@@ -4,7 +4,7 @@ import { createInitialGameState } from '../initialState';
 import type { GameState, DiceRoll, DeploymentZone } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
 import { validateDeploymentPosition } from '../../army-list/armyValidation';
-import { validateScoutMove } from '../../combat/index';
+import { validateScoutMove } from '../../deployment/validators';
 import '../../editions/index';
 
 // ===== Test Helpers =====

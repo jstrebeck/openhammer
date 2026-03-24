@@ -5,7 +5,8 @@ import type { GameAction } from '../actions';
 import type { GameState, Weapon } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
 import { rollDice } from '../../dice/index';
-import { getWoundThreshold, parseDiceExpression, resolveAttackSequence, resolveSave } from '../../combat/index';
+import { getWoundThreshold, parseDiceExpression, resolveAttackSequence } from '../../combat/attackPipeline';
+import { resolveSave } from '../../combat/saves';
 // Ensure editions are registered
 import '../../editions/index';
 
