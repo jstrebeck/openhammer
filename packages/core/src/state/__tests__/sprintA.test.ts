@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { gameReducer } from '../reducer';
 import { createInitialGameState } from '../initialState';
-import type { GameAction } from '../actions';
 import type { GameState, Weapon } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
 import { rollDice } from '../../dice/index';
-import { getWoundThreshold, parseDiceExpression, resolveAttackSequence } from '../../combat/attackPipeline';
-import { resolveSave } from '../../combat/saves';
+// getWoundThreshold, parseDiceExpression, resolveAttackSequence moved to combat/__tests__/attackPipeline.test.ts
+// resolveSave moved to combat/__tests__/saves.test.ts
 // Ensure editions are registered
 import '../../editions/index';
 
@@ -459,97 +458,9 @@ describe('Phase 9: Structured Shooting', () => {
   });
 });
 
-// ===============================================
-// Phase 9: Combat Utilities
-// ===============================================
+// Combat Utilities moved to combat/__tests__/attackPipeline.test.ts and combat/__tests__/saves.test.ts
 
-describe('Combat Utilities', () => {
-  it('getWoundThreshold: S >= 2T → 2+', () => {
-    expect(getWoundThreshold(8, 4)).toBe(2);
-    expect(getWoundThreshold(10, 4)).toBe(2);
-  });
-
-  it('getWoundThreshold: S > T → 3+', () => {
-    expect(getWoundThreshold(5, 4)).toBe(3);
-    expect(getWoundThreshold(6, 4)).toBe(3);
-    expect(getWoundThreshold(7, 4)).toBe(3);
-  });
-
-  it('getWoundThreshold: S == T → 4+', () => {
-    expect(getWoundThreshold(4, 4)).toBe(4);
-  });
-
-  it('getWoundThreshold: S < T → 5+', () => {
-    expect(getWoundThreshold(3, 4)).toBe(5);
-  });
-
-  it('getWoundThreshold: S <= T/2 → 6+', () => {
-    expect(getWoundThreshold(2, 4)).toBe(6);
-    expect(getWoundThreshold(1, 4)).toBe(6);
-    expect(getWoundThreshold(2, 5)).toBe(6);
-  });
-
-  it('parseDiceExpression handles plain numbers', () => {
-    expect(parseDiceExpression(3)).toBe(3);
-    expect(parseDiceExpression('5')).toBe(5);
-  });
-
-  it('parseDiceExpression handles D6', () => {
-    for (let i = 0; i < 20; i++) {
-      const result = parseDiceExpression('D6');
-      expect(result).toBeGreaterThanOrEqual(1);
-      expect(result).toBeLessThanOrEqual(6);
-    }
-  });
-
-  it('parseDiceExpression handles D3', () => {
-    for (let i = 0; i < 20; i++) {
-      const result = parseDiceExpression('D3');
-      expect(result).toBeGreaterThanOrEqual(1);
-      expect(result).toBeLessThanOrEqual(3);
-    }
-  });
-
-  it('parseDiceExpression handles D3+1', () => {
-    for (let i = 0; i < 20; i++) {
-      const result = parseDiceExpression('D3+1');
-      expect(result).toBeGreaterThanOrEqual(2);
-      expect(result).toBeLessThanOrEqual(4);
-    }
-  });
-
-  it('parseDiceExpression handles 2D6', () => {
-    for (let i = 0; i < 20; i++) {
-      const result = parseDiceExpression('2D6');
-      expect(result).toBeGreaterThanOrEqual(2);
-      expect(result).toBeLessThanOrEqual(12);
-    }
-  });
-
-  it('resolveAttackSequence returns hit and wound results', () => {
-    const result = resolveAttackSequence(10, 3, 4, 4);
-    expect(result.hitRoll.dice).toHaveLength(10);
-    expect(result.hits).toBeGreaterThanOrEqual(0);
-    expect(result.hits).toBeLessThanOrEqual(10);
-    expect(result.woundRoll.dice).toHaveLength(result.hits);
-    expect(result.wounds).toBeGreaterThanOrEqual(0);
-    expect(result.wounds).toBeLessThanOrEqual(result.hits);
-  });
-
-  it('resolveSave uses better of normal save and invuln', () => {
-    // Run enough to verify the system works
-    let invulnUsed = false;
-    for (let i = 0; i < 50; i++) {
-      const result = resolveSave(3, -3, 4); // 3+ save with -3 AP = modified 6+, invuln 4+
-      // The effective save should use invuln (4+) since modified save (6+) is worse
-      if (result.saved && result.saveRoll.dice[0] >= 4) {
-        invulnUsed = true;
-      }
-    }
-    // With invuln 4+, statistically we should see saves passing
-    // (purely probabilistic but with 50 rolls this is virtually certain)
-  });
-});
+// 10th Edition: getWoundThreshold moved to combat/__tests__/attackPipeline.test.ts
 
 // ===============================================
 // Phase 10: Charge Phase
@@ -894,23 +805,4 @@ describe('Integration: Full Shooting Attack Sequence', () => {
   });
 });
 
-// ===============================================
-// Wound Threshold (10th Ed edition method)
-// ===============================================
-
-describe('10th Edition: getWoundThreshold', () => {
-  it('matches the combat utility function', () => {
-    // Both the edition method and standalone function should agree
-    const testCases: [number, number, number][] = [
-      [8, 4, 2],  // S >= 2T
-      [5, 4, 3],  // S > T
-      [4, 4, 4],  // S == T
-      [3, 4, 5],  // S < T
-      [2, 4, 6],  // S <= T/2
-    ];
-
-    for (const [s, t, expected] of testCases) {
-      expect(getWoundThreshold(s, t)).toBe(expected);
-    }
-  });
-});
+// 10th Edition: getWoundThreshold moved to combat/__tests__/attackPipeline.test.ts

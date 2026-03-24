@@ -3,10 +3,9 @@ import { gameReducer } from '../reducer';
 import { createInitialGameState } from '../initialState';
 import type { GameState, Weapon } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
-import { weaponHasAbility, parseWeaponAbility } from '../../combat/abilities';
-import { resolveAttackSequence, calculateAttacks } from '../../combat/attackPipeline';
-import { getEngagementShootingMode, isUnitInEngagementRange, getEngagedEnemyUnits } from '../../combat/shooting';
-import { getWoundAllocationTarget } from '../../combat/woundAllocation';
+// weaponHasAbility, parseWeaponAbility, resolveAttackSequence, calculateAttacks moved to combat/__tests__/
+// getEngagementShootingMode, isUnitInEngagementRange, getEngagedEnemyUnits moved to combat/__tests__/shooting.test.ts
+// getWoundAllocationTarget moved to combat/__tests__/woundAllocation.test.ts
 import { applyBenefitOfCover } from '../../terrain/cover';
 import '../../editions/index';
 
@@ -106,18 +105,7 @@ describe('Phase 22: Shooting Rules Completion', () => {
       expect(result.shootingState.activeShootingUnit).toBe('vehicle-unit');
     });
 
-    it('VEHICLE in ER can only target engaged units (Big Guns targeting restriction)', () => {
-      const state = setupTwoPlayerGame();
-      const unit = makeUnit({
-        id: 'vehicle',
-        playerId: 'p1',
-        keywords: ['VEHICLE'],
-        weapons: [bolter],
-      });
-
-      const mode = getEngagementShootingMode(unit);
-      expect(mode).toBe('big_guns');
-    });
+    // getEngagementShootingMode test moved to combat/__tests__/shooting.test.ts
 
     it('regular infantry cannot shoot in Engagement Range', () => {
       let state = setupTwoPlayerGame();
@@ -170,50 +158,7 @@ describe('Phase 22: Shooting Rules Completion', () => {
       expect(result.shootingState.activeShootingUnit).toBe('pistol-unit');
     });
 
-    it('getEngagementShootingMode identifies pistol mode correctly', () => {
-      const unit = makeUnit({
-        keywords: ['INFANTRY'],
-        weapons: [pistol],
-      });
-      expect(getEngagementShootingMode(unit)).toBe('pistols');
-    });
-
-    it('MONSTER/VEHICLE with Pistols gets both mode', () => {
-      const unit = makeUnit({
-        keywords: ['VEHICLE'],
-        weapons: [pistol, bolter],
-      });
-      expect(getEngagementShootingMode(unit)).toBe('both');
-    });
-  });
-
-  // --- Wound Allocation ---
-
-  describe('Wound allocation', () => {
-    it('must allocate to already-wounded model first', () => {
-      const state = setupTwoPlayerGame();
-      const models: Record<string, import('../../types/index').Model> = {
-        'm1': makeModel({ id: 'm1', unitId: 'u1', wounds: 1, maxWounds: 2 }), // Already wounded
-        'm2': makeModel({ id: 'm2', unitId: 'u1', wounds: 2, maxWounds: 2 }), // Full health
-        'm3': makeModel({ id: 'm3', unitId: 'u1', wounds: 2, maxWounds: 2 }), // Full health
-      };
-      const unit = makeUnit({ id: 'u1', modelIds: ['m1', 'm2', 'm3'] });
-
-      const target = getWoundAllocationTarget(unit, models);
-      expect(target).not.toBeNull();
-      expect(target!.id).toBe('m1'); // Should pick the wounded model
-    });
-
-    it('picks any model when none are wounded', () => {
-      const models: Record<string, import('../../types/index').Model> = {
-        'm1': makeModel({ id: 'm1', unitId: 'u1', wounds: 2, maxWounds: 2 }),
-        'm2': makeModel({ id: 'm2', unitId: 'u1', wounds: 2, maxWounds: 2 }),
-      };
-      const unit = makeUnit({ id: 'u1', modelIds: ['m1', 'm2'] });
-
-      const target = getWoundAllocationTarget(unit, models);
-      expect(target).not.toBeNull();
-    });
+    // getEngagementShootingMode tests moved to combat/__tests__/shooting.test.ts
   });
 
   // --- Hazardous ---
@@ -334,64 +279,6 @@ describe('Phase 22: Shooting Rules Completion', () => {
     });
   });
 
-  // --- Indirect Fire ---
-
-  describe('Indirect Fire', () => {
-    it('-1 to Hit when using Indirect Fire', () => {
-      const indirectWeapon: Weapon = {
-        id: 'w-mortar', name: 'Mortar', type: 'ranged', range: 48,
-        attacks: 2, skill: 4, strength: 5, ap: 0, damage: 1, abilities: ['INDIRECT FIRE'],
-      };
-
-      const ctx = {
-        weapon: indirectWeapon,
-        abilities: indirectWeapon.abilities.map(parseWeaponAbility),
-        distanceToTarget: 30,
-        targetUnitSize: 5,
-        targetKeywords: ['INFANTRY'],
-        attackerStationary: true,
-        attackerCharged: false,
-        attackerModelCount: 1,
-      };
-
-      // Run the attack many times and check that Indirect Fire is triggered
-      const result = resolveAttackSequence(10, 4, 5, 4, ctx);
-      expect(result.triggeredAbilities).toContain('Indirect Fire (-1 to Hit)');
-    });
-  });
-
-  // --- Extra Attacks ---
-
-  describe('Extra Attacks', () => {
-    it('parseWeaponAbility parses EXTRA ATTACKS', () => {
-      const parsed = parseWeaponAbility('EXTRA ATTACKS 2');
-      expect(parsed.name).toBe('EXTRA ATTACKS');
-      expect(parsed.value).toBe(2);
-    });
-  });
-
-  // --- Engagement Range helpers ---
-
-  describe('Engagement range helpers', () => {
-    it('isUnitInEngagementRange detects engaged unit', () => {
-      let state = setupTwoPlayerGame();
-      // Units within 1" (engagement range)
-      state = addUnit(state, 'u1', 'p1', [{ id: 'm1', x: 10, y: 10 }]);
-      state = addUnit(state, 'u2', 'p2', [{ id: 'm2', x: 11, y: 10 }]);
-
-      const unit = state.units['u1'];
-      expect(isUnitInEngagementRange(unit, state, 1)).toBe(true);
-    });
-
-    it('getEngagedEnemyUnits returns engaged enemy unit IDs', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'u1', 'p1', [{ id: 'm1', x: 10, y: 10 }]);
-      state = addUnit(state, 'u2', 'p2', [{ id: 'm2', x: 11, y: 10 }]);
-      state = addUnit(state, 'u3', 'p2', [{ id: 'm3', x: 30, y: 10 }]); // Far away
-
-      const engaged = getEngagedEnemyUnits(state.units['u1'], state, 1);
-      expect(engaged).toContain('u2');
-      expect(engaged).not.toContain('u3');
-    });
-  });
+  // Indirect Fire, Extra Attacks, and Engagement range helpers
+  // moved to combat/__tests__/attackPipeline.test.ts and combat/__tests__/shooting.test.ts
 });
