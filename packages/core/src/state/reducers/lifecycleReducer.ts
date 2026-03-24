@@ -5,11 +5,35 @@ import {
   createEmptyShootingState,
   createEmptyChargeState,
   createEmptyFightState,
+  createEmptyStratagemEffects,
 } from '../../types/index';
-import type { GameState, TurnTracking, DeploymentZone, ObjectiveMarker } from '../../types/index';
+import type { GameState, TurnTracking, DeploymentZone, ObjectiveMarker, FactionStateSlice } from '../../types/index';
 import { getEdition } from '../../rules/registry';
+import { getRegisteredFactionHandlers } from '../../detachments/registry';
 import { evaluateScoring } from '../../missions/index';
 import { checkCoherency, isWithinRange, distanceToPoint } from '../../measurement/index';
+
+function resetFactionStateForPhase(state: GameState, newPhaseId: string): Record<string, FactionStateSlice> {
+  const newFactionState = { ...state.factionState };
+  for (const [factionId, handlers] of getRegisteredFactionHandlers()) {
+    const current = state.factionState[factionId] ?? handlers.createInitial();
+    newFactionState[factionId] = handlers.onPhaseChange(current as any, {
+      newPhaseId,
+      activePlayerId: state.turnState.activePlayerId,
+      roundNumber: state.turnState.roundNumber,
+    });
+  }
+  return newFactionState;
+}
+
+function resetFactionStateForTurn(state: GameState): Record<string, FactionStateSlice> {
+  const newFactionState = { ...state.factionState };
+  for (const [factionId, handlers] of getRegisteredFactionHandlers()) {
+    const current = state.factionState[factionId] ?? handlers.createInitial();
+    newFactionState[factionId] = handlers.onTurnChange(current as any);
+  }
+  return newFactionState;
+}
 
 export const lifecycleReducer: SubReducer = (state, action) => {
   switch (action.type) {
@@ -39,20 +63,10 @@ export const lifecycleReducer: SubReducer = (state, action) => {
         fightState: createEmptyFightState(),
         stratagemsUsedThisPhase: [],
         // Clear phase-duration stratagem effects
-        smokescreenUnits: [],
-        goToGroundUnits: [],
-        epicChallengeUnits: [],
+        stratagemEffects: createEmptyStratagemEffects(),
         outOfPhaseAction: undefined,
-        // Clear orders and officer tracking on phase change
-        activeOrders: {},
-        officersUsedThisPhase: [],
-        // Clear guided targets when entering OWN Shooting phase (For the Greater Good expires)
-        guidedTargets: newPhase?.id === 'shooting'
-          ? (() => {
-              const { [state.turnState.activePlayerId]: _, ...rest } = state.guidedTargets;
-              return rest;
-            })()
-          : state.guidedTargets,
+        // Reset faction state for phase change (orders, guided targets, etc.)
+        factionState: resetFactionStateForPhase(state, newPhase?.id ?? ''),
         // Auto-expire persisting effects at phase end
         persistingEffects: state.persistingEffects.filter(e => e.expiresAt.type !== 'phase_end'),
         log: appendLog(state.log, {
@@ -86,12 +100,9 @@ export const lifecycleReducer: SubReducer = (state, action) => {
         chargeState: createEmptyChargeState(),
         fightState: createEmptyFightState(),
         stratagemsUsedThisPhase: [],
-        smokescreenUnits: [],
-        goToGroundUnits: [],
-        epicChallengeUnits: [],
+        stratagemEffects: createEmptyStratagemEffects(),
         outOfPhaseAction: undefined,
-        activeOrders: {},
-        officersUsedThisPhase: [],
+        factionState: resetFactionStateForTurn(state),
         cpGainedThisRound: isLastPlayer ? {} : state.cpGainedThisRound,
         // Auto-expire persisting effects at turn/round end
         persistingEffects: state.persistingEffects.filter(e => {
@@ -234,9 +245,7 @@ export const lifecycleReducer: SubReducer = (state, action) => {
         score: newScore,
         scoringLog: [...state.scoringLog, ...turnScoring.entries],
         // Clear phase-duration effects
-        smokescreenUnits: [],
-        goToGroundUnits: [],
-        epicChallengeUnits: [],
+        stratagemEffects: createEmptyStratagemEffects(),
         outOfPhaseAction: undefined,
         persistingEffects: state.persistingEffects.filter(e => e.expiresAt.type !== 'phase_end' && e.expiresAt.type !== 'turn_end'),
         log: appendLog(state.log, {
@@ -287,9 +296,7 @@ export const lifecycleReducer: SubReducer = (state, action) => {
         chargeState: isLastRound ? state.chargeState : createEmptyChargeState(),
         fightState: isLastRound ? state.fightState : createEmptyFightState(),
         stratagemsUsedThisPhase: isLastRound ? state.stratagemsUsedThisPhase : [],
-        smokescreenUnits: [],
-        goToGroundUnits: [],
-        epicChallengeUnits: [],
+        stratagemEffects: createEmptyStratagemEffects(),
         outOfPhaseAction: undefined,
         cpGainedThisRound: isLastRound ? state.cpGainedThisRound : {},
         // Clear round-end persisting effects

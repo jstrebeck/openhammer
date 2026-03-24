@@ -1,4 +1,15 @@
-import type { FactionDefinition } from '../types/index';
+import type { FactionDefinition, FactionStateHandlers } from '../types/index';
+
+export interface AstraMilitarumState {
+  activeOrders: Record<string, string>;
+  officersUsedThisPhase: string[];
+}
+
+export const astraMilitarumStateHandlers: FactionStateHandlers<AstraMilitarumState> = {
+  createInitial: () => ({ activeOrders: {}, officersUsedThisPhase: [] }),
+  onPhaseChange: () => ({ activeOrders: {}, officersUsedThisPhase: [] }),
+  onTurnChange: () => ({ activeOrders: {}, officersUsedThisPhase: [] }),
+};
 
 export const astraMilitarum: FactionDefinition = {
   id: 'astra-militarum',

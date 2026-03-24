@@ -343,17 +343,17 @@ describe('Phase 24: Stratagem Effects', () => {
         payload: { stratagemId: 'smokescreen', playerId: 'p2', targetUnitId: 'smoke-unit' },
       });
 
-      expect(result.smokescreenUnits).toContain('smoke-unit');
+      expect(result.stratagemEffects.smokescreenUnits).toContain('smoke-unit');
       expect(result.players['p2'].commandPoints).toBe(4);
     });
 
     it('clears smokescreenUnits on phase advance', () => {
       let state = setupTwoPlayerGame();
       state = setPhase(state, 2);
-      state = { ...state, smokescreenUnits: ['some-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, smokescreenUnits: ['some-unit'] } };
 
       const result = gameReducer(state, { type: 'ADVANCE_PHASE' });
-      expect(result.smokescreenUnits).toEqual([]);
+      expect(result.stratagemEffects.smokescreenUnits).toEqual([]);
     });
   });
 
@@ -374,17 +374,17 @@ describe('Phase 24: Stratagem Effects', () => {
         payload: { stratagemId: 'go-to-ground', playerId: 'p2', targetUnitId: 'ground-unit' },
       });
 
-      expect(result.goToGroundUnits).toContain('ground-unit');
+      expect(result.stratagemEffects.goToGroundUnits).toContain('ground-unit');
       expect(result.players['p2'].commandPoints).toBe(4);
     });
 
     it('clears goToGroundUnits on phase advance', () => {
       let state = setupTwoPlayerGame();
       state = setPhase(state, 2);
-      state = { ...state, goToGroundUnits: ['some-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, goToGroundUnits: ['some-unit'] } };
 
       const result = gameReducer(state, { type: 'ADVANCE_PHASE' });
-      expect(result.goToGroundUnits).toEqual([]);
+      expect(result.stratagemEffects.goToGroundUnits).toEqual([]);
     });
   });
 
@@ -405,16 +405,16 @@ describe('Phase 24: Stratagem Effects', () => {
         payload: { stratagemId: 'epic-challenge', playerId: 'p1', targetUnitId: 'champ-unit' },
       });
 
-      expect(result.epicChallengeUnits).toContain('champ-unit');
+      expect(result.stratagemEffects.epicChallengeUnits).toContain('champ-unit');
     });
 
     it('clears epicChallengeUnits on phase advance', () => {
       let state = setupTwoPlayerGame();
       state = setPhase(state, 4);
-      state = { ...state, epicChallengeUnits: ['some-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, epicChallengeUnits: ['some-unit'] } };
 
       const result = gameReducer(state, { type: 'ADVANCE_PHASE' });
-      expect(result.epicChallengeUnits).toEqual([]);
+      expect(result.stratagemEffects.epicChallengeUnits).toEqual([]);
     });
   });
 

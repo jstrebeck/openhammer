@@ -3,6 +3,9 @@ import { rollDice, countSuccesses } from '../dice/index';
 import { getEdition } from '../rules/registry';
 import { distanceBetweenModels } from '../measurement/index';
 import { pointInPolygon } from '../los/index';
+import { getFactionState } from '../detachments/registry';
+import type { AstraMilitarumState } from '../detachments/astra-militarum';
+import type { TauEmpireState } from '../detachments/tau-empire';
 
 // ===== Dice Expression Parser =====
 
@@ -922,7 +925,7 @@ export function getSmokescreenModifiers(state: GameState, targetUnitId: string):
   hitModifier: number;
   coverSaveModifier: number;
 } {
-  if (state.smokescreenUnits.includes(targetUnitId)) {
+  if (state.stratagemEffects.smokescreenUnits.includes(targetUnitId)) {
     return { hitModifier: -1, coverSaveModifier: 1 };
   }
   return { hitModifier: 0, coverSaveModifier: 0 };
@@ -936,7 +939,7 @@ export function getGoToGroundModifiers(state: GameState, targetUnitId: string): 
   coverSaveModifier: number;
   bonusInvulnSave: number | undefined;
 } {
-  if (state.goToGroundUnits.includes(targetUnitId)) {
+  if (state.stratagemEffects.goToGroundUnits.includes(targetUnitId)) {
     return { coverSaveModifier: 1, bonusInvulnSave: 6 };
   }
   return { coverSaveModifier: 0, bonusInvulnSave: undefined };
@@ -947,7 +950,7 @@ export function getGoToGroundModifiers(state: GameState, targetUnitId: string): 
  * Epic Challenge grants Precision to CHARACTER melee attacks — bypasses Bodyguard allocation.
  */
 export function isEpicChallengePrecision(state: GameState, attackingUnitId: string): boolean {
-  return state.epicChallengeUnits.includes(attackingUnitId);
+  return state.stratagemEffects.epicChallengeUnits.includes(attackingUnitId);
 }
 
 /**
@@ -1079,7 +1082,8 @@ export function applyFactionAndDetachmentRules(
 
   // T'au Empire: For the Greater Good — guided target gets +1 BS from other units
   if (ctx.weapon.type === 'ranged' && ctx.targetUnitId) {
-    const guidedTargetId = state.guidedTargets[playerId];
+    const tauState = getFactionState<TauEmpireState>(state, 'tau-empire');
+    const guidedTargetId = tauState?.guidedTargets?.[playerId];
     if (guidedTargetId && guidedTargetId === ctx.targetUnitId) {
       modified = { ...modified, targetHitModifier: (modified.targetHitModifier ?? 0) + 1 };
       triggeredRules.push('For the Greater Good (+1 BS)');
@@ -1182,7 +1186,8 @@ export function applyFactionAndDetachmentRules(
 
   // --- Active Orders (Combined Regiment) ---
 
-  const activeOrder = state.activeOrders[attackingUnit.id];
+  const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+  const activeOrder = amState?.activeOrders?.[attackingUnit.id];
   if (activeOrder) {
     switch (activeOrder) {
       case 'take-aim':
