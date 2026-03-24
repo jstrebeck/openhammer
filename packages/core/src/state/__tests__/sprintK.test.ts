@@ -12,7 +12,8 @@ import {
   isAircraftUnit,
 } from '../../aircraft/index';
 import { isModelDestroyedInTransport } from '../../transport/index';
-import { canAttachLeader, doesAttachedUnitDestructionCountAsDestroyed, getRevertedStartingStrength } from '../../combat/woundAllocation';
+// canAttachLeader, doesAttachedUnitDestructionCountAsDestroyed, getRevertedStartingStrength
+// moved to combat/__tests__/woundAllocation.test.ts
 import '../../editions/index';
 
 // ===== Test Helpers =====
@@ -184,42 +185,8 @@ describe('Sprint K — Aircraft & Transport Completion (Phase 35)', () => {
     });
   });
 
-  describe('Attached unit destruction VP', () => {
-    it('destroying Leader counts as destroying a unit', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'leader-1', 'p1', [{ id: 'l1', x: 10, y: 10 }], {
-        keywords: ['CHARACTER', 'INFANTRY'],
-      });
-      state = addUnit(state, 'bodyguard-1', 'p1', [{ id: 'b1', x: 11, y: 10 }], {
-        keywords: ['INFANTRY'],
-      });
-      state = { ...state, attachedUnits: { 'leader-1': 'bodyguard-1' } };
-
-      expect(doesAttachedUnitDestructionCountAsDestroyed(state, 'leader-1')).toBe(true);
-    });
-
-    it('destroying Bodyguard counts as destroying a unit', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'leader-1', 'p1', [{ id: 'l1', x: 10, y: 10 }], {
-        keywords: ['CHARACTER', 'INFANTRY'],
-      });
-      state = addUnit(state, 'bodyguard-1', 'p1', [{ id: 'b1', x: 11, y: 10 }], {
-        keywords: ['INFANTRY'],
-      });
-      state = { ...state, attachedUnits: { 'leader-1': 'bodyguard-1' } };
-
-      expect(doesAttachedUnitDestructionCountAsDestroyed(state, 'bodyguard-1')).toBe(true);
-    });
-  });
-
-  describe('Surviving unit reverts to original Starting Strength', () => {
-    it('returns original model count', () => {
-      const unit = makeUnit({
-        modelIds: ['m1', 'm2', 'm3', 'm4', 'm5'],
-      });
-      expect(getRevertedStartingStrength(unit)).toBe(5);
-    });
-  });
+  // Attached unit destruction VP and Surviving unit reverts tests
+  // moved to combat/__tests__/woundAllocation.test.ts
 
   describe('Cannot attach more than one Leader', () => {
     it('blocks second leader attachment', () => {
@@ -254,22 +221,6 @@ describe('Sprint K — Aircraft & Transport Completion (Phase 35)', () => {
       }
     });
 
-    it('validates via canAttachLeader helper', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'leader-1', 'p1', [{ id: 'l1', x: 10, y: 10 }], {
-        keywords: ['CHARACTER', 'INFANTRY'],
-      });
-      state = addUnit(state, 'leader-2', 'p1', [{ id: 'l2', x: 12, y: 10 }], {
-        keywords: ['CHARACTER', 'INFANTRY'],
-      });
-      state = addUnit(state, 'bodyguard-1', 'p1', [{ id: 'b1', x: 11, y: 10 }], {
-        keywords: ['INFANTRY'],
-      });
-      state = { ...state, attachedUnits: { 'leader-1': 'bodyguard-1' } };
-
-      const result = canAttachLeader(state, 'leader-2', 'bodyguard-1');
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toContain('already has a Leader');
-    });
+    // canAttachLeader helper test moved to combat/__tests__/woundAllocation.test.ts
   });
 });

@@ -5,7 +5,7 @@ import type { GameState, DeploymentZone } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
 import { unitHasStealth, unitHasAbility, getUnitAbilityValue, parseWeaponAbility } from '../../combat/abilities';
 import { resolveAttackSequence } from '../../combat/attackPipeline';
-import { getAttachedUnitWoundTarget } from '../../combat/woundAllocation';
+// getAttachedUnitWoundTarget moved to combat/__tests__/woundAllocation.test.ts
 import { validateDeepStrikeArrival, validateInfiltratorsDeployment, validateScoutMove, validateStrategicReservesArrival } from '../../deployment/validators';
 import '../../editions/index';
 
@@ -282,39 +282,7 @@ describe('Phase 23: Unit Abilities & Attached Units', () => {
       )).toBe(true);
     });
 
-    it('wound allocation: Bodyguard absorbs before CHARACTER', () => {
-      const leaderModels: Record<string, import('../../types/index').Model> = {
-        'l1': makeModel({ id: 'l1', unitId: 'leader', wounds: 4, maxWounds: 4 }),
-      };
-      const bodyguardModels: Record<string, import('../../types/index').Model> = {
-        ...leaderModels,
-        'bg1': makeModel({ id: 'bg1', unitId: 'bodyguard', wounds: 2, maxWounds: 2 }),
-        'bg2': makeModel({ id: 'bg2', unitId: 'bodyguard', wounds: 2, maxWounds: 2 }),
-      };
-
-      const leaderUnit = makeUnit({ id: 'leader', modelIds: ['l1'], keywords: ['CHARACTER'] });
-      const bodyguardUnit = makeUnit({ id: 'bodyguard', modelIds: ['bg1', 'bg2'] });
-
-      // Normal allocation — should pick bodyguard first
-      const target = getAttachedUnitWoundTarget(leaderUnit, bodyguardUnit, bodyguardModels, false);
-      expect(target).not.toBeNull();
-      expect(target!.unitId).toBe('bodyguard');
-    });
-
-    it('Precision overrides: allocates to CHARACTER', () => {
-      const allModels: Record<string, import('../../types/index').Model> = {
-        'l1': makeModel({ id: 'l1', unitId: 'leader', wounds: 4, maxWounds: 4 }),
-        'bg1': makeModel({ id: 'bg1', unitId: 'bodyguard', wounds: 2, maxWounds: 2 }),
-      };
-
-      const leaderUnit = makeUnit({ id: 'leader', modelIds: ['l1'], keywords: ['CHARACTER'] });
-      const bodyguardUnit = makeUnit({ id: 'bodyguard', modelIds: ['bg1'] });
-
-      // With Precision — should target CHARACTER (leader)
-      const target = getAttachedUnitWoundTarget(leaderUnit, bodyguardUnit, allModels, true);
-      expect(target).not.toBeNull();
-      expect(target!.unitId).toBe('leader');
-    });
+    // Wound allocation tests (Bodyguard absorbs, Precision overrides) moved to combat/__tests__/woundAllocation.test.ts
   });
 
   // --- Strategic Reserves ---
