@@ -6,3 +6,4 @@ export { commandReducer } from './commandReducer';
 export { movementReducer } from './movementReducer';
 export { shootingReducer } from './shootingReducer';
 export { fightReducer } from './fightReducer';
+export { stratagemReducer } from './stratagemReducer';
