@@ -6,9 +6,9 @@ import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
 import { parseWeaponAbilities } from '../../combat/abilities';
 import { resolveAttackSequence } from '../../combat/attackPipeline';
 import type { AttackContext } from '../../combat/attackPipeline';
-import { resolveSave } from '../../combat/saves';
+// resolveSave moved to combat/__tests__/saves.test.ts
 import { getSmokescreenModifiers, getGoToGroundModifiers, getStratagemSaveModifiers, getStratagemHitModifier, isEpicChallengePrecision } from '../../combat/stratagems';
-import { getAttachedUnitWoundTarget } from '../../combat/woundAllocation';
+// getAttachedUnitWoundTarget moved to combat/__tests__/woundAllocation.test.ts
 import '../../editions/index';
 
 // ===== Test Helpers =====
@@ -86,23 +86,7 @@ const testWeapon: Weapon = {
 // ===============================================
 
 describe('Phase 24a: Smokescreen Combat Integration', () => {
-  describe('getSmokescreenModifiers', () => {
-    it('returns -1 hit modifier and +1 cover for smokescreened unit', () => {
-      let state = setupTwoPlayerGame();
-      state = { ...state, stratagemEffects: { ...state.stratagemEffects, smokescreenUnits: ['target-unit'] } };
-
-      const mods = getSmokescreenModifiers(state, 'target-unit');
-      expect(mods.hitModifier).toBe(-1);
-      expect(mods.coverSaveModifier).toBe(1);
-    });
-
-    it('returns zero modifiers for non-smokescreened unit', () => {
-      const state = setupTwoPlayerGame();
-      const mods = getSmokescreenModifiers(state, 'target-unit');
-      expect(mods.hitModifier).toBe(0);
-      expect(mods.coverSaveModifier).toBe(0);
-    });
-  });
+  // getSmokescreenModifiers tests moved to combat/__tests__/stratagems.test.ts
 
   describe('resolveAttackSequence with Smokescreen (-1 to Hit)', () => {
     it('applies -1 to Hit from targetHitModifier', () => {
@@ -152,34 +136,7 @@ describe('Phase 24a: Smokescreen Combat Integration', () => {
     });
   });
 
-  describe('resolveSave with cover bonus from Smokescreen', () => {
-    it('grants +1 save with coverSaveModifier', () => {
-      // Save 4+, AP 0 → with +1 cover → effective 3+
-      // A roll of 3 should save with cover but not without
-      // Use deterministic approach: just check the function accepts the parameter
-      const resultWithCover = resolveSave(4, 0, undefined, { coverSaveModifier: 1 });
-      // Function should work without error (we can't control dice here)
-      expect(resultWithCover).toHaveProperty('saveRoll');
-      expect(resultWithCover).toHaveProperty('saved');
-    });
-
-    it('cover does not help 3+ save vs AP 0', () => {
-      // Save 3+, AP 0 → cover should NOT improve save
-      // The rule: cover doesn't help models with 3+ or better save vs AP 0
-      const result = resolveSave(3, 0, undefined, { coverSaveModifier: 1 });
-      // The threshold in the roll should still be 3 (not 2)
-      expect(result.saveRoll.threshold).toBeLessThanOrEqual(3);
-    });
-
-    it('cover helps 4+ save vs AP -1', () => {
-      // Save 4+, AP -1 → modified save 5+, with +1 cover → effective 4+
-      // Even though AP is non-zero, cover should help
-      const result = resolveSave(4, -1, undefined, { coverSaveModifier: 1 });
-      // effective save = (4 - 1) - (-1) = 4. With cover: (4-1) - (-1) = 3+1 = 4
-      // Actually: effectiveSaveChar = 4 - 1 = 3, modifiedSave = 3 - (-1) = 4
-      expect(result.saveRoll.threshold).toBeLessThanOrEqual(4);
-    });
-  });
+  // resolveSave with cover tests moved to combat/__tests__/saves.test.ts
 
   describe('Smokescreen end-to-end in game state', () => {
     it('smokescreenUnits is set by USE_STRATAGEM and checked by helper', () => {
@@ -210,69 +167,11 @@ describe('Phase 24a: Smokescreen Combat Integration', () => {
 // ===============================================
 
 describe('Phase 24a: Go to Ground Combat Integration', () => {
-  describe('getGoToGroundModifiers', () => {
-    it('returns +1 cover and 6+ invuln for unit gone to ground', () => {
-      let state = setupTwoPlayerGame();
-      state = { ...state, stratagemEffects: { ...state.stratagemEffects, goToGroundUnits: ['target-unit'] } };
+  // getGoToGroundModifiers tests moved to combat/__tests__/stratagems.test.ts
 
-      const mods = getGoToGroundModifiers(state, 'target-unit');
-      expect(mods.coverSaveModifier).toBe(1);
-      expect(mods.bonusInvulnSave).toBe(6);
-    });
+  // resolveSave with Go to Ground tests moved to combat/__tests__/saves.test.ts
 
-    it('returns zero modifiers for non-affected unit', () => {
-      const state = setupTwoPlayerGame();
-      const mods = getGoToGroundModifiers(state, 'target-unit');
-      expect(mods.coverSaveModifier).toBe(0);
-      expect(mods.bonusInvulnSave).toBeUndefined();
-    });
-  });
-
-  describe('resolveSave with Go to Ground modifiers', () => {
-    it('grants 6+ invulnerable save', () => {
-      // Save 6+, AP -3 → modified save 9+ (impossible), but bonusInvuln 6+ → effective 6+
-      const result = resolveSave(6, -3, undefined, { bonusInvulnSave: 6 });
-      // Threshold should be 6 (the bonus invuln) since modified save is impossible
-      expect(result.saveRoll.threshold).toBe(6);
-    });
-
-    it('bonus invuln does not override better existing invuln', () => {
-      // Unit already has 4+ invuln, bonus 6+ should not make it worse
-      const result = resolveSave(6, -3, 4, { bonusInvulnSave: 6 });
-      // Best invuln = min(4, 6) = 4
-      expect(result.saveRoll.threshold).toBe(4);
-    });
-
-    it('combines cover bonus and invuln from Go to Ground', () => {
-      // Save 5+, AP -1, no existing invuln
-      // With Go to Ground: cover +1 (5+ becomes 4+), modified = 4 - (-1) = 5, invuln 6+
-      // Effective save = min(5, 6) = 5
-      const result = resolveSave(5, -1, undefined, {
-        coverSaveModifier: 1,
-        bonusInvulnSave: 6,
-      });
-      expect(result.saveRoll.threshold).toBe(5);
-    });
-  });
-
-  describe('getStratagemSaveModifiers combines Smokescreen and Go to Ground', () => {
-    it('returns combined modifiers when both active', () => {
-      let state = setupTwoPlayerGame();
-      state = {
-        ...state,
-        stratagemEffects: {
-          ...state.stratagemEffects,
-          smokescreenUnits: ['target-unit'],
-          goToGroundUnits: ['target-unit'],
-        },
-      };
-
-      const mods = getStratagemSaveModifiers(state, 'target-unit');
-      // Cover is not cumulative — max of 1 from either source
-      expect(mods.coverSaveModifier).toBe(1);
-      expect(mods.bonusInvulnSave).toBe(6);
-    });
-  });
+  // getStratagemSaveModifiers test moved to combat/__tests__/stratagems.test.ts
 
   describe('Go to Ground end-to-end in game state', () => {
     it('goToGroundUnits is set by USE_STRATAGEM and checked by helper', () => {
@@ -301,49 +200,9 @@ describe('Phase 24a: Go to Ground Combat Integration', () => {
 // ===============================================
 
 describe('Phase 24a: Epic Challenge Combat Integration', () => {
-  describe('isEpicChallengePrecision', () => {
-    it('returns true for unit in epicChallengeUnits', () => {
-      let state = setupTwoPlayerGame();
-      state = { ...state, stratagemEffects: { ...state.stratagemEffects, epicChallengeUnits: ['champ-unit'] } };
+  // isEpicChallengePrecision tests moved to combat/__tests__/stratagems.test.ts
 
-      expect(isEpicChallengePrecision(state, 'champ-unit')).toBe(true);
-    });
-
-    it('returns false for non-affected unit', () => {
-      const state = setupTwoPlayerGame();
-      expect(isEpicChallengePrecision(state, 'champ-unit')).toBe(false);
-    });
-  });
-
-  describe('Epic Challenge grants Precision — bypasses Bodyguard allocation', () => {
-    it('with Precision=true, wounds go to CHARACTER (leader), not Bodyguard', () => {
-      const leaderUnit = makeUnit({
-        id: 'leader',
-        playerId: 'p1',
-        modelIds: ['leader-m1'],
-        keywords: ['INFANTRY', 'CHARACTER'],
-      });
-      const bodyguardUnit = makeUnit({
-        id: 'bodyguard',
-        playerId: 'p1',
-        modelIds: ['bg-m1', 'bg-m2'],
-        keywords: ['INFANTRY'],
-      });
-      const models: Record<string, import('../../types/index').Model> = {
-        'leader-m1': makeModel({ id: 'leader-m1', unitId: 'leader', wounds: 4, maxWounds: 4 }),
-        'bg-m1': makeModel({ id: 'bg-m1', unitId: 'bodyguard', wounds: 2, maxWounds: 2 }),
-        'bg-m2': makeModel({ id: 'bg-m2', unitId: 'bodyguard', wounds: 2, maxWounds: 2 }),
-      };
-
-      // Without Precision: bodyguard absorbs wounds
-      const normalTarget = getAttachedUnitWoundTarget(leaderUnit, bodyguardUnit, models, false);
-      expect(normalTarget?.id).toBe('bg-m1');
-
-      // With Precision (Epic Challenge): CHARACTER takes wounds
-      const precisionTarget = getAttachedUnitWoundTarget(leaderUnit, bodyguardUnit, models, true);
-      expect(precisionTarget?.id).toBe('leader-m1');
-    });
-  });
+  // Epic Challenge grants Precision test moved to combat/__tests__/woundAllocation.test.ts
 
   describe('Epic Challenge end-to-end in game state', () => {
     it('epicChallengeUnits is set by USE_STRATAGEM and read by helper', () => {
