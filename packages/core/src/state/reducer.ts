@@ -18,11 +18,11 @@ import { appendLog } from './helpers';
 import { setupReducer } from './reducers/setupReducer';
 import { chargeReducer } from './reducers/chargeReducer';
 import { transportReducer } from './reducers/transportReducer';
+import { aircraftReducer } from './reducers/aircraftReducer';
 import { distance, distanceBetweenModels, checkCoherency, isWithinRange, getModelBoundingBox, doesPathCrossModel, closestEnemyModel, distanceToPoint, getPivotCost } from '../measurement/index';
 import { isUnitInEngagementRange, getEngagementShootingMode, getEngagedEnemyUnits, weaponHasAbility, getWoundAllocationTarget } from '../combat/index';
 import { pointInPolygon } from '../los/index';
-import { EMBARKED_POSITION } from '../transport/index';
-import { isAircraftUnit, validateAircraftMovement, AIRCRAFT_MOVE_DISTANCE, canChargeAircraft } from '../aircraft/index';
+import { isAircraftUnit } from '../aircraft/index';
 import { evaluateScoring } from '../missions/index';
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -59,6 +59,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
   const transportResult = transportReducer(state, action);
   if (transportResult !== null) return transportResult;
+
+  const aircraftResult = aircraftReducer(state, action);
+  if (aircraftResult !== null) return aircraftResult;
 
   switch (action.type) {
     case 'MOVE_MODEL': {
@@ -1423,206 +1426,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         fightState: newFightState,
-      };
-    }
-
-    // ===== Phase 19: Aircraft & Reserves =====
-
-    case 'SET_UNIT_IN_RESERVES': {
-      const { unitId, reserveType, availableFromRound } = action.payload;
-      const unit = state.units[unitId];
-      if (!unit) return state;
-
-      // Move models off-board
-      const newModels = { ...state.models };
-      for (const modelId of unit.modelIds) {
-        const model = newModels[modelId];
-        if (model && model.status === 'active') {
-          newModels[modelId] = { ...model, position: { ...EMBARKED_POSITION } };
-        }
-      }
-
-      return {
-        ...state,
-        models: newModels,
-        reserves: {
-          ...state.reserves,
-          [unitId]: { unitId, type: reserveType, availableFromRound },
-        },
-        log: appendLog(state.log, {
-          type: 'message',
-          text: `${unit.name} placed in ${reserveType === 'aircraft' ? 'Aircraft' : reserveType === 'deep_strike' ? 'Deep Strike' : 'Strategic'} Reserves (available round ${availableFromRound}+)`,
-          timestamp: Date.now(),
-        }),
-      };
-    }
-
-    case 'ARRIVE_FROM_RESERVES': {
-      const { unitId, positions } = action.payload;
-      const unit = state.units[unitId];
-      if (!unit) return state;
-
-      const reserve = state.reserves[unitId];
-      if (!reserve) {
-        return {
-          ...state,
-          log: appendLog(state.log, {
-            type: 'message',
-            text: `[BLOCKED] ${unit.name} is not in reserves`,
-            timestamp: Date.now(),
-          }),
-        };
-      }
-
-      // Check round availability
-      if (state.turnState.roundNumber < reserve.availableFromRound) {
-        return {
-          ...state,
-          log: appendLog(state.log, {
-            type: 'message',
-            text: `[BLOCKED] ${unit.name} cannot arrive until round ${reserve.availableFromRound}`,
-            timestamp: Date.now(),
-          }),
-        };
-      }
-
-      // Apply positions
-      const newModels = { ...state.models };
-      for (const [modelId, pos] of Object.entries(positions)) {
-        const model = newModels[modelId];
-        if (model) {
-          newModels[modelId] = { ...model, position: pos };
-        }
-      }
-
-      // Remove from reserves
-      const { [unitId]: _removed, ...remainingReserves } = state.reserves;
-
-      return {
-        ...state,
-        models: newModels,
-        reserves: remainingReserves,
-        turnTracking: {
-          ...state.turnTracking,
-          unitMovement: { ...state.turnTracking.unitMovement, [unitId]: 'normal' },
-        },
-        log: appendLog(state.log, {
-          type: 'message',
-          text: `${unit.name} arrives from ${reserve.type === 'aircraft' ? 'Aircraft' : reserve.type === 'deep_strike' ? 'Deep Strike' : 'Strategic'} Reserves`,
-          timestamp: Date.now(),
-        }),
-      };
-    }
-
-    case 'SET_HOVER_MODE': {
-      const { unitId, hover } = action.payload;
-      const unit = state.units[unitId];
-      if (!unit) return state;
-
-      if (hover) {
-        return {
-          ...state,
-          hoverModeUnits: [...state.hoverModeUnits.filter(id => id !== unitId), unitId],
-          log: appendLog(state.log, {
-            type: 'message',
-            text: `${unit.name} enters Hover mode (M=20", loses AIRCRAFT behavior)`,
-            timestamp: Date.now(),
-          }),
-        };
-      } else {
-        return {
-          ...state,
-          hoverModeUnits: state.hoverModeUnits.filter(id => id !== unitId),
-          log: appendLog(state.log, {
-            type: 'message',
-            text: `${unit.name} exits Hover mode`,
-            timestamp: Date.now(),
-          }),
-        };
-      }
-    }
-
-    case 'AIRCRAFT_MOVE': {
-      const { unitId, endPosition, pivotAngle } = action.payload;
-      const unit = state.units[unitId];
-      if (!unit) return state;
-
-      const validation = validateAircraftMovement(state, unitId, endPosition);
-      if (!validation.valid) {
-        return {
-          ...state,
-          log: appendLog(state.log, {
-            type: 'message',
-            text: `[BLOCKED] ${validation.reason}`,
-            timestamp: Date.now(),
-          }),
-        };
-      }
-
-      if (validation.offBoard) {
-        // Redirect to off-board
-        return gameReducer(state, { type: 'AIRCRAFT_OFF_BOARD', payload: { unitId } });
-      }
-
-      // Apply position and facing to all models
-      const newModels = { ...state.models };
-      for (const modelId of unit.modelIds) {
-        const model = newModels[modelId];
-        if (model && model.status === 'active') {
-          newModels[modelId] = { ...model, position: endPosition, facing: pivotAngle };
-        }
-      }
-
-      return {
-        ...state,
-        models: newModels,
-        turnTracking: {
-          ...state.turnTracking,
-          unitMovement: { ...state.turnTracking.unitMovement, [unitId]: 'normal' },
-          unitsCompleted: { ...state.turnTracking.unitsCompleted, [unitId]: true },
-        },
-        log: appendLog(state.log, {
-          type: 'message',
-          text: `${unit.name} makes aircraft move`,
-          timestamp: Date.now(),
-        }),
-      };
-    }
-
-    case 'AIRCRAFT_OFF_BOARD': {
-      const { unitId } = action.payload;
-      const unit = state.units[unitId];
-      if (!unit) return state;
-
-      // Move models off-board
-      const newModels = { ...state.models };
-      for (const modelId of unit.modelIds) {
-        const model = newModels[modelId];
-        if (model && model.status === 'active') {
-          newModels[modelId] = { ...model, position: { ...EMBARKED_POSITION } };
-        }
-      }
-
-      return {
-        ...state,
-        models: newModels,
-        reserves: {
-          ...state.reserves,
-          [unitId]: {
-            unitId,
-            type: 'strategic',
-            availableFromRound: state.turnState.roundNumber + 1,
-          },
-        },
-        turnTracking: {
-          ...state.turnTracking,
-          unitsCompleted: { ...state.turnTracking.unitsCompleted, [unitId]: true },
-        },
-        log: appendLog(state.log, {
-          type: 'message',
-          text: `${unit.name} moves off the battlefield — enters Strategic Reserves`,
-          timestamp: Date.now(),
-        }),
       };
     }
 
