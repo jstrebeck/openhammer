@@ -161,15 +161,15 @@ Gain Miracle dice throughout the battle. When making dice rolls (Hit, Wound, sav
 **Faction Rule: Born Soldiers**
 Ranged attacks by units that Remained Stationary score Critical Hits on unmodified 5+.
 
-- [ ] Faction rule implemented
-- [ ] Faction rule tested
+- [x] Faction rule implemented (Born Soldiers: crit on 5+ for stationary ranged via `criticalHitThreshold` in `AttackContext`)
+- [x] Faction rule tested (20 tests in `factionRules.test.ts`)
 
 **Detachments:**
 
-- [ ] **Combined Regiment** — *Orders:* OFFICER models issue Orders within 6": Take Aim (re-roll Hit 1s), FRFSRF (AP +1), Move Move Move (+2" Move), Fix Bayonets (re-roll melee Hit 1s), Duty and Honour (4+ invuln until next turn).
-- [ ] **Mechanised Assault** — *Armoured Spearhead:* TRANSPORT/MOUNTED ranged attacks get AP +1. Units disembarking can still shoot.
-- [ ] **Armoured Company** — *Rolling Fortress:* Attacks targeting VEHICLE from >12" get -1 to Wound.
-- [ ] **Fortification Network** — *Siege Warfare:* Ranged attacks targeting units within range of an objective marker re-roll Wound rolls of 1.
+- [x] **Combined Regiment** — *Orders:* OFFICER models issue Orders within 6": Take Aim (re-roll Hit 1s), FRFSRF (AP +1), Move Move Move (+2" Move), Fix Bayonets (re-roll melee Hit 1s), Duty and Honour (4+ invuln until next turn). *(Data: 6 stratagems, 4 enhancements. Orders enforced via `ISSUE_ORDER` action. UI: OrdersPanel in Shooting phase. Move! Move! Move! movement modifier pending.)*
+- [x] **Mechanised Assault** — *Armoured Spearhead:* TRANSPORT/MOUNTED ranged attacks get AP +1. Units disembarking can still shoot. *(Data: 6 stratagems, 4 enhancements. AP+1 enforced via `applyFactionAndDetachmentRules()`.)*
+- [x] **Armoured Company** — *Rolling Fortress:* Attacks targeting VEHICLE from >12" get -1 to Wound. *(Data: 6 stratagems, 4 enhancements. -1 to Wound enforced via `applyDefensiveDetachmentRules()`.)*
+- [x] **Fortification Network** — *Siege Warfare:* Ranged attacks targeting units within range of an objective marker re-roll Wound rolls of 1. *(Data: 6 stratagems, 4 enhancements. Re-roll 1s enforced via `rerollWoundRollsOf1` in `AttackContext`.)*
 
 ---
 
@@ -354,15 +354,15 @@ Once per battle, in your Command phase, call a Waaagh!. Until your next Command 
 **Faction Rule: For the Greater Good**
 Fire Markerlights and Coordinated Fire: after a unit shoots, designate a Guided unit; other units shooting the same target get +1 BS.
 
-- [ ] Faction rule implemented
-- [ ] Faction rule tested
+- [x] Faction rule implemented (`DESIGNATE_GUIDED_TARGET` action, `guidedTargets` state, +1 BS via `targetHitModifier`, UI prompt after shooting, clears at start of own Shooting phase)
+- [x] Faction rule tested (9 tests: designation, validation, lifetime across turns, combat modifier)
 
 **Detachments:**
 
-- [ ] **Kauyon** — *Patient Hunter:* From Round 3, ranged attacks re-roll Hit rolls of 1. From Round 4, re-roll all failed ranged Hit rolls.
-- [ ] **Mont'ka** — *Killing Blow:* Rounds 1-3, ranged attacks within a range threshold get AP +1. Threshold: 18" (R1), 12" (R2), 9" (R3).
-- [ ] **Retaliation Cadre** — *Bonded by Honour:* Ranged attacks targeting enemies within 6" of a friendly unit destroyed this turn re-roll Hit and Wound rolls.
-- [ ] **Kroot Hunting Pack** — *Guerrilla Tactics:* KROOT gain Scouts 7". KROOT melee vs units below Starting Strength re-roll Hit rolls of 1.
+- [x] **Kauyon** — *Patient Hunter:* From Round 3, ranged attacks re-roll Hit rolls of 1. From Round 4, re-roll all failed ranged Hit rolls. *(Data: 6 stratagems, 4 enhancements. Rule enforced via round-based `rerollHitRollsOf1` in `applyFactionAndDetachmentRules()`.)*
+- [x] **Mont'ka** — *Killing Blow:* Rounds 1-3, ranged attacks within a range threshold get AP +1. Threshold: 18" (R1), 12" (R2), 9" (R3). *(Data: 6 stratagems, 4 enhancements. Rule enforced via round/distance-based `bonusAP` in `applyFactionAndDetachmentRules()`.)*
+- [~] **Retaliation Cadre** — *Bonded by Honour:* Ranged attacks targeting enemies within 6" of a friendly unit destroyed this turn re-roll Hit and Wound rolls. *(Data: 6 stratagems, 4 enhancements. Rule enforcement pending — requires destroyed unit position tracking.)*
+- [x] **Kroot Hunting Pack** — *Guerrilla Tactics:* KROOT gain Scouts 7". KROOT melee vs units below Starting Strength re-roll Hit rolls of 1. *(Data: 6 stratagems, 4 enhancements. Melee re-roll enforced. Scouts 7" pending.)*
 
 ---
 
@@ -486,7 +486,7 @@ Enemies gain Judgement tokens (max 2) when they destroy a Votann unit, attack on
 | Grey Knights | 4 | Teleport Assault | Not started |
 | Adeptus Custodes | 4 | Martial Ka'tah | Not started |
 | Adepta Sororitas | 4 | Acts of Faith | Not started |
-| Astra Militarum | 4 | Born Soldiers | Not started |
+| Astra Militarum | 4 | Born Soldiers | In progress (data defined) |
 | Adeptus Mechanicus | 5 | Doctrina Imperatives | Not started |
 | Imperial Knights | 3 | Code Chivalric | Not started |
 | Imperial Agents | 3 | Assigned Agents | Not started |
@@ -497,7 +497,7 @@ Enemies gain Judgement tokens (max 2) when they destroy a Votann unit, attack on
 | Chaos Daemons | 5 | Shadow of Chaos | Not started |
 | Chaos Knights | 3 | Harbingers of Dread | Not started |
 | Orks | 5 | Waaagh! | Not started |
-| T'au Empire | 4 | For the Greater Good | Not started |
+| T'au Empire | 4 | For the Greater Good | In progress (3/4 detachments enforced) |
 | Aeldari | 4 | Strands of Fate | Not started |
 | Drukhari | 5 | Power from Pain | Not started |
 | Tyranids | 6 | Shadow in the Warp | Not started |

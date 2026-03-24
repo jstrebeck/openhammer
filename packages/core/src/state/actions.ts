@@ -136,11 +136,17 @@ export type GameAction =
   | { type: 'ADD_PERSISTING_EFFECT'; payload: { effect: import('../types/index').PersistingEffect } }
   | { type: 'REMOVE_PERSISTING_EFFECT'; payload: { effectId: string } }
 
+  // --- T'au Empire: For the Greater Good ---
+  | { type: 'DESIGNATE_GUIDED_TARGET'; payload: { targetUnitId: string } }
+
+  // --- Combined Regiment Orders ---
+  | { type: 'ISSUE_ORDER'; payload: { officerUnitId: string; targetUnitId: string; orderId: string } }
+
   // --- Phase 30: Army Construction & Validation ---
   | { type: 'DESIGNATE_WARLORD'; payload: { modelId: string } }
   | { type: 'SET_POINTS_LIMIT'; payload: { pointsLimit: number } }
-  | { type: 'SET_FACTION_KEYWORD'; payload: { keyword: string } }
-  | { type: 'SELECT_DETACHMENT'; payload: { detachment: Detachment } }
+  | { type: 'SET_FACTION_KEYWORD'; payload: { playerId: string; keyword: string } }
+  | { type: 'SELECT_DETACHMENT'; payload: { playerId: string; detachment: Detachment } }
   | { type: 'ASSIGN_ENHANCEMENT'; payload: { enhancement: Enhancement; modelId: string } }
   | { type: 'REMOVE_ENHANCEMENT'; payload: { enhancementId: string } }
   | { type: 'VALIDATE_ARMY'; payload: { playerId: string } }

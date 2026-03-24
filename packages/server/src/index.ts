@@ -63,11 +63,12 @@ wss.on('connection', (ws: WebSocket) => {
         });
         send(ws, { type: 'STATE_SNAPSHOT', payload: { state: room.state } });
 
-        // Notify others
+        // Notify others and sync their game state (server added the player via ADD_PLAYER)
         broadcast(room, {
           type: 'PLAYER_CONNECTED',
           payload: { playerName: client.playerName, role: client.role },
         }, ws);
+        broadcast(room, { type: 'STATE_SNAPSHOT', payload: { state: room.state } }, ws);
         break;
       }
 

@@ -3,6 +3,7 @@ import type { GameState, Model, Unit, Weapon, ModelStats, BaseShape } from '../t
 import { baseSizeToInches, baseShapeEffectiveDiameterMm } from '../types/index';
 import { lookupBaseShape } from './baseLookup';
 import { gameReducer } from '../state/reducer';
+import { getFactionByCatalogueName } from '../detachments/registry';
 
 /**
  * Import a Battlescribe JSON roster into the game state for a given player.
@@ -384,4 +385,32 @@ function inferBaseShape(modelName: string, keywords: string[]): BaseShape {
   if (kwSet.has('beast') || kwSet.has('swarm')) return { type: 'circle', diameterMm: 40 };
   if (kwSet.has('character') || kwSet.has('officer')) return { type: 'circle', diameterMm: 28 };
   return { type: 'circle', diameterMm: 32 }; // default infantry
+}
+
+/**
+ * Detect the faction from a Battlescribe roster.
+ * Returns the faction ID (e.g. 'astra-militarum') or undefined if not recognized.
+ */
+export function detectFactionFromRoster(roster: BattlescribeRoster): string | undefined {
+  // Strategy 1: Use catalogueName from the first force
+  const catalogueName = roster.roster.forces?.[0]?.catalogueName;
+  if (catalogueName) {
+    const faction = getFactionByCatalogueName(catalogueName);
+    if (faction) return faction.id;
+  }
+
+  // Strategy 2: Look for "Faction: X" categories in selections
+  for (const force of roster.roster.forces ?? []) {
+    for (const selection of force.selections ?? []) {
+      for (const cat of selection.categories ?? []) {
+        if (cat.name.startsWith('Faction: ')) {
+          const factionName = cat.name.slice('Faction: '.length);
+          const faction = getFactionByCatalogueName(factionName);
+          if (faction) return faction.id;
+        }
+      }
+    }
+  }
+
+  return undefined;
 }

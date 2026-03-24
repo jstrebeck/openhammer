@@ -1,5 +1,6 @@
-// Side-effect: register built-in editions
+// Side-effect: register built-in editions and factions
 import './editions/index';
+import './detachments/index';
 
 export * from './types/geometry';
 export * from './types/index';
@@ -22,3 +23,4 @@ export * from './transport/index';
 export * from './aircraft/index';
 export * from './missions/index';
 export * from './sequencing/index';
+export * from './detachments/index';

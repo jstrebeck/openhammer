@@ -52,9 +52,14 @@ export function createInitialGameState(options?: {
     epicChallengeUnits: [],
     cpGainedThisRound: {},
     persistingEffects: [],
+    guidedTargets: {},
+    activeOrders: {},
+    officersUsedThisPhase: [],
     // Sprint H: Pre-Game Setup
     setupPhase: 'muster',
     enhancements: [],
+    playerFactionKeywords: {},
+    playerDetachments: {},
     deploymentState: createEmptyDeploymentState(),
     // Sprint I: Mission System & Game Lifecycle
     maxBattleRounds: 5,

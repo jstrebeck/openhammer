@@ -66,7 +66,7 @@ describe('Phase 30: Army Construction & Validation', () => {
       state = addUnit(state, 'u2', 'p1', [{ id: 'm2', x: 15, y: 10 }], {
         keywords: ['VEHICLE', 'ADEPTUS ASTARTES'],
       });
-      state = { ...state, factionKeyword: 'ADEPTUS ASTARTES' };
+      state = { ...state, playerFactionKeywords: { ...state.playerFactionKeywords, p1: 'ADEPTUS ASTARTES' } };
 
       const errors = validateFactionKeywords(state, 'p1');
       expect(errors).toHaveLength(0);
@@ -81,7 +81,7 @@ describe('Phase 30: Army Construction & Validation', () => {
         keywords: ['INFANTRY', 'AELDARI'],
         name: 'Rangers',
       });
-      state = { ...state, factionKeyword: 'ADEPTUS ASTARTES' };
+      state = { ...state, playerFactionKeywords: { ...state.playerFactionKeywords, p1: 'ADEPTUS ASTARTES' } };
 
       const errors = validateFactionKeywords(state, 'p1');
       expect(errors).toHaveLength(1);
@@ -99,10 +99,10 @@ describe('Phase 30: Army Construction & Validation', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('SET_FACTION_KEYWORD action stores the faction keyword', () => {
+    it('SET_FACTION_KEYWORD action stores the faction keyword per player', () => {
       let state = setupTwoPlayerGame();
-      state = gameReducer(state, { type: 'SET_FACTION_KEYWORD', payload: { keyword: 'ADEPTUS ASTARTES' } });
-      expect(state.factionKeyword).toBe('ADEPTUS ASTARTES');
+      state = gameReducer(state, { type: 'SET_FACTION_KEYWORD', payload: { playerId: 'p1', keyword: 'ADEPTUS ASTARTES' } });
+      expect(state.playerFactionKeywords['p1']).toBe('ADEPTUS ASTARTES');
     });
   });
 
@@ -364,18 +364,19 @@ describe('Phase 30: Army Construction & Validation', () => {
   // --- Detachment Selection ---
 
   describe('Detachment Selection', () => {
-    it('SELECT_DETACHMENT stores the detachment', () => {
+    it('SELECT_DETACHMENT stores the detachment per player', () => {
       let state = setupTwoPlayerGame();
       const detachment: Detachment = {
         id: 'gladius',
         name: 'Gladius Task Force',
+        factionId: 'space-marines',
         rules: 'Oath of Moment: select one enemy unit at the start of each turn',
       };
-      state = gameReducer(state, { type: 'SELECT_DETACHMENT', payload: { detachment } });
+      state = gameReducer(state, { type: 'SELECT_DETACHMENT', payload: { playerId: 'p1', detachment } });
 
-      expect(state.detachment).toBeDefined();
-      expect(state.detachment!.name).toBe('Gladius Task Force');
-      expect(state.detachment!.id).toBe('gladius');
+      expect(state.playerDetachments['p1']).toBeDefined();
+      expect(state.playerDetachments['p1'].name).toBe('Gladius Task Force');
+      expect(state.playerDetachments['p1'].id).toBe('gladius');
     });
   });
 
@@ -388,7 +389,7 @@ describe('Phase 30: Army Construction & Validation', () => {
         keywords: ['INFANTRY', 'CHARACTER', 'ADEPTUS ASTARTES'],
         points: 100,
       });
-      state = { ...state, factionKeyword: 'ADEPTUS ASTARTES', pointsLimit: 500, warlordModelId: 'm1' };
+      state = { ...state, playerFactionKeywords: { ...state.playerFactionKeywords, p1: 'ADEPTUS ASTARTES' }, pointsLimit: 500, warlordModelId: 'm1' };
 
       state = gameReducer(state, { type: 'VALIDATE_ARMY', payload: { playerId: 'p1' } });
 

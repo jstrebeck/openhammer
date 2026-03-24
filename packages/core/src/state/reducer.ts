@@ -6,6 +6,7 @@ import {
   createEmptyFightState,
   createEmptyDeploymentState,
   CORE_STRATAGEMS,
+  COMBINED_REGIMENT_ORDERS,
   SETUP_PHASE_ORDER,
 } from '../types/index';
 import type { SetupPhase } from '../types/index';
@@ -116,6 +117,8 @@ function getActionCategory(actionType: string): ActionCategory | null {
     case 'RESOLVE_DESPERATE_ESCAPE':
     case 'ADD_PERSISTING_EFFECT':
     case 'REMOVE_PERSISTING_EFFECT':
+    case 'ISSUE_ORDER':
+    case 'DESIGNATE_GUIDED_TARGET':
     // Sprint H: Pre-Game Setup
     case 'DESIGNATE_WARLORD':
     case 'SET_POINTS_LIMIT':
@@ -461,6 +464,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         goToGroundUnits: [],
         epicChallengeUnits: [],
         outOfPhaseAction: undefined,
+        // Clear orders and officer tracking on phase change
+        activeOrders: {},
+        officersUsedThisPhase: [],
+        // Clear guided targets when entering OWN Shooting phase (For the Greater Good expires)
+        guidedTargets: newPhase?.id === 'shooting'
+          ? (() => {
+              const { [state.turnState.activePlayerId]: _, ...rest } = state.guidedTargets;
+              return rest;
+            })()
+          : state.guidedTargets,
         // Auto-expire persisting effects at phase end
         persistingEffects: state.persistingEffects.filter(e => e.expiresAt.type !== 'phase_end'),
         log: appendLog(state.log, {
@@ -498,6 +511,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         goToGroundUnits: [],
         epicChallengeUnits: [],
         outOfPhaseAction: undefined,
+        activeOrders: {},
+        officersUsedThisPhase: [],
         cpGainedThisRound: isLastPlayer ? {} : state.cpGainedThisRound,
         // Auto-expire persisting effects at turn/round end
         persistingEffects: state.persistingEffects.filter(e => {
@@ -811,7 +826,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const player = state.players[playerId];
       if (!player) return state;
 
-      const stratagem = CORE_STRATAGEMS.find(s => s.id === stratagemId);
+      const detachmentStratagems = state.playerDetachments[playerId]?.stratagems ?? [];
+      const stratagem = CORE_STRATAGEMS.find(s => s.id === stratagemId)
+        ?? detachmentStratagems.find(s => s.id === stratagemId);
       if (!stratagem) return state;
 
       // Check: already used this phase?
@@ -1004,6 +1021,119 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       return newState;
+    }
+
+    // ===== Combined Regiment: Orders =====
+
+    case 'ISSUE_ORDER': {
+      const { officerUnitId, targetUnitId, orderId } = action.payload;
+      const officerUnit = state.units[officerUnitId];
+      const targetUnit = state.units[targetUnitId];
+      if (!officerUnit || !targetUnit) return state;
+
+      // Validate: officer must have OFFICER keyword
+      if (!officerUnit.keywords.some(k => k.toUpperCase() === 'OFFICER')) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${officerUnit.name} is not an OFFICER`, timestamp: Date.now() }) };
+      }
+
+      // Validate: same player
+      if (officerUnit.playerId !== targetUnit.playerId) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] Cannot issue orders to enemy units`, timestamp: Date.now() }) };
+      }
+
+      // Validate: officer hasn't already issued an order this phase
+      if (state.officersUsedThisPhase.includes(officerUnitId)) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${officerUnit.name} has already issued an order this phase`, timestamp: Date.now() }) };
+      }
+
+      // Validate: valid order ID
+      const orderDef = COMBINED_REGIMENT_ORDERS.find(o => o.id === orderId);
+      if (!orderDef) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] Unknown order: ${orderId}`, timestamp: Date.now() }) };
+      }
+
+      // Validate: target unit doesn't already have an order
+      if (state.activeOrders[targetUnitId]) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${targetUnit.name} already has an order`, timestamp: Date.now() }) };
+      }
+
+      // Validate: officer within 6" of target (check closest models)
+      const officerModels = officerUnit.modelIds.map(id => state.models[id]).filter(m => m && m.status === 'active');
+      const targetModels = targetUnit.modelIds.map(id => state.models[id]).filter(m => m && m.status === 'active');
+      let withinRange = false;
+      for (const om of officerModels) {
+        for (const tm of targetModels) {
+          if (om && tm && distanceBetweenModels(om, tm) <= 6) {
+            withinRange = true;
+            break;
+          }
+        }
+        if (withinRange) break;
+      }
+      if (!withinRange) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${officerUnit.name} is not within 6" of ${targetUnit.name}`, timestamp: Date.now() }) };
+      }
+
+      let newState: GameState = {
+        ...state,
+        activeOrders: { ...state.activeOrders, [targetUnitId]: orderId },
+        officersUsedThisPhase: [...state.officersUsedThisPhase, officerUnitId],
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `${officerUnit.name} issues "${orderDef.name}" to ${targetUnit.name}`,
+          timestamp: Date.now(),
+        }),
+      };
+
+      // Duty and Honour: create a persisting effect for the 4+ invulnerable save
+      if (orderId === 'duty-and-honour') {
+        newState = {
+          ...newState,
+          persistingEffects: [
+            ...newState.persistingEffects,
+            {
+              id: crypto.randomUUID(),
+              type: 'duty-and-honour',
+              targetUnitId,
+              sourceId: officerUnitId,
+              expiresAt: { type: 'turn_end' },
+              data: { invulnSave: 4 },
+            },
+          ],
+        };
+      }
+
+      return newState;
+    }
+
+    // ===== T'au Empire: For the Greater Good =====
+
+    case 'DESIGNATE_GUIDED_TARGET': {
+      const { targetUnitId } = action.payload;
+      const activePlayerId = state.turnState.activePlayerId;
+
+      // Validate: active player has T'AU EMPIRE faction keyword
+      const factionKw = state.playerFactionKeywords[activePlayerId];
+      if (!factionKw || factionKw.toUpperCase() !== "T'AU EMPIRE") {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: "[BLOCKED] Only T'au Empire players can designate guided targets", timestamp: Date.now() }) };
+      }
+
+      // Validate: target unit exists and is an enemy
+      const targetUnit = state.units[targetUnitId];
+      if (!targetUnit) return state;
+      if (targetUnit.playerId === activePlayerId) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: '[BLOCKED] Cannot designate a friendly unit as guided target', timestamp: Date.now() }) };
+      }
+
+      return {
+        ...state,
+        guidedTargets: { ...state.guidedTargets, [activePlayerId]: targetUnitId },
+        log: appendLog(state.log, {
+          type: 'message',
+          text: `For the Greater Good: ${targetUnit.name} designated as guided target`,
+          timestamp: Date.now(),
+        }),
+      };
     }
 
     // ===== Phase 8: Movement =====
@@ -2345,6 +2475,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         models: newModels,
+        deploymentState: {
+          ...state.deploymentState,
+          scoutMovesCompleted: [...state.deploymentState.scoutMovesCompleted, unitId],
+        },
         log: appendLog(state.log, {
           type: 'message',
           text: `${scoutUnit.name} makes a Scout move`,
@@ -2369,6 +2503,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         models: newModels,
+        deploymentState: {
+          ...state.deploymentState,
+          infiltratorUnits: state.deploymentState.infiltratorUnits.filter(id => id !== unitId),
+        },
         log: appendLog(state.log, {
           type: 'message',
           text: `${infUnit.name} deploys via Infiltrators`,
@@ -2906,26 +3044,32 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_FACTION_KEYWORD': {
-      const { keyword } = action.payload;
+      const { playerId, keyword } = action.payload;
       return {
         ...state,
-        factionKeyword: keyword,
+        playerFactionKeywords: {
+          ...state.playerFactionKeywords,
+          [playerId]: keyword,
+        },
         log: appendLog(state.log, {
           type: 'message',
-          text: `Faction keyword set to "${keyword}"`,
+          text: `${state.players[playerId]?.name ?? playerId} faction keyword set to "${keyword}"`,
           timestamp: Date.now(),
         }),
       };
     }
 
     case 'SELECT_DETACHMENT': {
-      const { detachment } = action.payload;
+      const { playerId, detachment } = action.payload;
       return {
         ...state,
-        detachment,
+        playerDetachments: {
+          ...state.playerDetachments,
+          [playerId]: detachment,
+        },
         log: appendLog(state.log, {
           type: 'message',
-          text: `Detachment selected: ${detachment.name}`,
+          text: `${state.players[playerId]?.name ?? playerId} selected detachment: ${detachment.name}`,
           timestamp: Date.now(),
         }),
       };
@@ -3033,6 +3177,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           unitsRemaining,
           deploymentStarted: false,
           infiltratorUnits,
+          scoutMovesCompleted: [],
         },
         log: appendLog(state.log, {
           type: 'message',

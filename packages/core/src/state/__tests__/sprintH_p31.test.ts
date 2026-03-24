@@ -527,7 +527,7 @@ describe('Phase 31: Deployment Sequence', () => {
         points: 100,
       });
       state = gameReducer(state, { type: 'DESIGNATE_WARLORD', payload: { modelId: 'm1' } });
-      state = gameReducer(state, { type: 'SET_FACTION_KEYWORD', payload: { keyword: 'ADEPTUS ASTARTES' } });
+      state = gameReducer(state, { type: 'SET_FACTION_KEYWORD', payload: { playerId: 'p1', keyword: 'ADEPTUS ASTARTES' } });
       state = gameReducer(state, { type: 'SET_POINTS_LIMIT', payload: { pointsLimit: 500 } });
 
       // Advance to createBattlefield

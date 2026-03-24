@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { useUIStore } from '../store/uiStore';
 import { unitHasAbility, getUnitAbilityValue } from '@openhammer/core';
 import type { SetupPhase } from '@openhammer/core';
 
@@ -12,9 +13,12 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
   const gameState = useGameStore((s) => s.gameState);
   const dispatch = useGameStore((s) => s.dispatch);
 
+  const setSelectedModelIds = useUIStore((s) => s.setSelectedModelIds);
+
   const [wizardStep, setWizardStep] = useState<
     'deploying' | 'infiltrators' | 'scouts' | 'done'
   >('deploying');
+  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
 
   const attackerId = gameState.attackerId;
   const defenderId = gameState.defenderId;
@@ -30,9 +34,10 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
   const allUnitsRemaining = Object.values(deploymentState.unitsRemaining).flat();
   const infiltratorUnits = deploymentState.infiltratorUnits;
 
-  // Scout units
+  // Scout units (exclude already-completed)
+  const scoutMovesCompleted = deploymentState.scoutMovesCompleted;
   const scoutUnits = Object.values(gameState.units).filter(u =>
-    unitHasAbility(u, 'SCOUT'),
+    unitHasAbility(u, 'SCOUT') && !scoutMovesCompleted.includes(u.id),
   );
 
   // Helper to advance setup phase
@@ -43,6 +48,17 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
     for (let i = currentIdx; i < targetIdx; i++) {
       dispatch({ type: 'ADVANCE_SETUP_PHASE' });
     }
+  };
+
+  // ─── Select unit for dragging ───
+  const handleSelectUnit = (unitId: string) => {
+    const unit = gameState.units[unitId];
+    if (!unit) return;
+    const activeModelIds = unit.modelIds.filter(id =>
+      gameState.models[id]?.status === 'active',
+    );
+    setSelectedModelIds(activeModelIds);
+    setActiveUnitId(unitId);
   };
 
   // ─── Alternating deployment ───
@@ -60,6 +76,8 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
     }
 
     dispatch({ type: 'DEPLOY_UNIT', payload: { unitId, positions } });
+    setActiveUnitId(null);
+    setSelectedModelIds([]);
   };
 
   const handleFinishDeployment = () => {
@@ -84,6 +102,8 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
       }
     }
     dispatch({ type: 'DEPLOY_INFILTRATORS', payload: { unitId, positions } });
+    setActiveUnitId(null);
+    setSelectedModelIds([]);
   };
 
   const handleFinishInfiltrators = () => {
@@ -106,6 +126,19 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
       }
     }
     dispatch({ type: 'SCOUT_MOVE', payload: { unitId, positions } });
+    setActiveUnitId(null);
+    setSelectedModelIds([]);
+  };
+
+  // ─── Skip to next step ───
+  const handleSkipStep = () => {
+    if (wizardStep === 'deploying') {
+      handleFinishDeployment();
+    } else if (wizardStep === 'infiltrators') {
+      handleFinishInfiltrators();
+    } else if (wizardStep === 'scouts') {
+      setWizardStep('done');
+    }
   };
 
   // ─── First turn & start game ───
@@ -153,14 +186,23 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
                 const modelCount = unit.modelIds.filter(id =>
                   gameState.models[id]?.status === 'active',
                 ).length;
+                const isActive = activeUnitId === uid;
                 return (
-                  <div key={uid} className="flex items-center gap-2 bg-gray-700/40 rounded px-2 py-1.5">
+                  <div
+                    key={uid}
+                    onClick={() => handleSelectUnit(uid)}
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer transition-colors ${
+                      isActive
+                        ? 'bg-blue-600/30 ring-1 ring-blue-500'
+                        : 'bg-gray-700/40 hover:bg-gray-700/70'
+                    }`}
+                  >
                     <div className="flex-1">
                       <div className="text-xs font-medium text-white">{unit.name}</div>
                       <div className="text-[10px] text-gray-500">{modelCount} model{modelCount !== 1 ? 's' : ''}</div>
                     </div>
                     <button
-                      onClick={() => handleDeployUnit(uid)}
+                      onClick={(e) => { e.stopPropagation(); handleDeployUnit(uid); }}
                       className="px-2 py-1 rounded text-[10px] font-medium bg-green-600 hover:bg-green-700 text-white"
                     >
                       Deploy
@@ -186,14 +228,23 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
               {infiltratorUnits.map((uid) => {
                 const unit = gameState.units[uid];
                 if (!unit) return null;
+                const isActive = activeUnitId === uid;
                 return (
-                  <div key={uid} className="flex items-center gap-2 bg-gray-700/40 rounded px-2 py-1.5">
+                  <div
+                    key={uid}
+                    onClick={() => handleSelectUnit(uid)}
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer transition-colors ${
+                      isActive
+                        ? 'bg-purple-600/30 ring-1 ring-purple-500'
+                        : 'bg-gray-700/40 hover:bg-gray-700/70'
+                    }`}
+                  >
                     <div className="flex-1">
                       <div className="text-xs font-medium text-white">{unit.name}</div>
                       <div className="text-[10px] text-purple-400">INFILTRATORS</div>
                     </div>
                     <button
-                      onClick={() => handleDeployInfiltrator(uid)}
+                      onClick={(e) => { e.stopPropagation(); handleDeployInfiltrator(uid); }}
                       className="px-2 py-1 rounded text-[10px] font-medium bg-purple-600 hover:bg-purple-700 text-white"
                     >
                       Deploy
@@ -214,14 +265,23 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
             <div className="space-y-1">
               {scoutUnits.map((unit) => {
                 const scoutDist = getUnitAbilityValue(unit, 'SCOUT') ?? 0;
+                const isActive = activeUnitId === unit.id;
                 return (
-                  <div key={unit.id} className="flex items-center gap-2 bg-gray-700/40 rounded px-2 py-1.5">
+                  <div
+                    key={unit.id}
+                    onClick={() => handleSelectUnit(unit.id)}
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer transition-colors ${
+                      isActive
+                        ? 'bg-blue-600/30 ring-1 ring-blue-500'
+                        : 'bg-gray-700/40 hover:bg-gray-700/70'
+                    }`}
+                  >
                     <div className="flex-1">
                       <div className="text-xs font-medium text-white">{unit.name}</div>
                       <div className="text-[10px] text-gray-500">Scout {scoutDist}"</div>
                     </div>
                     <button
-                      onClick={() => handleScoutMove(unit.id)}
+                      onClick={(e) => { e.stopPropagation(); handleScoutMove(unit.id); }}
                       className="px-2 py-1 rounded text-[10px] font-medium bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       Confirm Move
@@ -244,12 +304,21 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
 
       {/* Footer */}
       <div className="flex justify-between items-center p-3 border-t border-gray-700">
-        <button
-          onClick={onClose}
-          className="px-3 py-1.5 text-gray-400 hover:text-white text-xs"
-        >
-          {wizardStep === 'done' ? 'Close' : 'Skip'}
-        </button>
+        {wizardStep === 'done' ? (
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-gray-400 hover:text-white text-xs"
+          >
+            Close
+          </button>
+        ) : (
+          <button
+            onClick={handleSkipStep}
+            className="px-3 py-1.5 text-gray-400 hover:text-white text-xs"
+          >
+            Skip
+          </button>
+        )}
         <div>
           {wizardStep === 'deploying' && allUnitsRemaining.length === 0 && (
             <button onClick={handleFinishDeployment} className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs">

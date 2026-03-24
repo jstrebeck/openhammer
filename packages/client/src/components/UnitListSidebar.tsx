@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
-import { getEdition, getTransportForUnit, getEmbarkedModelCount } from '@openhammer/core';
+import { getEdition, getTransportForUnit, getEmbarkedModelCount, getFaction } from '@openhammer/core';
 import { ImportArmyDialog } from './ImportArmyDialog';
 import { DeploymentZonePanel } from './DeploymentZonePanel';
 import { StratagemPanel } from './StratagemPanel';
 import { UnitDataCard } from './UnitDataCard';
+import { PositionedDetachmentTooltip } from './DetachmentTooltip';
 
 export function UnitListSidebar() {
   const gameState = useGameStore((s) => s.gameState);
@@ -20,6 +21,9 @@ export function UnitListSidebar() {
   const [activePlayerTab, setActivePlayerTab] = useState<string | null>(null);
   const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
   const [hoverY, setHoverY] = useState(0);
+  const [detachmentExpanded, setDetachmentExpanded] = useState(false);
+  const [hoveredDetachmentId, setHoveredDetachmentId] = useState<string | null>(null);
+  const [detachmentHoverY, setDetachmentHoverY] = useState(0);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const handleUnitMouseEnter = useCallback((unitId: string, e: React.MouseEvent) => {
@@ -32,6 +36,27 @@ export function UnitListSidebar() {
 
   const handleUnitMouseLeave = useCallback(() => {
     setHoveredUnitId(null);
+  }, []);
+
+  const detachmentDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDetachmentMouseEnter = useCallback((playerId: string, e: React.MouseEvent) => {
+    if (detachmentDismissTimer.current) { clearTimeout(detachmentDismissTimer.current); detachmentDismissTimer.current = null; }
+    const targetRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHoveredDetachmentId(playerId);
+    setDetachmentHoverY(targetRect.top);
+  }, []);
+
+  const handleDetachmentMouseLeave = useCallback(() => {
+    detachmentDismissTimer.current = setTimeout(() => setHoveredDetachmentId(null), 150);
+  }, []);
+
+  const handleDetTooltipEnter = useCallback(() => {
+    if (detachmentDismissTimer.current) { clearTimeout(detachmentDismissTimer.current); detachmentDismissTimer.current = null; }
+  }, []);
+
+  const handleDetTooltipLeave = useCallback(() => {
+    detachmentDismissTimer.current = setTimeout(() => setHoveredDetachmentId(null), 150);
   }, []);
 
   const edition = getEdition(gameState.editionId);
@@ -148,6 +173,74 @@ export function UnitListSidebar() {
             })}
           </div>
         )}
+
+        {/* Detachment Info */}
+        {resolvedTab && gameState.playerDetachments[resolvedTab] && (() => {
+          const det = gameState.playerDetachments[resolvedTab];
+          const faction = getFaction(det.factionId);
+          return (
+            <div className="border-b border-gray-700">
+              <button
+                onClick={() => setDetachmentExpanded(!detachmentExpanded)}
+                onMouseEnter={(e) => handleDetachmentMouseEnter(resolvedTab, e)}
+                onMouseLeave={handleDetachmentMouseLeave}
+                className="w-full px-3 py-2 text-left hover:bg-gray-700/50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-medium text-white">{det.name}</div>
+                    {faction && (
+                      <div className="text-[10px] text-gray-500">{faction.name}</div>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-500">{detachmentExpanded ? '▾' : '▸'}</span>
+                </div>
+              </button>
+              {detachmentExpanded && (
+                <div className="px-3 pb-2 space-y-2">
+                  {/* Faction Rule */}
+                  {faction && (
+                    <div className="bg-yellow-900/20 border border-yellow-700/40 rounded p-1.5">
+                      <div className="text-[9px] text-yellow-400 font-medium">{faction.factionRuleName}</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5 leading-relaxed">{faction.factionRuleDescription}</div>
+                    </div>
+                  )}
+                  {/* Detachment Rule */}
+                  {det.rules && (
+                    <div className="bg-blue-900/20 border border-blue-700/40 rounded p-1.5">
+                      <div className="text-[9px] text-blue-400 font-medium">Detachment Rule</div>
+                      <div className="text-[9px] text-gray-300 mt-0.5 leading-relaxed">{det.rules}</div>
+                    </div>
+                  )}
+                  {/* Stratagems summary */}
+                  {det.stratagems && det.stratagems.length > 0 && (
+                    <div>
+                      <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Stratagems</div>
+                      {det.stratagems.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between py-0.5">
+                          <span className="text-[10px] text-gray-300">{s.name}</span>
+                          <span className="text-[9px] text-yellow-400">{s.cpCost} CP</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Enhancements summary */}
+                  {det.enhancements && det.enhancements.length > 0 && (
+                    <div>
+                      <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Enhancements</div>
+                      {det.enhancements.map((e) => (
+                        <div key={e.id} className="flex items-center justify-between py-0.5">
+                          <span className="text-[10px] text-gray-300">{e.name}</span>
+                          <span className="text-[9px] text-green-400">{e.pointsCost} pts</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Unit List */}
         <div className="flex-1 overflow-y-auto p-2">
@@ -326,6 +419,24 @@ export function UnitListSidebar() {
           >
             <UnitDataCard unit={hoveredUnit} models={hoveredModels} />
           </div>
+        );
+      })()}
+
+      {/* Detachment Hover Tooltip — positioned to the right of the sidebar */}
+      {hoveredDetachmentId && (() => {
+        const det = gameState.playerDetachments[hoveredDetachmentId];
+        if (!det) return null;
+        const sidebarRect = sidebarRef.current?.getBoundingClientRect();
+        const tooltipX = (sidebarRect?.right ?? 244) + 4;
+        return (
+          <PositionedDetachmentTooltip
+            detachment={det}
+            showFactionRule
+            x={tooltipX}
+            y={detachmentHoverY}
+            onMouseEnter={handleDetTooltipEnter}
+            onMouseLeave={handleDetTooltipLeave}
+          />
         );
       })()}
 

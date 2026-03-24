@@ -16,8 +16,10 @@ export function StratagemPanel() {
 
   if (!activePlayer || !currentPhase) return null;
 
-  // Filter stratagems available in this phase
-  const available = CORE_STRATAGEMS.filter((s) => s.phases.includes(currentPhase.id));
+  // Filter stratagems available in this phase (core + detachment)
+  const detachmentStratagems = gameState.playerDetachments[activePlayerId]?.stratagems ?? [];
+  const allStratagems = [...CORE_STRATAGEMS, ...detachmentStratagems];
+  const available = allStratagems.filter((s) => s.phases.includes(currentPhase.id));
   const alreadyUsed = new Set(gameState.stratagemsUsedThisPhase);
 
   const handleUse = (stratagem: Stratagem) => {

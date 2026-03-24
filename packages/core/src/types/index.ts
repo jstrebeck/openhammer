@@ -393,11 +393,24 @@ export const SETUP_PHASE_ORDER: SetupPhase[] = [
 export interface Detachment {
   id: string;
   name: string;
+  /** Faction this detachment belongs to */
+  factionId: string;
   rules?: string;
   /** Detachment-specific stratagems */
   stratagems?: Stratagem[];
   /** Detachment-specific enhancements */
   enhancements?: Enhancement[];
+}
+
+/** Faction definition for the detachment/army registry */
+export interface FactionDefinition {
+  id: string;                    // e.g. 'astra-militarum'
+  name: string;                  // e.g. 'Astra Militarum'
+  factionKeyword: string;        // e.g. 'ASTRA MILITARUM'
+  catalogueNames: string[];      // matches BattlescribeForce.catalogueName
+  factionRuleName: string;
+  factionRuleDescription: string;
+  detachments: Detachment[];
 }
 
 export interface Enhancement {
@@ -422,6 +435,8 @@ export interface DeploymentState {
   deploymentStarted: boolean;
   /** Unit IDs of infiltrators that will be placed during alternation */
   infiltratorUnits: string[];
+  /** Unit IDs of scouts that have completed their pre-game move */
+  scoutMovesCompleted: string[];
 }
 
 export function createEmptyDeploymentState(): DeploymentState {
@@ -430,6 +445,7 @@ export function createEmptyDeploymentState(): DeploymentState {
     unitsRemaining: {},
     deploymentStarted: false,
     infiltratorUnits: [],
+    scoutMovesCompleted: [],
   };
 }
 
@@ -443,6 +459,22 @@ export interface ReserveEntry {
 }
 
 // --- Stratagem types ---
+
+// --- Combined Regiment Orders ---
+
+export interface OrderDefinition {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export const COMBINED_REGIMENT_ORDERS: OrderDefinition[] = [
+  { id: 'take-aim', name: 'Take Aim!', description: 'Re-roll Hit rolls of 1 for ranged attacks.' },
+  { id: 'frfsrf', name: 'First Rank Fire! Second Rank Fire!', description: 'Ranged weapons gain AP improved by 1.' },
+  { id: 'move-move-move', name: 'Move! Move! Move!', description: '+2" to Move characteristic.' },
+  { id: 'fix-bayonets', name: 'Fix Bayonets!', description: 'Re-roll Hit rolls of 1 for melee attacks.' },
+  { id: 'duty-and-honour', name: 'Duty and Honour!', description: '4+ invulnerable save until the start of your next Command phase.' },
+];
 
 export type StratagemTiming = 'your_turn' | 'opponent_turn' | 'either_turn';
 
@@ -525,6 +557,12 @@ export interface GameState {
   cpGainedThisRound: Record<string, number>;
   /** Active persisting effects (survive phase changes, embark/disembark, attach/detach) */
   persistingEffects: PersistingEffect[];
+  /** For the Greater Good: playerId → guided target unitId */
+  guidedTargets: Record<string, string>;
+  /** Active orders: unitId → order ID (Combined Regiment detachment rule) */
+  activeOrders: Record<string, string>;
+  /** Officer unit IDs that have issued an order this phase */
+  officersUsedThisPhase: string[];
 
   // --- Sprint H: Pre-Game Setup ---
 
@@ -534,10 +572,10 @@ export interface GameState {
   warlordModelId?: string;
   /** Army points limit (set by mission or manually) */
   pointsLimit?: number;
-  /** Shared faction keyword for army validation */
-  factionKeyword?: string;
-  /** Selected detachment */
-  detachment?: Detachment;
+  /** Per-player faction keyword for army validation */
+  playerFactionKeywords: Record<string, string>;
+  /** Per-player selected detachment */
+  playerDetachments: Record<string, Detachment>;
   /** Assigned enhancements */
   enhancements: Enhancement[];
   /** Attacker player ID (determined by roll-off) */

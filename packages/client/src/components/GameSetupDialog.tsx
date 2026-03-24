@@ -1,12 +1,13 @@
-import { useState, useRef } from 'react';
-import { validateArmyList, buildArmyUnits, MISSIONS, rollDice } from '@openhammer/core';
-import type { ArmyListValidationError, BattlescribeRoster, Mission } from '@openhammer/core';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { validateArmyList, buildArmyUnits, MISSIONS, rollDice, detectFactionFromRoster, getDetachmentsForFaction, getFaction } from '@openhammer/core';
+import type { ArmyListValidationError, BattlescribeRoster, Mission, Detachment } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
-import { useMultiplayerStore } from '../networking/useMultiplayer';
+import { PositionedDetachmentTooltip } from './DetachmentTooltip';
+import { useMultiplayerStore, multiplayerDisconnect } from '../networking/useMultiplayer';
 import { PLAYER_COLORS } from '../canvas/constants';
 
-type SetupStep = 'map' | 'rolloff' | 'import-attacker' | 'import-defender' | 'done';
+type SetupStep = 'waiting' | 'waiting-for-host' | 'map' | 'rolloff' | 'import-attacker' | 'detachment-attacker' | 'import-defender' | 'detachment-defender' | 'done';
 
 export function GameSetupDialog() {
   const role = useMultiplayerStore((s) => s.role);
@@ -14,11 +15,41 @@ export function GameSetupDialog() {
   const isMultiplayer = !!roomId;
   const isPlayer2 = role === 'player2';
   const isLocal = !isMultiplayer;
+  const isHost = isMultiplayer && role === 'player1';
+  const mpPlayerId = useMultiplayerStore((s) => s.playerId);
 
-  // Player 2 in multiplayer skips straight to import (as defender)
-  const initialStep: SetupStep = isPlayer2 ? 'import-defender' : 'map';
+  const gameState = useGameStore((s) => s.gameState);
+  const myAssignedRole = gameState.attackerId === mpPlayerId ? 'attacker' : gameState.defenderId === mpPlayerId ? 'defender' : null;
+  const dispatch = useGameStore((s) => s.dispatch);
+
+  // Multiplayer host starts at 'waiting', player 2 waits for host, local starts at map
+  const initialStep: SetupStep = isHost ? 'waiting' : isPlayer2 ? 'waiting-for-host' : 'map';
   const [step, setStep] = useState<SetupStep>(initialStep);
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+  const [roomCodeCopied, setRoomCodeCopied] = useState(false);
+
+  // Detect when opponent connects (host advances from waiting)
+  const playerCount = Object.keys(gameState.players).length;
+  useEffect(() => {
+    if (step === 'waiting' && playerCount >= 2) {
+      setStep('map');
+    }
+  }, [step, playerCount]);
+
+  // Detect when host completes roll-off (player 2 advances from waiting-for-host)
+  const attackerIdSet = !!gameState.attackerId;
+  useEffect(() => {
+    if (step === 'waiting-for-host' && attackerIdSet) {
+      setStep('import-defender');
+    }
+  }, [step, attackerIdSet]);
+
+  // Player names — entered manually for local, derived from game state for multiplayer
+  const [player1Name, setPlayer1Name] = useState('');
+  const [player2Name, setPlayer2Name] = useState('');
+  const players = Object.values(gameState.players);
+  const resolvedP1Name = isMultiplayer ? (players[0]?.name ?? 'Player 1') : (player1Name || 'Player 1');
+  const resolvedP2Name = isMultiplayer ? (players[1]?.name ?? 'Player 2') : (player2Name || 'Player 2');
 
   // Roll-off state (local only — players don't exist yet during roll-off)
   const [rollResults, setRollResults] = useState<{ p1: number; p2: number } | null>(null);
@@ -32,17 +63,45 @@ export function GameSetupDialog() {
   // Track created player IDs so we can assign roles later
   const createdPlayerIds = useRef<string[]>([]);
 
-  const gameState = useGameStore((s) => s.gameState);
-  const dispatch = useGameStore((s) => s.dispatch);
+  // Detachment selection state
+  const [attackerFactionId, setAttackerFactionId] = useState<string | undefined>();
+  const [defenderFactionId, setDefenderFactionId] = useState<string | undefined>();
+  const [selectedDetachmentId, setSelectedDetachmentId] = useState<string | null>(null);
+  const [hoveredDetachment, setHoveredDetachment] = useState<Detachment | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const hoverDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDetachmentHover = useCallback((detachment: Detachment, e: React.MouseEvent) => {
+    if (hoverDismissTimer.current) { clearTimeout(hoverDismissTimer.current); hoverDismissTimer.current = null; }
+    const targetRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHoveredDetachment(detachment);
+    setHoverPos({ x: targetRect.right + 8, y: targetRect.top });
+  }, []);
+
+  const handleDetachmentHoverLeave = useCallback(() => {
+    hoverDismissTimer.current = setTimeout(() => setHoveredDetachment(null), 150);
+  }, []);
+
+  const handleTooltipMouseEnter = useCallback(() => {
+    if (hoverDismissTimer.current) { clearTimeout(hoverDismissTimer.current); hoverDismissTimer.current = null; }
+  }, []);
+
+  const handleTooltipMouseLeave = useCallback(() => {
+    hoverDismissTimer.current = setTimeout(() => setHoveredDetachment(null), 150);
+  }, []);
 
   // ─── Roll-off ───
   const handleRollOff = () => {
-    const roll = rollDice(2, 6, 'Attacker/Defender Roll-off');
-    const p1Roll = roll.dice[0];
-    const p2Roll = roll.dice[1];
+    let p1Roll: number;
+    let p2Roll: number;
+    do {
+      const roll = rollDice(2, 6, 'Attacker/Defender Roll-off');
+      p1Roll = roll.dice[0];
+      p2Roll = roll.dice[1];
+    } while (p1Roll === p2Roll);
     setRollResults({ p1: p1Roll, p2: p2Roll });
-    // Higher roll wins; ties go to player 1
-    setAttackerPlayerIndex(p1Roll >= p2Roll ? 0 : 1);
+    setAttackerPlayerIndex(p1Roll > p2Roll ? 0 : 1);
   };
 
   // ─── File handling ───
@@ -78,8 +137,19 @@ export function GameSetupDialog() {
   const deployArmy = (roster: BattlescribeRoster, role: 'attacker' | 'defender') => {
     const currentState = useGameStore.getState().gameState;
     const playerIds = Object.keys(currentState.players);
-    const armyName = roster.roster.name ?? roster.roster.forces?.[0]?.catalogueName ?? 'Army';
     const nextColor = PLAYER_COLORS[playerIds.length % PLAYER_COLORS.length];
+
+    // Determine player name: use entered names for local games, existing player name for multiplayer
+    let playerName: string;
+    if (isLocal && attackerPlayerIndex !== null) {
+      if (role === 'attacker') {
+        playerName = attackerPlayerIndex === 0 ? resolvedP1Name : resolvedP2Name;
+      } else {
+        playerName = attackerPlayerIndex === 0 ? resolvedP2Name : resolvedP1Name;
+      }
+    } else {
+      playerName = roster.roster.name ?? roster.roster.forces?.[0]?.catalogueName ?? 'Army';
+    }
 
     // In multiplayer, use the existing player created at room join; in local, create a new one
     const mpPlayerId = useMultiplayerStore.getState().playerId;
@@ -90,7 +160,7 @@ export function GameSetupDialog() {
       playerId = crypto.randomUUID();
       useGameStore.getState().dispatch({
         type: 'ADD_PLAYER',
-        payload: { player: { id: playerId, name: armyName, color: nextColor, commandPoints: 0 } },
+        payload: { player: { id: playerId, name: playerName, color: nextColor, commandPoints: 0 } },
       });
     }
 
@@ -122,13 +192,62 @@ export function GameSetupDialog() {
       payload: { units },
     });
 
-    // Reset form and advance to next step
+    // Detect faction and set faction keyword
+    const detectedFactionId = detectFactionFromRoster(roster);
+    if (detectedFactionId) {
+      const faction = getFaction(detectedFactionId);
+      if (faction) {
+        useGameStore.getState().dispatch({
+          type: 'SET_FACTION_KEYWORD',
+          payload: { playerId, keyword: faction.factionKeyword },
+        });
+      }
+    }
+
+    // Reset form
     setJsonText('');
     setErrors([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
 
+    // Advance to detachment step or skip if no detachments
+    // In multiplayer, host only imports their own army — skip to 'done' after attacker
+    const nextAfterAttacker = isMultiplayer ? 'done' : 'import-defender';
     if (step === 'import-attacker') {
-      setStep('import-defender');
+      if (detectedFactionId && getDetachmentsForFaction(detectedFactionId).length > 0) {
+        setAttackerFactionId(detectedFactionId);
+        setSelectedDetachmentId(null);
+        setStep('detachment-attacker');
+      } else {
+        setStep(nextAfterAttacker);
+      }
+    } else {
+      if (detectedFactionId && getDetachmentsForFaction(detectedFactionId).length > 0) {
+        setDefenderFactionId(detectedFactionId);
+        setSelectedDetachmentId(null);
+        setStep('detachment-defender');
+      } else {
+        setStep('done');
+      }
+    }
+  };
+
+  // ─── Detachment selection helpers ───
+  const currentDetachmentFactionId = step === 'detachment-attacker' ? attackerFactionId : defenderFactionId;
+  const currentDetachmentPlayerId = step === 'detachment-attacker'
+    ? createdPlayerIds.current[createdPlayerIds.current.length - (step === 'detachment-attacker' ? 1 : 1)]
+    : createdPlayerIds.current[createdPlayerIds.current.length - 1];
+
+  const handleDetachmentSelect = (detachment: Detachment) => {
+    if (!currentDetachmentPlayerId) return;
+    dispatch({ type: 'SELECT_DETACHMENT', payload: { playerId: currentDetachmentPlayerId, detachment } });
+    setSelectedDetachmentId(detachment.id);
+  };
+
+  const handleDetachmentContinue = () => {
+    if (step === 'detachment-attacker') {
+      setSelectedDetachmentId(null);
+      // In multiplayer, host only imports their own army — skip defender import
+      setStep(isMultiplayer ? 'done' : 'import-defender');
     } else {
       setStep('done');
     }
@@ -142,7 +261,8 @@ export function GameSetupDialog() {
       : Object.keys(currentState.players);
 
     // Assign attacker/defender roles if we have 2 players
-    if (playerIds.length >= 2 && attackerPlayerIndex !== null) {
+    // In multiplayer, roles were already assigned at rolloff time — skip
+    if (!isMultiplayer && playerIds.length >= 2 && attackerPlayerIndex !== null) {
       const attackerId = playerIds[attackerPlayerIndex];
       const defenderId = playerIds[attackerPlayerIndex === 0 ? 1 : 0];
 
@@ -157,30 +277,44 @@ export function GameSetupDialog() {
       dispatch({ type: 'BEGIN_DEPLOYMENT', payload: { firstDeployingPlayerId: attackerId } });
     }
 
+    // In multiplayer, begin deployment using the already-assigned attackerId
+    if (isMultiplayer && currentState.attackerId) {
+      dispatch({ type: 'BEGIN_DEPLOYMENT', payload: { firstDeployingPlayerId: currentState.attackerId } });
+    }
+
     useUIStore.getState().setShowGameSetup(false);
     useUIStore.getState().setGameSetupComplete(true);
   };
 
   // ─── Step metadata ───
+  const isDetachmentStep = step === 'detachment-attacker' || step === 'detachment-defender';
+
   const stepTitle = () => {
     switch (step) {
+      case 'waiting': return 'Waiting for Opponent';
+      case 'waiting-for-host': return 'Waiting for Host';
       case 'map': return 'Game Setup — Select Mission';
       case 'rolloff': return 'Game Setup — Roll Off';
       case 'import-attacker': return 'Game Setup — Import Attacker Army';
-      case 'import-defender': return isPlayer2 ? 'Import Your Army' : 'Game Setup — Import Defender Army';
+      case 'detachment-attacker': return 'Game Setup — Select Attacker Detachment';
+      case 'import-defender': return isPlayer2 ? `Import ${myAssignedRole === 'attacker' ? 'Attacker' : 'Defender'} Army` : 'Game Setup — Import Defender Army';
+      case 'detachment-defender': return isPlayer2 ? 'Select Your Detachment' : 'Game Setup — Select Defender Detachment';
       case 'done': return 'Setup Complete';
     }
   };
 
-  const totalSteps = 4;
+  const totalSteps = isPlayer2 ? 3 : isHost ? 6 : 5;
 
   const stepNumber = (): number | null => {
-    if (isPlayer2) return null;
     switch (step) {
-      case 'map': return 1;
-      case 'rolloff': return 2;
-      case 'import-attacker': return 3;
-      case 'import-defender': return 3;
+      case 'waiting': return 1;
+      case 'waiting-for-host': return 1;
+      case 'map': return isHost ? 2 : 1;
+      case 'rolloff': return isHost ? 3 : 2;
+      case 'import-attacker': return isHost ? 4 : 3;
+      case 'detachment-attacker': return isHost ? 4 : 3;
+      case 'import-defender': return isPlayer2 ? 2 : isHost ? 5 : 4;
+      case 'detachment-defender': return isPlayer2 ? 2 : isHost ? 5 : 4;
       case 'done': return null;
     }
   };
@@ -191,7 +325,7 @@ export function GameSetupDialog() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-600 w-[640px] max-h-[85vh] flex flex-col">
+      <div ref={dialogRef} className="bg-gray-800 rounded-lg shadow-xl border border-gray-600 w-[640px] max-h-[85vh] flex flex-col relative">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div>
@@ -214,6 +348,72 @@ export function GameSetupDialog() {
 
         {/* Content */}
         <div className="p-5 flex-1 overflow-y-auto space-y-4">
+          {/* Step: Waiting for Opponent (multiplayer host only) */}
+          {step === 'waiting' && (
+            <div className="flex flex-col items-center justify-center py-8 space-y-6">
+              <div className="text-sm text-gray-300 text-center">
+                Share this room code with your opponent so they can join.
+              </div>
+
+              {/* Room code display */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="text-xs text-gray-500 uppercase tracking-wider">Room Code</div>
+                <button
+                  onClick={() => {
+                    if (roomId) {
+                      navigator.clipboard.writeText(roomId);
+                      setRoomCodeCopied(true);
+                      setTimeout(() => setRoomCodeCopied(false), 2000);
+                    }
+                  }}
+                  className="px-6 py-3 bg-gray-900 border-2 border-blue-500 rounded-lg hover:bg-gray-800 transition-colors group"
+                  title="Click to copy"
+                >
+                  <span className="text-3xl font-mono font-bold text-white tracking-[0.3em]">
+                    {roomId}
+                  </span>
+                </button>
+                <div className="text-xs text-gray-500">
+                  {roomCodeCopied ? (
+                    <span className="text-green-400">Copied to clipboard!</span>
+                  ) : (
+                    'Click to copy'
+                  )}
+                </div>
+              </div>
+
+              {/* Spinner */}
+              <div className="flex items-center gap-3 text-gray-400">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-sm">Waiting for opponent to connect...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Step: Waiting for Host (player 2 only) */}
+          {step === 'waiting-for-host' && (
+            <div className="flex flex-col items-center justify-center py-8 space-y-6">
+              <div className="text-sm text-gray-300 text-center">
+                The host is selecting the mission and determining attacker/defender roles.
+              </div>
+
+              <div className="flex items-center gap-3 text-gray-400">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-sm">Waiting for host to complete setup...</span>
+              </div>
+
+              <div className="text-xs text-gray-500 text-center">
+                You'll be able to import your army once roles have been assigned.
+              </div>
+            </div>
+          )}
+
           {/* Step: Mission Selection */}
           {step === 'map' && (
             <div className="space-y-4">
@@ -324,8 +524,36 @@ export function GameSetupDialog() {
           {step === 'rolloff' && (
             <div className="space-y-4">
               <div className="text-sm text-gray-300">
-                Roll off to determine Attacker and Defender. The winner chooses to attack or defend.
+                {isLocal
+                  ? 'Enter player names, then roll off to determine Attacker and Defender.'
+                  : 'Roll off to determine Attacker and Defender.'}
               </div>
+
+              {/* Player name inputs — local only */}
+              {isLocal && (
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs text-gray-400 mb-1">Player 1</label>
+                    <input
+                      type="text"
+                      value={player1Name}
+                      onChange={(e) => setPlayer1Name(e.target.value)}
+                      placeholder="Player 1"
+                      className="w-full bg-gray-900 text-gray-200 rounded border border-gray-600 px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-gray-400 mb-1">Player 2</label>
+                    <input
+                      type="text"
+                      value={player2Name}
+                      onChange={(e) => setPlayer2Name(e.target.value)}
+                      placeholder="Player 2"
+                      className="w-full bg-gray-900 text-gray-200 rounded border border-gray-600 px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
 
               {!rollResults ? (
                 <button
@@ -338,7 +566,7 @@ export function GameSetupDialog() {
                 <div className="space-y-3">
                   <div className="flex gap-8 justify-center">
                     <div className="text-center">
-                      <div className="text-xs text-gray-400">Player 1</div>
+                      <div className="text-xs text-gray-400">{resolvedP1Name}</div>
                       <div className={`text-4xl font-bold mt-1 ${
                         rollResults.p1 >= rollResults.p2 ? 'text-green-400' : 'text-red-400'
                       }`}>
@@ -346,7 +574,7 @@ export function GameSetupDialog() {
                       </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xs text-gray-400">Player 2</div>
+                      <div className="text-xs text-gray-400">{resolvedP2Name}</div>
                       <div className={`text-4xl font-bold mt-1 ${
                         rollResults.p2 > rollResults.p1 ? 'text-green-400' : 'text-red-400'
                       }`}>
@@ -356,13 +584,13 @@ export function GameSetupDialog() {
                   </div>
                   <div className="text-center text-sm">
                     <span className="text-green-400 font-medium">
-                      Player {(attackerPlayerIndex ?? 0) + 1}
+                      {attackerPlayerIndex === 0 ? resolvedP1Name : resolvedP2Name}
                     </span>
                     {' wins and is the '}
                     <span className="text-blue-400 font-medium">Attacker</span>
                     {'. '}
                     <span className="text-red-400 font-medium">
-                      Player {attackerPlayerIndex === 0 ? 2 : 1}
+                      {attackerPlayerIndex === 0 ? resolvedP2Name : resolvedP1Name}
                     </span>
                     {' is the '}
                     <span className="text-red-400 font-medium">Defender</span>.
@@ -386,7 +614,7 @@ export function GameSetupDialog() {
             <>
               <div className="text-sm text-gray-300">
                 {isPlayer2
-                  ? 'Import your army list to join the game.'
+                  ? `You have been assigned as the ${myAssignedRole === 'attacker' ? 'Attacker' : 'Defender'}. Import your army list.`
                   : `Import the ${importLabel} army list.`}
               </div>
               <div>
@@ -433,6 +661,65 @@ export function GameSetupDialog() {
             </>
           )}
 
+          {/* Step: Detachment Selection */}
+          {isDetachmentStep && currentDetachmentFactionId && (
+            <div className="space-y-4">
+              {(() => {
+                const faction = getFaction(currentDetachmentFactionId);
+                const detachments = getDetachmentsForFaction(currentDetachmentFactionId);
+                return (
+                  <>
+                    <div className="text-sm text-gray-300">
+                      Select a detachment for your {step === 'detachment-attacker' ? 'attacker' : 'defender'} army.
+                    </div>
+
+                    {/* Faction rule */}
+                    {faction && (
+                      <div className="bg-yellow-900/20 border border-yellow-700/50 rounded p-3">
+                        <div className="text-xs text-yellow-400 font-medium">Faction Rule: {faction.factionRuleName}</div>
+                        <div className="text-[10px] text-gray-400 mt-1">{faction.factionRuleDescription}</div>
+                      </div>
+                    )}
+
+                    {/* Detachment list */}
+                    <div className="space-y-2">
+                      {detachments.map((d) => (
+                        <button
+                          key={d.id}
+                          onClick={() => handleDetachmentSelect(d)}
+                          onMouseEnter={(e) => handleDetachmentHover(d, e)}
+                          onMouseLeave={handleDetachmentHoverLeave}
+                          className={`w-full text-left px-3 py-3 rounded border transition-colors ${
+                            selectedDetachmentId === d.id
+                              ? 'border-blue-500 bg-blue-900/30'
+                              : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
+                          }`}
+                        >
+                          <div className="text-sm font-medium text-white">{d.name}</div>
+                          {d.rules && (
+                            <div className="text-[10px] text-gray-400 mt-1 line-clamp-2">{d.rules}</div>
+                          )}
+                          <div className="flex gap-3 mt-1">
+                            {d.stratagems && d.stratagems.length > 0 && (
+                              <span className="text-[10px] text-indigo-400">
+                                {d.stratagems.length} stratagem{d.stratagems.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {d.enhancements && d.enhancements.length > 0 && (
+                              <span className="text-[10px] text-green-400">
+                                {d.enhancements.length} enhancement{d.enhancements.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Step: Done */}
           {step === 'done' && (
             <div className="bg-green-900/30 border border-green-700 rounded p-4">
@@ -449,6 +736,18 @@ export function GameSetupDialog() {
         {/* Footer */}
         <div className="flex justify-between items-center p-4 border-t border-gray-700">
           <div>
+            {(step === 'waiting' || step === 'waiting-for-host') && (
+              <button
+                onClick={() => {
+                  multiplayerDisconnect();
+                  useUIStore.getState().setGameCreated(false);
+                  useUIStore.getState().setShowGameSetup(false);
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+              >
+                Cancel
+              </button>
+            )}
             {step === 'map' && (
               <button
                 onClick={handleClose}
@@ -481,7 +780,22 @@ export function GameSetupDialog() {
                   Back
                 </button>
                 <button
-                  onClick={() => setStep('import-attacker')}
+                  onClick={() => {
+                    // In multiplayer, both players already exist — dispatch roles now so player 2 can proceed
+                    if (isMultiplayer && attackerPlayerIndex !== null) {
+                      const currentState = useGameStore.getState().gameState;
+                      const playerIds = Object.keys(currentState.players);
+                      if (playerIds.length >= 2) {
+                        const attackerId = playerIds[attackerPlayerIndex];
+                        const defenderId = playerIds[attackerPlayerIndex === 0 ? 1 : 0];
+                        dispatch({ type: 'DETERMINE_ATTACKER_DEFENDER', payload: { attackerId, defenderId } });
+                        if (selectedMission) {
+                          dispatch({ type: 'SET_MISSION', payload: { mission: selectedMission } });
+                        }
+                      }
+                    }
+                    setStep('import-attacker');
+                  }}
                   disabled={attackerPlayerIndex === null}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
@@ -514,6 +828,26 @@ export function GameSetupDialog() {
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Import & Deploy
+                </button>
+              </>
+            )}
+            {step === 'detachment-attacker' && (
+              <>
+                <button
+                  onClick={() => {
+                    setSelectedDetachmentId(null);
+                    setStep('import-defender');
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleDetachmentContinue}
+                  disabled={!selectedDetachmentId}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
                 </button>
               </>
             )}
@@ -551,6 +885,26 @@ export function GameSetupDialog() {
                 </button>
               </>
             )}
+            {step === 'detachment-defender' && (
+              <>
+                <button
+                  onClick={() => {
+                    setSelectedDetachmentId(null);
+                    setStep('done');
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleDetachmentContinue}
+                  disabled={!selectedDetachmentId}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </>
+            )}
             {step === 'done' && (
               <button
                 onClick={handleClose}
@@ -562,6 +916,18 @@ export function GameSetupDialog() {
           </div>
         </div>
       </div>
+
+      {/* Detachment hover tooltip */}
+      {hoveredDetachment && (
+        <PositionedDetachmentTooltip
+          detachment={hoveredDetachment}
+          showFactionRule
+          x={hoverPos.x}
+          y={hoverPos.y}
+          onMouseEnter={handleTooltipMouseEnter}
+          onMouseLeave={handleTooltipMouseLeave}
+        />
+      )}
     </div>
   );
 }

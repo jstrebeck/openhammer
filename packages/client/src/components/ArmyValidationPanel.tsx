@@ -30,8 +30,8 @@ export function ArmyValidationPanel({ playerId }: { playerId: string }) {
         <span className="font-medium text-white">{player?.name ?? 'Player'}</span>
         {' — '}
         {playerUnits.length} unit{playerUnits.length !== 1 ? 's' : ''}
-        {gameState.factionKeyword && (
-          <span className="text-gray-500 ml-1">({gameState.factionKeyword})</span>
+        {gameState.playerFactionKeywords[playerId] && (
+          <span className="text-gray-500 ml-1">({gameState.playerFactionKeywords[playerId]})</span>
         )}
       </div>
 

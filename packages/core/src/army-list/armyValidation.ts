@@ -13,7 +13,7 @@ export function validateFactionKeywords(state: GameState, playerId: string): str
   // Collect all faction keywords per unit (keywords starting with "FACTION:" prefix or matching factionKeyword)
   // In 10th Edition, faction keywords are typically the army's shared faction.
   // We check that every unit has the declared faction keyword.
-  const factionKeyword = state.factionKeyword;
+  const factionKeyword = state.playerFactionKeywords[playerId];
   if (!factionKeyword) return errors; // No faction keyword set, skip validation
 
   for (const unit of playerUnits) {
