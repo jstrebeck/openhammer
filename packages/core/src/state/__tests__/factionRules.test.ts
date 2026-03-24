@@ -9,7 +9,9 @@ import type { GameState, Unit, Weapon, Detachment } from '../../types/index';
 import { createInitialGameState } from '../../state/initialState';
 import { gameReducer } from '../../state/reducer';
 import { detectFactionFromRoster } from '../../army-list/importer';
-import { getFaction, getDetachmentsForFaction, getAllFactions } from '../../detachments/registry';
+import { getFaction, getDetachmentsForFaction, getAllFactions, getFactionState } from '../../detachments/registry';
+import type { AstraMilitarumState } from '../../detachments/astra-militarum';
+import type { TauEmpireState } from '../../detachments/tau-empire';
 import '../../editions/index';
 import '../../detachments/index';
 
@@ -479,8 +481,9 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'take-aim' },
     });
 
-    expect(state.activeOrders['inf-u1']).toBe('take-aim');
-    expect(state.officersUsedThisPhase).toContain('officer-u1');
+    const amState1 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amState1.activeOrders['inf-u1']).toBe('take-aim');
+    expect(amState1.officersUsedThisPhase).toContain('officer-u1');
   });
 
   it('blocks order to unit out of range (>6")', () => {
@@ -490,8 +493,9 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       payload: { officerUnitId: 'officer-u1', targetUnitId: 'far-u1', orderId: 'take-aim' },
     });
 
-    expect(state.activeOrders['far-u1']).toBeUndefined();
-    expect(state.officersUsedThisPhase).not.toContain('officer-u1');
+    const amState2 = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+    expect(amState2?.activeOrders['far-u1']).toBeUndefined();
+    expect(amState2?.officersUsedThisPhase ?? []).not.toContain('officer-u1');
   });
 
   it('blocks officer from issuing two orders in same phase', () => {
@@ -506,7 +510,8 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       payload: { officerUnitId: 'officer-u1', targetUnitId: 'officer-u1', orderId: 'fix-bayonets' },
     });
 
-    expect(state.activeOrders['officer-u1']).toBeUndefined();
+    const amState3 = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+    expect(amState3?.activeOrders['officer-u1']).toBeUndefined();
   });
 
   it('blocks unit from receiving two orders', () => {
@@ -536,7 +541,8 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
     });
 
     // Should still have Take Aim, not FRFSRF
-    expect(state.activeOrders['inf-u1']).toBe('take-aim');
+    const amState4 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amState4.activeOrders['inf-u1']).toBe('take-aim');
   });
 
   it('blocks non-OFFICER units from issuing orders', () => {
@@ -546,7 +552,8 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       payload: { officerUnitId: 'inf-u1', targetUnitId: 'officer-u1', orderId: 'take-aim' },
     });
 
-    expect(state.activeOrders['officer-u1']).toBeUndefined();
+    const amState5 = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+    expect(amState5?.activeOrders['officer-u1']).toBeUndefined();
   });
 
   it('clears orders on ADVANCE_PHASE', () => {
@@ -555,12 +562,14 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       type: 'ISSUE_ORDER',
       payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'take-aim' },
     });
-    expect(state.activeOrders['inf-u1']).toBe('take-aim');
+    const amState6 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amState6.activeOrders['inf-u1']).toBe('take-aim');
 
     state = gameReducer(state, { type: 'ADVANCE_PHASE' });
 
-    expect(state.activeOrders).toEqual({});
-    expect(state.officersUsedThisPhase).toEqual([]);
+    const amState7 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amState7.activeOrders).toEqual({});
+    expect(amState7.officersUsedThisPhase).toEqual([]);
   });
 
   it('Duty and Honour creates a persisting effect', () => {
@@ -570,7 +579,8 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'duty-and-honour' },
     });
 
-    expect(state.activeOrders['inf-u1']).toBe('duty-and-honour');
+    const amState8 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amState8.activeOrders['inf-u1']).toBe('duty-and-honour');
     const effect = state.persistingEffects.find(e => e.type === 'duty-and-honour' && e.targetUnitId === 'inf-u1');
     expect(effect).toBeDefined();
     expect(effect!.expiresAt.type).toBe('turn_end');
@@ -581,7 +591,7 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
 describe('Combined Regiment Orders — Combat Modifiers', () => {
   it('Take Aim applies rerollHitRollsOf1 for ranged attacks', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
-    const stateWithOrder = { ...state, activeOrders: { [unit.id]: 'take-aim' } };
+    const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'take-aim' }, officersUsedThisPhase: [] } } };
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged' }) });
 
     const { ctx: modified, triggeredRules } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
@@ -592,7 +602,7 @@ describe('Combined Regiment Orders — Combat Modifiers', () => {
 
   it('FRFSRF applies bonusAP for ranged attacks', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
-    const stateWithOrder = { ...state, activeOrders: { [unit.id]: 'frfsrf' } };
+    const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'frfsrf' }, officersUsedThisPhase: [] } } };
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged', ap: 0 }) });
 
     const { ctx: modified, triggeredRules } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
@@ -603,7 +613,7 @@ describe('Combined Regiment Orders — Combat Modifiers', () => {
 
   it('Fix Bayonets applies rerollHitRollsOf1 for melee attacks only', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
-    const stateWithOrder = { ...state, activeOrders: { [unit.id]: 'fix-bayonets' } };
+    const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'fix-bayonets' }, officersUsedThisPhase: [] } } };
 
     // Melee — should apply
     const meleeCtx = makeCtx({ weapon: makeWeapon({ type: 'melee', name: 'Bayonet' }) });
@@ -618,7 +628,7 @@ describe('Combined Regiment Orders — Combat Modifiers', () => {
 
   it('Take Aim does not apply to melee attacks', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
-    const stateWithOrder = { ...state, activeOrders: { [unit.id]: 'take-aim' } };
+    const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'take-aim' }, officersUsedThisPhase: [] } } };
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'melee' }) });
 
     const { ctx: modified } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
@@ -842,7 +852,8 @@ describe("For the Greater Good — Guided Targets", () => {
       payload: { targetUnitId: 'enemy-u1' },
     });
 
-    expect(state.guidedTargets['tau']).toBe('enemy-u1');
+    const tauState1 = getFactionState<TauEmpireState>(state, 'tau-empire')!;
+    expect(tauState1.guidedTargets['tau']).toBe('enemy-u1');
   });
 
   it('blocks designating a friendly unit', () => {
@@ -861,7 +872,8 @@ describe("For the Greater Good — Guided Targets", () => {
       payload: { targetUnitId: 'tau-u1' },
     });
 
-    expect(state.guidedTargets['tau']).toBeUndefined();
+    const tauState2 = getFactionState<TauEmpireState>(state, 'tau-empire');
+    expect(tauState2?.guidedTargets['tau']).toBeUndefined();
   });
 
   it('replaces previous guided target when designating a new one', () => {
@@ -883,10 +895,10 @@ describe("For the Greater Good — Guided Targets", () => {
     });
 
     state = gameReducer(state, { type: 'DESIGNATE_GUIDED_TARGET', payload: { targetUnitId: 'e1' } });
-    expect(state.guidedTargets['tau']).toBe('e1');
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBe('e1');
 
     state = gameReducer(state, { type: 'DESIGNATE_GUIDED_TARGET', payload: { targetUnitId: 'e2' } });
-    expect(state.guidedTargets['tau']).toBe('e2');
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBe('e2');
   });
 
   it('guided target persists across non-shooting phase advances', () => {
@@ -901,11 +913,11 @@ describe("For the Greater Good — Guided Targets", () => {
     });
 
     state = gameReducer(state, { type: 'DESIGNATE_GUIDED_TARGET', payload: { targetUnitId: 'e1' } });
-    expect(state.guidedTargets['tau']).toBe('e1');
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBe('e1');
 
     // Advance to Charge phase — guided target should survive
     state = gameReducer(state, { type: 'ADVANCE_PHASE' });
-    expect(state.guidedTargets['tau']).toBe('e1');
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBe('e1');
   });
 
   it('guided target survives through opponent turn', () => {
@@ -928,7 +940,7 @@ describe("For the Greater Good — Guided Targets", () => {
 
     // Next turn switches to enemy
     state = gameReducer(state, { type: 'NEXT_TURN' });
-    expect(state.guidedTargets['tau']).toBe('e1');
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBe('e1');
   });
 
   it('guided target clears when entering own Shooting phase next turn', () => {
@@ -954,7 +966,7 @@ describe("For the Greater Good — Guided Targets", () => {
     // Go through all enemy phases
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Movement
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Shooting (enemy's — tau guided should persist)
-    expect(state.guidedTargets['tau']).toBe('e1');
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBe('e1');
 
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Charge
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Fight
@@ -964,12 +976,12 @@ describe("For the Greater Good — Guided Targets", () => {
     state = gameReducer(state, { type: 'NEXT_TURN' });
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Movement
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Shooting — NOW it clears
-    expect(state.guidedTargets['tau']).toBeUndefined();
+    expect(getFactionState<TauEmpireState>(state, 'tau-empire')!.guidedTargets['tau']).toBeUndefined();
   });
 
   it('applies +1 BS modifier when shooting a guided target', () => {
     const { state, unit } = setupGameWithFaction("T'AU EMPIRE");
-    const stateWithGuided = { ...state, guidedTargets: { p1: 'enemy-u1' } };
+    const stateWithGuided = { ...state, factionState: { ...state.factionState, 'tau-empire': { guidedTargets: { p1: 'enemy-u1' } } } };
 
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged' }), targetUnitId: 'enemy-u1' });
     const { ctx: modified, triggeredRules } = applyFactionAndDetachmentRules(ctx, stateWithGuided, unit);
@@ -980,7 +992,7 @@ describe("For the Greater Good — Guided Targets", () => {
 
   it('does not apply +1 BS to non-guided targets', () => {
     const { state, unit } = setupGameWithFaction("T'AU EMPIRE");
-    const stateWithGuided = { ...state, guidedTargets: { p1: 'enemy-u1' } };
+    const stateWithGuided = { ...state, factionState: { ...state.factionState, 'tau-empire': { guidedTargets: { p1: 'enemy-u1' } } } };
 
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged' }), targetUnitId: 'different-enemy' });
     const { ctx: modified } = applyFactionAndDetachmentRules(ctx, stateWithGuided, unit);
@@ -990,7 +1002,7 @@ describe("For the Greater Good — Guided Targets", () => {
 
   it('does not apply to melee attacks against guided target', () => {
     const { state, unit } = setupGameWithFaction("T'AU EMPIRE");
-    const stateWithGuided = { ...state, guidedTargets: { p1: 'enemy-u1' } };
+    const stateWithGuided = { ...state, factionState: { ...state.factionState, 'tau-empire': { guidedTargets: { p1: 'enemy-u1' } } } };
 
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'melee' }), targetUnitId: 'enemy-u1' });
     const { ctx: modified } = applyFactionAndDetachmentRules(ctx, stateWithGuided, unit);

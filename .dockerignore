@@ -1,0 +1,10 @@
+node_modules
+packages/*/node_modules
+packages/*/dist
+packages/*/*.tsbuildinfo
+.git
+infrastructure
+docs
+*.md
+!package.json
+!package-lock.json

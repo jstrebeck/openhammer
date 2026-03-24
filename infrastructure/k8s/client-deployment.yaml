@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: openhammer
+  labels:
+    app: openhammer
+    tier: client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: openhammer
+      tier: client
+  template:
+    metadata:
+      labels:
+        app: openhammer
+        tier: client
+    spec:
+      containers:
+        - name: client
+          image: openhammer/client:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -9,8 +9,11 @@ import {
   checkUnitVisibility,
   canTargetWithRangedWeapon,
   COMBINED_REGIMENT_ORDERS,
+  getFactionState,
 } from '@openhammer/core';
 import type { Weapon, DiceRoll, VisibilityStatus } from '@openhammer/core';
+import type { AstraMilitarumState } from '@openhammer/core/src/detachments/astra-militarum';
+import type { TauEmpireState } from '@openhammer/core/src/detachments/tau-empire';
 import { OrdersPanel } from './OrdersPanel';
 
 /** Get Tailwind color class for weapon ability badge */
@@ -254,7 +257,8 @@ export function ShootingPanel() {
   };
 
   // Active order indicator for the selected unit
-  const unitOrder = attackerUnit ? gameState.activeOrders[attackerUnit.id] : undefined;
+  const amState = getFactionState<AstraMilitarumState>(gameState, 'astra-militarum');
+  const unitOrder = attackerUnit ? amState?.activeOrders?.[attackerUnit.id] : undefined;
   const unitOrderDef = unitOrder
     ? COMBINED_REGIMENT_ORDERS.find((o) => o.id === unitOrder)
     : undefined;
@@ -264,7 +268,8 @@ export function ShootingPanel() {
   const cantShoot = moveType === 'advance' || moveType === 'fall_back';
 
   // Current guided target indicator
-  const guidedTargetId = gameState.guidedTargets[activePlayerId];
+  const tauState = getFactionState<TauEmpireState>(gameState, 'tau-empire');
+  const guidedTargetId = tauState?.guidedTargets?.[activePlayerId];
   const guidedTargetUnit = guidedTargetId ? gameState.units[guidedTargetId] : null;
 
   // Always render OrdersPanel at top, then the shooting flow below
@@ -509,7 +514,8 @@ function ShootingFlow({
   // Step: guided target designation (T'au For the Greater Good)
   if (step === 'guided' && targetUnitId) {
     const guidedTarget = gameState.units[targetUnitId];
-    const currentGuided = gameState.guidedTargets[gameState.turnState.activePlayerId];
+    const currentGuidedTauState = getFactionState<TauEmpireState>(gameState, 'tau-empire');
+    const currentGuided = currentGuidedTauState?.guidedTargets?.[gameState.turnState.activePlayerId];
     const currentGuidedUnit = currentGuided ? gameState.units[currentGuided] : null;
     return (
       <div className="space-y-3">
@@ -608,7 +614,8 @@ function ShootingFlow({
           {enemyUnits.map((u) => {
             const alive = u.modelIds.filter((id) => gameState.models[id]?.status === 'active').length;
             const notVisible = u.visibility === 'not_visible';
-            const isGuided = Object.values(gameState.guidedTargets).includes(u.id);
+            const guidedTauState = getFactionState<TauEmpireState>(gameState, 'tau-empire');
+            const isGuided = guidedTauState ? Object.values(guidedTauState.guidedTargets).includes(u.id) : false;
             return (
               <option
                 key={u.id}

@@ -1,0 +1,11 @@
+export { setupReducer } from './setupReducer';
+export { chargeReducer } from './chargeReducer';
+export { transportReducer } from './transportReducer';
+export { aircraftReducer } from './aircraftReducer';
+export { commandReducer } from './commandReducer';
+export { movementReducer } from './movementReducer';
+export { shootingReducer } from './shootingReducer';
+export { fightReducer } from './fightReducer';
+export { stratagemReducer } from './stratagemReducer';
+export { deploymentReducer } from './deploymentReducer';
+export { lifecycleReducer } from './lifecycleReducer';
