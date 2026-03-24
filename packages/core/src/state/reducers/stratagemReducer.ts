@@ -3,7 +3,7 @@ import { CORE_STRATAGEMS } from '../../types/index';
 import type { SubReducer } from '../helpers';
 import { appendLog } from '../helpers';
 import { getEdition } from '../../rules/registry';
-import { isUnitInEngagementRange } from '../../combat/index';
+import { isUnitInEngagementRange } from '../../combat/shooting';
 
 export const stratagemReducer: SubReducer = (state, action) => {
   switch (action.type) {

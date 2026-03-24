@@ -2,11 +2,8 @@ import type { SubReducer } from '../helpers';
 import { appendLog } from '../helpers';
 import { getEdition } from '../../rules/registry';
 import { distanceBetweenModels } from '../../measurement/index';
-import {
-  isUnitInEngagementRange,
-  getEngagementShootingMode,
-  weaponHasAbility,
-} from '../../combat/index';
+import { isUnitInEngagementRange, getEngagementShootingMode } from '../../combat/shooting';
+import { weaponHasAbility } from '../../combat/abilities';
 
 export const shootingReducer: SubReducer = (state, action) => {
   switch (action.type) {
