@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: client
+  namespace: openhammer
+  labels:
+    app: openhammer
+    tier: client
+spec:
+  selector:
+    app: openhammer
+    tier: client
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

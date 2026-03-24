@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useMultiplayer, useMultiplayerStore } from '../networking/useMultiplayer';
 import { useUIStore } from '../store/uiStore';
 
-const DEFAULT_SERVER = `ws://${window.location.hostname}:3001`;
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const DEFAULT_SERVER = `${wsProtocol}//${window.location.host}/ws`;
 
 export function MultiplayerLobby() {
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER);
