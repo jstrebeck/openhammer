@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { COMBINED_REGIMENT_ORDERS, distanceBetweenModels } from '@openhammer/core';
+import { COMBINED_REGIMENT_ORDERS, distanceBetweenModels, getFactionState } from '@openhammer/core';
 import type { Unit, OrderDefinition } from '@openhammer/core';
+import type { AstraMilitarumState } from '@openhammer/core/src/detachments/astra-militarum';
 
 /**
  * Combined Regiment Orders panel — shown during the Shooting phase when
@@ -23,13 +24,15 @@ export function OrdersPanel() {
     (u) => u.playerId === playerId && u.modelIds.some((id) => gameState.models[id]?.status === 'active'),
   );
 
+  const amState = getFactionState<AstraMilitarumState>(gameState, 'astra-militarum') ?? { activeOrders: {}, officersUsedThisPhase: [] };
+
   const officerUnits = playerUnits.filter((u) =>
     u.keywords.some((k) => k.toUpperCase() === 'OFFICER'),
   );
-  const availableOfficers = officerUnits.filter((u) => !gameState.officersUsedThisPhase.includes(u.id));
+  const availableOfficers = officerUnits.filter((u) => !amState.officersUsedThisPhase.includes(u.id));
 
   // Units that can receive orders (friendly, active, no order yet)
-  const orderableUnits = playerUnits.filter((u) => !gameState.activeOrders[u.id]);
+  const orderableUnits = playerUnits.filter((u) => !amState.activeOrders[u.id]);
 
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export function OrdersPanel() {
   };
 
   // Show active orders summary
-  const activeOrderEntries = Object.entries(gameState.activeOrders)
+  const activeOrderEntries = Object.entries(amState.activeOrders)
     .map(([unitId, orderId]) => {
       const unit = gameState.units[unitId];
       const order = COMBINED_REGIMENT_ORDERS.find((o) => o.id === orderId);

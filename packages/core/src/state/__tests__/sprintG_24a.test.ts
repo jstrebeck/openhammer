@@ -95,7 +95,7 @@ describe('Phase 24a: Smokescreen Combat Integration', () => {
   describe('getSmokescreenModifiers', () => {
     it('returns -1 hit modifier and +1 cover for smokescreened unit', () => {
       let state = setupTwoPlayerGame();
-      state = { ...state, smokescreenUnits: ['target-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, smokescreenUnits: ['target-unit'] } };
 
       const mods = getSmokescreenModifiers(state, 'target-unit');
       expect(mods.hitModifier).toBe(-1);
@@ -219,7 +219,7 @@ describe('Phase 24a: Go to Ground Combat Integration', () => {
   describe('getGoToGroundModifiers', () => {
     it('returns +1 cover and 6+ invuln for unit gone to ground', () => {
       let state = setupTwoPlayerGame();
-      state = { ...state, goToGroundUnits: ['target-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, goToGroundUnits: ['target-unit'] } };
 
       const mods = getGoToGroundModifiers(state, 'target-unit');
       expect(mods.coverSaveModifier).toBe(1);
@@ -266,8 +266,11 @@ describe('Phase 24a: Go to Ground Combat Integration', () => {
       let state = setupTwoPlayerGame();
       state = {
         ...state,
-        smokescreenUnits: ['target-unit'],
-        goToGroundUnits: ['target-unit'],
+        stratagemEffects: {
+          ...state.stratagemEffects,
+          smokescreenUnits: ['target-unit'],
+          goToGroundUnits: ['target-unit'],
+        },
       };
 
       const mods = getStratagemSaveModifiers(state, 'target-unit');
@@ -307,7 +310,7 @@ describe('Phase 24a: Epic Challenge Combat Integration', () => {
   describe('isEpicChallengePrecision', () => {
     it('returns true for unit in epicChallengeUnits', () => {
       let state = setupTwoPlayerGame();
-      state = { ...state, epicChallengeUnits: ['champ-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, epicChallengeUnits: ['champ-unit'] } };
 
       expect(isEpicChallengePrecision(state, 'champ-unit')).toBe(true);
     });
@@ -369,7 +372,7 @@ describe('Phase 24a: Epic Challenge Combat Integration', () => {
     it('epicChallengeUnits clears on phase advance', () => {
       let state = setupTwoPlayerGame();
       state = setPhase(state, 4);
-      state = { ...state, epicChallengeUnits: ['champ-unit'] };
+      state = { ...state, stratagemEffects: { ...state.stratagemEffects, epicChallengeUnits: ['champ-unit'] } };
 
       state = gameReducer(state, { type: 'ADVANCE_PHASE' });
       expect(isEpicChallengePrecision(state, 'champ-unit')).toBe(false);

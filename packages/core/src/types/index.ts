@@ -301,6 +301,34 @@ export interface PersistingEffect {
   data?: Record<string, unknown>;
 }
 
+// --- Stratagem Effects & Faction State ---
+
+export interface StratagemEffects {
+  smokescreenUnits: string[];
+  goToGroundUnits: string[];
+  epicChallengeUnits: string[];
+}
+
+export function createEmptyStratagemEffects(): StratagemEffects {
+  return { smokescreenUnits: [], goToGroundUnits: [], epicChallengeUnits: [] };
+}
+
+export interface PhaseChangeContext {
+  newPhaseId: string;
+  activePlayerId: string;
+  roundNumber: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface FactionStateHandlers<T = any> {
+  createInitial: () => T;
+  onPhaseChange: (current: T, context: PhaseChangeContext) => T;
+  onTurnChange: (current: T) => T;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type FactionStateSlice = Record<string, any>;
+
 // --- Sprint I: Mission System & Game Lifecycle ---
 
 /** Scoring condition timing */
@@ -545,24 +573,16 @@ export interface GameState {
   attachedUnits: Record<string, string>;
   log: GameLog;
   rulesConfig: RulesConfig;
-  /** Unit IDs with Smokescreen active (Benefit of Cover + Stealth until end of phase) */
-  smokescreenUnits: string[];
-  /** Unit IDs with Go to Ground active (6+ invuln + Benefit of Cover until end of phase) */
-  goToGroundUnits: string[];
-  /** Unit IDs with Epic Challenge active (CHARACTER melee gains Precision until end of phase) */
-  epicChallengeUnits: string[];
+  /** Stratagem effects that last until end of phase */
+  stratagemEffects: StratagemEffects;
   /** Out-of-phase action in progress (allows actions that would normally be blocked by phase validation) */
   outOfPhaseAction?: { stratagemId: string; playerId: string };
   /** Tracks non-Command-Phase CP gains per player per battle round (for CP cap of +1) */
   cpGainedThisRound: Record<string, number>;
   /** Active persisting effects (survive phase changes, embark/disembark, attach/detach) */
   persistingEffects: PersistingEffect[];
-  /** For the Greater Good: playerId → guided target unitId */
-  guidedTargets: Record<string, string>;
-  /** Active orders: unitId → order ID (Combined Regiment detachment rule) */
-  activeOrders: Record<string, string>;
-  /** Officer unit IDs that have issued an order this phase */
-  officersUsedThisPhase: string[];
+  /** Per-faction runtime state (orders, guided targets, etc.) */
+  factionState: Record<string, FactionStateSlice>;
 
   // --- Sprint H: Pre-Game Setup ---
 

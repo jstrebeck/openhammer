@@ -148,7 +148,10 @@ export const stratagemReducer: SubReducer = (state, action) => {
           if (targetUnitId) {
             newState = {
               ...newState,
-              epicChallengeUnits: [...newState.epicChallengeUnits, targetUnitId],
+              stratagemEffects: {
+                ...newState.stratagemEffects,
+                epicChallengeUnits: [...newState.stratagemEffects.epicChallengeUnits, targetUnitId],
+              },
             };
           }
           break;
@@ -159,7 +162,10 @@ export const stratagemReducer: SubReducer = (state, action) => {
           if (targetUnitId) {
             newState = {
               ...newState,
-              smokescreenUnits: [...newState.smokescreenUnits, targetUnitId],
+              stratagemEffects: {
+                ...newState.stratagemEffects,
+                smokescreenUnits: [...newState.stratagemEffects.smokescreenUnits, targetUnitId],
+              },
             };
           }
           break;
@@ -170,7 +176,10 @@ export const stratagemReducer: SubReducer = (state, action) => {
           if (targetUnitId) {
             newState = {
               ...newState,
-              goToGroundUnits: [...newState.goToGroundUnits, targetUnitId],
+              stratagemEffects: {
+                ...newState.stratagemEffects,
+                goToGroundUnits: [...newState.stratagemEffects.goToGroundUnits, targetUnitId],
+              },
             };
           }
           break;

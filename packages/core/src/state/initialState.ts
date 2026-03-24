@@ -6,6 +6,7 @@ import {
   createEmptyChargeState,
   createEmptyFightState,
   createEmptyDeploymentState,
+  createEmptyStratagemEffects,
 } from '../types/index';
 import { DEFAULT_EDITION_ID } from '../rules/registry';
 
@@ -47,14 +48,10 @@ export function createInitialGameState(options?: {
     attachedUnits: {},
     log: { entries: [] },
     rulesConfig: { ...DEFAULT_RULES_CONFIG },
-    smokescreenUnits: [],
-    goToGroundUnits: [],
-    epicChallengeUnits: [],
+    stratagemEffects: createEmptyStratagemEffects(),
     cpGainedThisRound: {},
     persistingEffects: [],
-    guidedTargets: {},
-    activeOrders: {},
-    officersUsedThisPhase: [],
+    factionState: {},
     // Sprint H: Pre-Game Setup
     setupPhase: 'muster',
     enhancements: [],

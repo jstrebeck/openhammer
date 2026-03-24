@@ -1,4 +1,21 @@
-import type { FactionDefinition } from '../types/index';
+import type { FactionDefinition, FactionStateHandlers } from '../types/index';
+
+export interface TauEmpireState {
+  guidedTargets: Record<string, string>;
+}
+
+export const tauEmpireStateHandlers: FactionStateHandlers<TauEmpireState> = {
+  createInitial: () => ({ guidedTargets: {} }),
+  onPhaseChange: (current, ctx) => {
+    if (ctx.newPhaseId === 'shooting') {
+      const { [ctx.activePlayerId]: _, ...rest } = current.guidedTargets;
+      return { guidedTargets: rest };
+    }
+    return current;
+  },
+  // IMPORTANT: current reducer's NEXT_TURN does NOT clear guidedTargets — preserve behavior
+  onTurnChange: (current) => current,
+};
 
 export const tauEmpire: FactionDefinition = {
   id: 'tau-empire',

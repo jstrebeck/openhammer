@@ -191,9 +191,11 @@ describe('Phase 33: End-of-Turn, End-of-Round & End-of-Battle', () => {
           disembarkedThisPhase: ['u3'],
           surgeMoveUsedThisPhase: { 'u1': true },
         },
-        smokescreenUnits: ['u1'],
-        goToGroundUnits: ['u2'],
-        epicChallengeUnits: ['u3'],
+        stratagemEffects: {
+          smokescreenUnits: ['u1'],
+          goToGroundUnits: ['u2'],
+          epicChallengeUnits: ['u3'],
+        },
       };
 
       state = gameReducer(state, { type: 'END_TURN' });
@@ -203,9 +205,9 @@ describe('Phase 33: End-of-Turn, End-of-Round & End-of-Battle', () => {
       expect(state.turnTracking.embarkedThisPhase).toEqual([]);
       expect(state.turnTracking.disembarkedThisPhase).toEqual([]);
       expect(state.turnTracking.surgeMoveUsedThisPhase).toEqual({});
-      expect(state.smokescreenUnits).toEqual([]);
-      expect(state.goToGroundUnits).toEqual([]);
-      expect(state.epicChallengeUnits).toEqual([]);
+      expect(state.stratagemEffects.smokescreenUnits).toEqual([]);
+      expect(state.stratagemEffects.goToGroundUnits).toEqual([]);
+      expect(state.stratagemEffects.epicChallengeUnits).toEqual([]);
     });
 
     it('clears turn-end persisting effects', () => {
