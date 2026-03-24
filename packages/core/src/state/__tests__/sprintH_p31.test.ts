@@ -4,7 +4,7 @@ import { createInitialGameState } from '../initialState';
 import type { GameState, DiceRoll, DeploymentZone } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
 import { validateDeploymentPosition } from '../../army-list/armyValidation';
-import { validateScoutMove } from '../../deployment/validators';
+// validateScoutMove moved to deployment/__tests__/validators.test.ts
 import '../../editions/index';
 
 // ===== Test Helpers =====
@@ -395,80 +395,7 @@ describe('Phase 31: Deployment Sequence', () => {
       expect(state.models['m1'].position).toEqual({ x: 30, y: 29 });
     });
 
-    it('validateScoutMove blocks movement exceeding scout distance', () => {
-      const unit = makeUnit({ id: 'u1', modelIds: ['m1'], abilities: ['SCOUT 6"'] });
-      const models: Record<string, import('../../types/index').Model> = {
-        'm1': makeModel({ id: 'm1', unitId: 'u1', position: { x: 30, y: 35 } }),
-      };
-
-      // Move 8" — should fail for 6" scout
-      const errors = validateScoutMove(unit, models, { 'm1': { x: 30, y: 27 } }, 6);
-      expect(errors.length).toBeGreaterThan(0);
-    });
-
-    it('validateScoutMove allows movement within scout distance', () => {
-      const unit = makeUnit({ id: 'u1', modelIds: ['m1'], abilities: ['SCOUT 6"'] });
-      const models: Record<string, import('../../types/index').Model> = {
-        'm1': makeModel({ id: 'm1', unitId: 'u1', position: { x: 30, y: 35 } }),
-      };
-
-      // Move 5" — should pass for 6" scout
-      const errors = validateScoutMove(unit, models, { 'm1': { x: 30, y: 30 } }, 6);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('Dedicated Transport inherits Scout from embarked unit', () => {
-      // This tests the concept: a transport carrying a Scout unit gets Scout ability
-      // The actual inheritance logic is checked via unit abilities
-      let state = setupTwoPlayerGame();
-      const scoutUnit = makeUnit({
-        id: 'u-scout',
-        playerId: 'p1',
-        modelIds: ['m-scout'],
-        abilities: ['SCOUT 6"'],
-      });
-      const transportUnit = makeUnit({
-        id: 'u-transport',
-        playerId: 'p1',
-        modelIds: ['m-transport'],
-        keywords: ['VEHICLE', 'TRANSPORT', 'DEDICATED TRANSPORT'],
-        transportCapacity: 12,
-      });
-
-      state = gameReducer(state, {
-        type: 'ADD_UNIT',
-        payload: {
-          unit: scoutUnit,
-          models: [makeModel({ id: 'm-scout', unitId: 'u-scout', position: { x: 30, y: 35 } })],
-        },
-      });
-      state = gameReducer(state, {
-        type: 'ADD_UNIT',
-        payload: {
-          unit: transportUnit,
-          models: [makeModel({ id: 'm-transport', unitId: 'u-transport', position: { x: 30, y: 35 } })],
-        },
-      });
-
-      // Embark scout unit
-      state = gameReducer(state, {
-        type: 'EMBARK',
-        payload: { unitId: 'u-scout', transportId: 'u-transport' },
-      });
-
-      // Transport should be able to Scout move — the transport inherits Scout from embarked unit
-      // Verify by checking the transport can make a scout move within 6"
-      const transportModels: Record<string, import('../../types/index').Model> = {
-        'm-transport': state.models['m-transport'],
-      };
-      const errors = validateScoutMove(
-        transportUnit,
-        transportModels,
-        { 'm-transport': { x: 30, y: 30 } },
-        6,
-      );
-      expect(errors).toHaveLength(0);
-    });
+    // validateScoutMove unit tests moved to deployment/__tests__/validators.test.ts
   });
 
   // --- Redeployment ---

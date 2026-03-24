@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { gameReducer } from '../reducer';
 import { createInitialGameState } from '../initialState';
-import type { GameState, DeploymentZone } from '../../types/index';
+import type { GameState } from '../../types/index';
 import { makeModel, makeUnit, makePlayer } from '../../test-helpers';
-import { unitHasStealth, unitHasAbility, getUnitAbilityValue, parseWeaponAbility } from '../../combat/abilities';
-import { resolveAttackSequence } from '../../combat/attackPipeline';
+import { unitHasStealth, unitHasAbility } from '../../combat/abilities';
 // getAttachedUnitWoundTarget moved to combat/__tests__/woundAllocation.test.ts
-import { validateDeepStrikeArrival, validateInfiltratorsDeployment, validateScoutMove, validateStrategicReservesArrival } from '../../deployment/validators';
+// Deployment validators moved to deployment/__tests__/validators.test.ts
 import '../../editions/index';
 
 // ===== Test Helpers =====
@@ -101,106 +100,9 @@ describe('Phase 23: Unit Abilities & Attached Units', () => {
     });
   });
 
-  // --- Deep Strike ---
-
-  describe('Deep Strike', () => {
-    it('validates >9" from enemy models', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'ds-unit', 'p1', [{ id: 'ds1', x: -1000, y: -1000 }], {
-        abilities: ['DEEP STRIKE'],
-      });
-      state = addUnit(state, 'enemy', 'p2', [{ id: 'e1', x: 20, y: 20 }]);
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 2 } };
-
-      // Try to arrive 5" from enemy — should fail
-      const errors = validateDeepStrikeArrival(state, 'ds-unit', { 'ds1': { x: 16, y: 20 } });
-      expect(errors.some(e => e.includes('9"'))).toBe(true);
-    });
-
-    it('blocked before Round 2', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'ds-unit', 'p1', [{ id: 'ds1', x: -1000, y: -1000 }], {
-        abilities: ['DEEP STRIKE'],
-      });
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 1 } };
-
-      const errors = validateDeepStrikeArrival(state, 'ds-unit', { 'ds1': { x: 30, y: 30 } });
-      expect(errors.some(e => e.includes('Round 2'))).toBe(true);
-    });
-
-    it('succeeds when >9" from enemies and Round 2+', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'ds-unit', 'p1', [{ id: 'ds1', x: -1000, y: -1000 }], {
-        abilities: ['DEEP STRIKE'],
-      });
-      state = addUnit(state, 'enemy', 'p2', [{ id: 'e1', x: 10, y: 10 }]);
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 2 } };
-
-      // Arrive 15" from enemy — should succeed
-      const errors = validateDeepStrikeArrival(state, 'ds-unit', { 'ds1': { x: 25, y: 10 } });
-      expect(errors.length).toBe(0);
-    });
-  });
-
-  // --- Infiltrators ---
-
-  describe('Infiltrators', () => {
-    it('validates >9" from enemy models', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'inf-unit', 'p1', [{ id: 'inf1', x: 30, y: 30 }], {
-        abilities: ['INFILTRATORS'],
-      });
-      state = addUnit(state, 'enemy', 'p2', [{ id: 'e1', x: 20, y: 20 }]);
-
-      // Try to deploy 5" from enemy
-      const errors = validateInfiltratorsDeployment(state, 'inf-unit', { 'inf1': { x: 16, y: 20 } });
-      expect(errors.some(e => e.includes('9"'))).toBe(true);
-    });
-
-    it('validates not in enemy deployment zone', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'inf-unit', 'p1', [{ id: 'inf1', x: 30, y: 30 }], {
-        abilities: ['INFILTRATORS'],
-      });
-
-      // Add enemy deployment zone
-      const zone: DeploymentZone = {
-        id: 'dz2',
-        playerId: 'p2',
-        polygon: [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 12 }, { x: 0, y: 12 }],
-        label: 'Enemy Zone',
-        color: '#0000ff',
-      };
-      state = gameReducer(state, { type: 'ADD_DEPLOYMENT_ZONE', payload: { zone } });
-
-      // Try to deploy inside enemy zone
-      const errors = validateInfiltratorsDeployment(state, 'inf-unit', { 'inf1': { x: 30, y: 6 } });
-      expect(errors.some(e => e.includes('deployment zone'))).toBe(true);
-    });
-  });
-
   // --- Scout ---
 
   describe('Scout', () => {
-    it('pre-game move up to X"', () => {
-      const models: Record<string, import('../../types/index').Model> = {
-        's1': makeModel({ id: 's1', unitId: 'scout-unit', position: { x: 10, y: 10 } }),
-      };
-      const unit = makeUnit({
-        id: 'scout-unit',
-        abilities: ['SCOUT 6"'],
-        modelIds: ['s1'],
-      });
-
-      // Move 4" — within 6" limit
-      const errors = validateScoutMove(unit, models, { 's1': { x: 14, y: 10 } }, 6);
-      expect(errors.length).toBe(0);
-
-      // Move 8" — exceeds 6" limit
-      const errors2 = validateScoutMove(unit, models, { 's1': { x: 18, y: 10 } }, 6);
-      expect(errors2.length).toBeGreaterThan(0);
-    });
-
     it('SCOUT_MOVE action applies positions', () => {
       let state = setupTwoPlayerGame();
       state = addUnit(state, 'scout-unit', 'p1', [{ id: 's1', x: 10, y: 10 }], {
@@ -285,48 +187,4 @@ describe('Phase 23: Unit Abilities & Attached Units', () => {
     // Wound allocation tests (Bodyguard absorbs, Precision overrides) moved to combat/__tests__/woundAllocation.test.ts
   });
 
-  // --- Strategic Reserves ---
-
-  describe('Strategic Reserves', () => {
-    it('validates arrival within 6" of board edge', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'reserve-unit', 'p1', [{ id: 'r1', x: -1000, y: -1000 }]);
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 2 } };
-
-      // Try to arrive in center of board (>6" from any edge on a 60x44 board)
-      const errors = validateStrategicReservesArrival(state, 'reserve-unit', { 'r1': { x: 30, y: 22 } });
-      expect(errors.some(e => e.includes('board edge'))).toBe(true);
-    });
-
-    it('validates >9" from enemy models', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'reserve-unit', 'p1', [{ id: 'r1', x: -1000, y: -1000 }]);
-      state = addUnit(state, 'enemy', 'p2', [{ id: 'e1', x: 5, y: 5 }]);
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 2 } };
-
-      // Arrive at board edge but too close to enemy
-      const errors = validateStrategicReservesArrival(state, 'reserve-unit', { 'r1': { x: 3, y: 3 } });
-      expect(errors.some(e => e.includes('9"'))).toBe(true);
-    });
-
-    it('blocked before Round 2', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'reserve-unit', 'p1', [{ id: 'r1', x: -1000, y: -1000 }]);
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 1 } };
-
-      const errors = validateStrategicReservesArrival(state, 'reserve-unit', { 'r1': { x: 3, y: 30 } });
-      expect(errors.some(e => e.includes('Round 2'))).toBe(true);
-    });
-
-    it('succeeds when all conditions met', () => {
-      let state = setupTwoPlayerGame();
-      state = addUnit(state, 'reserve-unit', 'p1', [{ id: 'r1', x: -1000, y: -1000 }]);
-      state = addUnit(state, 'enemy', 'p2', [{ id: 'e1', x: 30, y: 30 }]);
-      state = { ...state, turnState: { ...state.turnState, roundNumber: 2 } };
-
-      // Arrive at board edge, >9" from enemy
-      const errors = validateStrategicReservesArrival(state, 'reserve-unit', { 'r1': { x: 3, y: 3 } });
-      expect(errors.length).toBe(0);
-    });
-  });
 });
