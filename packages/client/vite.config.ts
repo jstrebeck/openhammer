@@ -10,4 +10,12 @@ export default defineConfig({
       '@openhammer/core': path.resolve(__dirname, '../core/src'),
     },
   },
+  server: {
+    proxy: {
+      '/ws': {
+        target: 'ws://localhost:3001',
+        ws: true,
+      },
+    },
+  },
 });

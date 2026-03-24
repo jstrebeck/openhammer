@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: openhammer/server:latest
+          image: 192.168.2.203:5000/openhammer/server:latest
           ports:
             - containerPort: 3001
           env:

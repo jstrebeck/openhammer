@@ -1,6 +1,6 @@
 .PHONY: install dev dev-server build test test-watch test-core test-client \
        typecheck typecheck-core typecheck-client typecheck-server clean lint format help \
-       docker-build docker-up docker-down docker-logs
+       docker-build docker-up docker-down docker-logs docker-push
 
 # Default target
 help: ## Show this help
@@ -77,8 +77,15 @@ clean-dist: ## Remove build artifacts only (keep node_modules)
 	rm -f packages/*/*.tsbuildinfo
 
 # Docker
+REGISTRY := 192.168.2.203:5000
+
 docker-build: ## Build Docker images for client and server
-	docker compose -f infrastructure/docker-compose.yml build
+	docker build -t $(REGISTRY)/openhammer/client:latest -f infrastructure/Dockerfile.client .
+	docker build -t $(REGISTRY)/openhammer/server:latest -f infrastructure/Dockerfile.server .
+
+docker-push: docker-build ## Build and push images to registry
+	docker push $(REGISTRY)/openhammer/client:latest
+	docker push $(REGISTRY)/openhammer/server:latest
 
 docker-up: ## Start all services via Docker Compose
 	docker compose -f infrastructure/docker-compose.yml up -d

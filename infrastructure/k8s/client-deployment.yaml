@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: client
-          image: openhammer/client:latest
+          image: 192.168.2.203:5000/openhammer/client:latest
           ports:
             - containerPort: 80
           readinessProbe:
