@@ -1,5 +1,6 @@
 .PHONY: install dev dev-server build test test-watch test-core test-client \
-       typecheck typecheck-core typecheck-client typecheck-server clean lint format help
+       typecheck typecheck-core typecheck-client typecheck-server clean lint format help \
+       docker-build docker-up docker-down docker-logs
 
 # Default target
 help: ## Show this help
@@ -74,6 +75,19 @@ clean: ## Remove all build artifacts and node_modules
 clean-dist: ## Remove build artifacts only (keep node_modules)
 	rm -rf packages/core/dist packages/client/dist packages/server/dist
 	rm -f packages/*/*.tsbuildinfo
+
+# Docker
+docker-build: ## Build Docker images for client and server
+	docker compose -f infrastructure/docker-compose.yml build
+
+docker-up: ## Start all services via Docker Compose
+	docker compose -f infrastructure/docker-compose.yml up -d
+
+docker-down: ## Stop all Docker Compose services
+	docker compose -f infrastructure/docker-compose.yml down
+
+docker-logs: ## Tail logs from Docker Compose services
+	docker compose -f infrastructure/docker-compose.yml logs -f
 
 # Utilities
 preview: build-client ## Build and preview the client production bundle

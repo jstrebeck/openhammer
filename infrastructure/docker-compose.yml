@@ -1,0 +1,18 @@
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.client
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
+  server:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001

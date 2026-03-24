@@ -1,0 +1,47 @@
+# Stage 1: Build the server (includes core as workspace dependency)
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# Copy workspace root manifests
+COPY package.json package-lock.json ./
+
+# Copy all package manifests for workspace resolution
+COPY packages/core/package.json packages/core/
+COPY packages/client/package.json packages/client/
+COPY packages/server/package.json packages/server/
+
+RUN npm ci
+
+# Copy source code (core + server)
+COPY packages/core/ packages/core/
+COPY packages/server/ packages/server/
+COPY tsconfig.base.json ./
+
+# Build core first, then server
+RUN npm run build -w packages/core && npm run build -w packages/server
+
+# Stage 2: Production runtime
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY packages/core/package.json packages/core/
+COPY packages/server/package.json packages/server/
+# Client manifest needed for workspace resolution even though we don't install it
+COPY packages/client/package.json packages/client/
+
+RUN npm ci --omit=dev
+
+# Copy compiled output
+COPY --from=build /app/packages/core/dist packages/core/dist
+COPY --from=build /app/packages/server/dist packages/server/dist
+
+# Copy core package.json so Node resolves the package correctly
+COPY packages/core/package.json packages/core/
+
+ENV PORT=3001
+EXPOSE 3001
+
+CMD ["node", "packages/server/dist/index.js"]
