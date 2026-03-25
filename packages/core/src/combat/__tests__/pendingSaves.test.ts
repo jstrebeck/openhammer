@@ -109,4 +109,80 @@ describe('Pending Saves - Shooting', () => {
   });
 });
 
+describe('Pending Saves - Fight', () => {
+  it('RESOLVE_MELEE_ATTACK creates a PendingSave entry in fightState', () => {
+    let state = createInitialGameState();
+    const p1 = makePlayer({ id: 'p1', name: 'Attacker' });
+    const p2 = makePlayer({ id: 'p2', name: 'Defender' });
+    state = gameReducer(state, { type: 'ADD_PLAYER', payload: { player: p1 } });
+    state = gameReducer(state, { type: 'ADD_PLAYER', payload: { player: p2 } });
+
+    const am = makeModel({ id: 'am1', unitId: 'au1', position: { x: 10, y: 10 } });
+    const au = makeUnit({
+      id: 'au1', playerId: 'p1', modelIds: ['am1'],
+      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: -1, damage: '1' }],
+    });
+    state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: au, models: [am] } });
+
+    const dm = makeModel({ id: 'dm1', unitId: 'du1', position: { x: 11, y: 10 }, wounds: 2, maxWounds: 2 });
+    const du = makeUnit({ id: 'du1', playerId: 'p2', modelIds: ['dm1'] });
+    state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: du, models: [dm] } });
+
+    const hitRoll = rollDice(3, 6, 'To Hit', 3);
+    const woundRoll = rollDice(3, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_MELEE_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'mw1',
+        weaponName: 'Chainsword', targetUnitId: 'du1',
+        numAttacks: 3, hitRoll, hits: 3, woundRoll, wounds: 2,
+      },
+    });
+
+    expect(state.fightState.pendingSaves).toHaveLength(1);
+    const ps = state.fightState.pendingSaves[0];
+    expect(ps.wounds).toBe(2);
+    expect(ps.ap).toBe(-1);
+    expect(ps.defendingPlayerId).toBe('p2');
+  });
+
+  it('COMPLETE_FIGHT is blocked with unresolved pending saves', () => {
+    let state = createInitialGameState();
+    const p1 = makePlayer({ id: 'p1', name: 'Attacker' });
+    const p2 = makePlayer({ id: 'p2', name: 'Defender' });
+    state = gameReducer(state, { type: 'ADD_PLAYER', payload: { player: p1 } });
+    state = gameReducer(state, { type: 'ADD_PLAYER', payload: { player: p2 } });
+
+    const am = makeModel({ id: 'am1', unitId: 'au1', position: { x: 10, y: 10 } });
+    const au = makeUnit({
+      id: 'au1', playerId: 'p1', modelIds: ['am1'],
+      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: -1, damage: '1' }],
+    });
+    state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: au, models: [am] } });
+
+    const dm = makeModel({ id: 'dm1', unitId: 'du1', position: { x: 11, y: 10 } });
+    const du = makeUnit({ id: 'du1', playerId: 'p2', modelIds: ['dm1'] });
+    state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: du, models: [dm] } });
+
+    // Set up fight state with current fighter
+    state = { ...state, fightState: { ...state.fightState, currentFighter: 'au1' } };
+
+    const hitRoll = rollDice(3, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_MELEE_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'mw1',
+        weaponName: 'Chainsword', targetUnitId: 'du1',
+        numAttacks: 3, hitRoll, hits: 2, woundRoll, wounds: 2,
+      },
+    });
+
+    const stateAfter = gameReducer(state, { type: 'COMPLETE_FIGHT', payload: { unitId: 'au1' } });
+    expect(stateAfter.fightState.activeAttacks.length).toBeGreaterThan(0);
+  });
+});
+
 export { setupShootingState };

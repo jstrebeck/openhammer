@@ -6,6 +6,7 @@ import { distance, distanceBetweenModels, checkCoherency, closestEnemyModel } fr
 import type { GameState } from '../../types/index';
 import type { Point } from '../../types/geometry';
 import type { RulesEdition } from '../../rules/RulesEdition';
+import { getUnitAbilityValue } from '../../combat/abilities';
 
 /** Validate a Pile In move: each model must end closer to closest enemy, max 3", coherency */
 function validatePileIn(
@@ -388,11 +389,42 @@ export const fightReducer: SubReducer = (state, action) => {
         woundAllocations: [],
         resolved: false,
       };
+
+      // Create PendingSave if there are wounds to save against
+      const meleeUnit = state.units[attackingUnitId];
+      let newPendingSaves = state.fightState.pendingSaves;
+      if (wounds > 0) {
+        const weapon = meleeUnit?.weapons.find(w => w.id === weaponId);
+        const targetUnit = state.units[targetUnitId];
+
+        let fnpThreshold: number | undefined;
+        if (targetUnit) {
+          const fnpValue = getUnitAbilityValue(targetUnit, 'FEEL NO PAIN');
+          if (fnpValue !== undefined) fnpThreshold = fnpValue;
+        }
+
+        newPendingSaves = [...state.fightState.pendingSaves, {
+          id: generateUUID(),
+          attackSequenceId: attack.id,
+          attackingPlayerId: meleeUnit?.playerId ?? '',
+          defendingPlayerId: targetUnit?.playerId ?? '',
+          targetUnitId,
+          weaponName,
+          wounds,
+          ap: weapon?.ap ?? 0,
+          damage: weapon?.damage ?? '1',
+          fnpThreshold,
+          mortalWounds: 0,
+          resolved: false,
+        }];
+      }
+
       return {
         ...state,
         fightState: {
           ...state.fightState,
           activeAttacks: [...state.fightState.activeAttacks, attack],
+          pendingSaves: newPendingSaves,
         },
         log: appendLog(state.log, {
           type: 'message',
@@ -454,6 +486,20 @@ export const fightReducer: SubReducer = (state, action) => {
 
     case 'COMPLETE_FIGHT': {
       const { unitId } = action.payload;
+
+      // Block if there are unresolved pending saves
+      const hasUnresolvedSaves = state.fightState.pendingSaves.some(ps => !ps.resolved);
+      if (hasUnresolvedSaves) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            type: 'message',
+            text: '[BLOCKED] Cannot complete fight — pending saves must be resolved first',
+            timestamp: Date.now(),
+          }),
+        };
+      }
+
       const newUnitsFought = [...state.fightState.unitsFought, unitId];
 
       // Check if we need to transition from fights_first to remaining
@@ -462,6 +508,7 @@ export const fightReducer: SubReducer = (state, action) => {
         currentFighter: null,
         unitsFought: newUnitsFought,
         activeAttacks: [],
+        pendingSaves: [] as import('../../types/index').PendingSave[],
       };
 
       if (newFightState.eligibleUnits.length === 0 && newFightState.fightStep === 'fights_first') {
