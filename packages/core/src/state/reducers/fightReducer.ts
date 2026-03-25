@@ -268,6 +268,7 @@ export const fightReducer: SubReducer = (state, action) => {
           unitsFought: [],
           nextToSelect: nonActivePlayerId,
           activeAttacks: [],
+          pendingSaves: [],
         },
       };
     }

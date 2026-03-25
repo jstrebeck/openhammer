@@ -215,6 +215,33 @@ export interface AttackSequence {
   resolved: boolean;
 }
 
+/** A pending save roll awaiting the defending player */
+export interface PendingSave {
+  id: string;
+  attackSequenceId: string;
+  attackingPlayerId: string;
+  defendingPlayerId: string;
+  targetUnitId: string;
+  weaponName: string;
+  wounds: number;
+  ap: number; // Raw weapon AP (negative, e.g. -2)
+  damage: string; // Dice expression e.g. "1", "D6"
+  coverSaveModifier?: number;
+  fnpThreshold?: number;
+  mortalWounds: number;
+  resolved: boolean;
+  results?: PendingSaveResult[];
+}
+
+/** Result of a single model's save roll within a PendingSave */
+export interface PendingSaveResult {
+  targetModelId: string;
+  saveRoll: DiceRoll;
+  saved: boolean;
+  fnpRolls?: DiceRoll[];
+  damageApplied: number;
+}
+
 /** State tracking for the Shooting Phase */
 export interface ShootingState {
   /** Unit currently shooting */
@@ -225,6 +252,8 @@ export interface ShootingState {
   activeAttacks: AttackSequence[];
   /** Unit IDs that have finished shooting this phase */
   unitsShot: string[];
+  /** Pending save rolls awaiting the defending player */
+  pendingSaves: PendingSave[];
 }
 
 export function createEmptyShootingState(): ShootingState {
@@ -233,6 +262,7 @@ export function createEmptyShootingState(): ShootingState {
     weaponAssignments: [],
     activeAttacks: [],
     unitsShot: [],
+    pendingSaves: [],
   };
 }
 
@@ -268,6 +298,8 @@ export interface FightState {
   nextToSelect: string | null;
   /** In-progress melee attack sequences */
   activeAttacks: AttackSequence[];
+  /** Pending save rolls awaiting the defending player */
+  pendingSaves: PendingSave[];
 }
 
 export function createEmptyFightState(): FightState {
@@ -278,6 +310,7 @@ export function createEmptyFightState(): FightState {
     unitsFought: [],
     nextToSelect: null,
     activeAttacks: [],
+    pendingSaves: [],
   };
 }
 
