@@ -2,7 +2,6 @@ import type { GameState } from '../../types/index';
 import { COMBINED_REGIMENT_ORDERS } from '../../types/index';
 import type { SubReducer } from '../helpers';
 import { appendLog } from '../helpers';
-import { generateUUID } from '../../utils/uuid';
 import { getFactionState } from '../../detachments/registry';
 import type { AstraMilitarumState } from '../../detachments/astra-militarum';
 import type { TauEmpireState } from '../../detachments/tau-empire';
@@ -23,6 +22,11 @@ export const factionReducer: SubReducer = (state, action) => {
         return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] Cannot issue orders to enemy units`, timestamp: Date.now() }) };
       }
 
+      // Orders cannot be issued to Battle-shocked units
+      if (state.battleShocked.includes(targetUnitId)) {
+        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${targetUnit.name} is Battle-shocked and cannot receive orders`, timestamp: Date.now() }) };
+      }
+
       const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum') ?? { activeOrders: {}, officersUsedThisPhase: [] };
 
       if (amState.officersUsedThisPhase.includes(officerUnitId)) {
@@ -31,9 +35,6 @@ export const factionReducer: SubReducer = (state, action) => {
       const orderDef = COMBINED_REGIMENT_ORDERS.find(o => o.id === orderId);
       if (!orderDef) {
         return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] Unknown order: ${orderId}`, timestamp: Date.now() }) };
-      }
-      if (amState.activeOrders[targetUnitId]) {
-        return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${targetUnit.name} already has an order`, timestamp: Date.now() }) };
       }
 
       const officerModels = officerUnit.modelIds.map(id => state.models[id]).filter(m => m && m.status === 'active');
@@ -52,35 +53,23 @@ export const factionReducer: SubReducer = (state, action) => {
         return { ...state, log: appendLog(state.log, { type: 'message', text: `[BLOCKED] ${officerUnit.name} is not within 6" of ${targetUnit.name}`, timestamp: Date.now() }) };
       }
 
+      // A new order replaces any existing order on the target unit
       const updatedAmState: AstraMilitarumState = {
         activeOrders: { ...amState.activeOrders, [targetUnitId]: orderId },
         officersUsedThisPhase: [...amState.officersUsedThisPhase, officerUnitId],
+        orderOwnerPlayerId: officerUnit.playerId,
       };
 
-      let newState: GameState = {
+      const replacedOrder = amState.activeOrders[targetUnitId];
+      const logText = replacedOrder
+        ? `${officerUnit.name} issues "${orderDef.name}" to ${targetUnit.name} (replaces previous order)`
+        : `${officerUnit.name} issues "${orderDef.name}" to ${targetUnit.name}`;
+
+      return {
         ...state,
         factionState: { ...state.factionState, 'astra-militarum': updatedAmState },
-        log: appendLog(state.log, { type: 'message', text: `${officerUnit.name} issues "${orderDef.name}" to ${targetUnit.name}`, timestamp: Date.now() }),
+        log: appendLog(state.log, { type: 'message', text: logText, timestamp: Date.now() }),
       };
-
-      if (orderId === 'duty-and-honour') {
-        newState = {
-          ...newState,
-          persistingEffects: [
-            ...newState.persistingEffects,
-            {
-              id: generateUUID(),
-              type: 'duty-and-honour',
-              targetUnitId,
-              sourceId: officerUnitId,
-              expiresAt: { type: 'turn_end' },
-              data: { invulnSave: 4 },
-            },
-          ],
-        };
-      }
-
-      return newState;
     }
 
     case 'DESIGNATE_GUIDED_TARGET': {

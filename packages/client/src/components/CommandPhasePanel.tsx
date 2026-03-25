@@ -1,5 +1,6 @@
 import { useGameStore } from '../store/gameStore';
-import { rollDice } from '@openhammer/core';
+import { rollDice, getOrderLeadershipBonus } from '@openhammer/core';
+import { OrdersPanel } from './OrdersPanel';
 
 export function CommandPhasePanel() {
   const gameState = useGameStore((s) => s.gameState);
@@ -60,11 +61,12 @@ export function CommandPhasePanel() {
     const unit = gameState.units[unitId];
     if (!unit) return;
 
-    // Find best leadership in the unit
+    // Find best leadership in the unit (Duty and Honour! improves LD by 1)
     const activeModels = unit.modelIds
       .map((id) => gameState.models[id])
       .filter((m) => m && m.status === 'active');
-    const bestLd = Math.min(...activeModels.map((m) => m.stats.leadership));
+    const ldBonus = getOrderLeadershipBonus(gameState, unitId);
+    const bestLd = Math.min(...activeModels.map((m) => m.stats.leadership)) - ldBonus;
 
     // Roll 2D6
     const roll = rollDice(2, 6, 'Battle-shock');
@@ -121,12 +123,13 @@ export function CommandPhasePanel() {
             );
             const startStr = unit.startingStrength ?? unit.modelIds.length;
             const isShocked = alreadyShocked.has(unit.id);
+            const unitLdBonus = getOrderLeadershipBonus(gameState, unit.id);
             const bestLd = Math.min(
               ...unit.modelIds
                 .map((id) => gameState.models[id])
                 .filter((m) => m && m.status === 'active')
                 .map((m) => m.stats.leadership),
-            );
+            ) - unitLdBonus;
 
             return (
               <div key={unit.id} className="bg-gray-700/50 rounded p-2 space-y-1">
@@ -143,7 +146,7 @@ export function CommandPhasePanel() {
                     onClick={() => handleBattleShock(unit.id)}
                     className="w-full px-2 py-1.5 rounded text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
                   >
-                    Roll Battle-shock (2D6 vs Ld {bestLd}+)
+                    Roll Battle-shock (2D6 vs Ld {bestLd}+{unitLdBonus > 0 ? ' (Order)' : ''})
                   </button>
                 )}
               </div>
@@ -173,6 +176,9 @@ export function CommandPhasePanel() {
           })}
         </div>
       )}
+
+      {/* Orders (Combined Regiment) */}
+      {hasStarted && <OrdersPanel />}
 
       {/* Scores */}
       {playerIds.some((pid) => (gameState.score[pid] ?? 0) > 0) && (

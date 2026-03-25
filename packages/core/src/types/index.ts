@@ -319,11 +319,16 @@ export interface PhaseChangeContext {
   roundNumber: number;
 }
 
+export interface TurnChangeContext {
+  newActivePlayerId: string;
+  roundNumber: number;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface FactionStateHandlers<T = any> {
   createInitial: () => T;
   onPhaseChange: (current: T, context: PhaseChangeContext) => T;
-  onTurnChange: (current: T) => T;
+  onTurnChange: (current: T, context: TurnChangeContext) => T;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -497,11 +502,12 @@ export interface OrderDefinition {
 }
 
 export const COMBINED_REGIMENT_ORDERS: OrderDefinition[] = [
-  { id: 'take-aim', name: 'Take Aim!', description: 'Re-roll Hit rolls of 1 for ranged attacks.' },
-  { id: 'frfsrf', name: 'First Rank Fire! Second Rank Fire!', description: 'Ranged weapons gain AP improved by 1.' },
-  { id: 'move-move-move', name: 'Move! Move! Move!', description: '+2" to Move characteristic.' },
-  { id: 'fix-bayonets', name: 'Fix Bayonets!', description: 'Re-roll Hit rolls of 1 for melee attacks.' },
-  { id: 'duty-and-honour', name: 'Duty and Honour!', description: '4+ invulnerable save until the start of your next Command phase.' },
+  { id: 'move-move-move', name: 'Move! Move! Move!', description: 'Add 3" to the Move characteristic of models in this unit.' },
+  { id: 'fix-bayonets', name: 'Fix Bayonets!', description: 'Improve the Weapon Skill characteristic of melee weapons equipped by models in this unit by 1.' },
+  { id: 'take-aim', name: 'Take Aim!', description: 'Improve the Ballistic Skill characteristic of ranged weapons equipped by models in this unit by 1.' },
+  { id: 'frfsrf', name: 'First Rank, Fire! Second Rank, Fire!', description: 'Improve the Attacks characteristic of Rapid Fire weapons equipped by models in this unit by 1.' },
+  { id: 'take-cover', name: 'Take Cover!', description: 'Improve the Save characteristic of models in this unit by 1 (cannot improve a model\'s Save to better than 3+).' },
+  { id: 'duty-and-honour', name: 'Duty and Honour!', description: 'Improve the Leadership and Objective Control characteristics of models in this unit by 1.' },
 ];
 
 export type StratagemTiming = 'your_turn' | 'opponent_turn' | 'either_turn';
@@ -521,7 +527,7 @@ export interface Stratagem {
 /** The 11 core stratagems from 10th Edition */
 export const CORE_STRATAGEMS: Stratagem[] = [
   // Either player's turn
-  { id: 'command-reroll', name: 'Command Re-roll', cpCost: 1, phases: ['command', 'movement', 'shooting', 'charge', 'fight', 'morale'], timing: 'either_turn', description: 'Re-roll one Hit, Wound, Damage, Save, Advance, Charge, or Hazardous roll' },
+  { id: 'command-reroll', name: 'Command Re-roll', cpCost: 1, phases: ['command', 'movement', 'shooting', 'charge', 'fight'], timing: 'either_turn', description: 'Re-roll one Hit, Wound, Damage, Save, Advance, Charge, or Hazardous roll' },
   { id: 'counter-offensive', name: 'Counter-Offensive', cpCost: 2, phases: ['fight'], timing: 'either_turn', description: 'After an enemy unit fights, one of your units within Engagement Range fights next' },
   { id: 'epic-challenge', name: 'Epic Challenge', cpCost: 1, phases: ['fight'], timing: 'either_turn', description: 'One CHARACTER model\'s melee attacks gain Precision' },
 

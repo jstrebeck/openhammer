@@ -5,8 +5,13 @@ import {
   rollDice,
   getWoundThreshold,
   parseDiceExpression,
+  getFactionState,
+  getOrderSaveModifier,
+  applyFactionAndDetachmentRules,
+  parseWeaponAbility,
 } from '@openhammer/core';
 import type { Weapon, DiceRoll } from '@openhammer/core';
+import type { AttackContext } from '@openhammer/core/src/combat/attackPipeline';
 
 interface MeleeResult {
   weaponName: string;
@@ -98,11 +103,29 @@ export function FightPanel() {
     const results: MeleeResult[] = [];
 
     for (const weapon of weaponsToUse) {
-      const attacksPerModel = parseDiceExpression(weapon.attacks);
-      const totalAttacks = attacksPerModel * activeModels.length;
+      // Build attack context and apply faction/detachment/order modifiers
+      const baseCtx: AttackContext = {
+        weapon,
+        abilities: (weapon.abilities ?? []).map((a) => parseWeaponAbility(a)).filter(Boolean) as AttackContext['abilities'],
+        distanceToTarget: 1,
+        targetUnitSize: targetModels.length,
+        targetKeywords: targetUnit.keywords,
+        attackerStationary: false,
+        attackerCharged: gameState.turnTracking.chargedUnits?.includes(fighterUnit.id) ?? false,
+        attackerModelCount: activeModels.length,
+        targetUnitId: targetUnit.id,
+      };
+      const { ctx: modifiedCtx } = applyFactionAndDetachmentRules(baseCtx, gameState, fighterUnit);
 
-      const hitRoll = rollDice(totalAttacks, 6, 'To Hit', weapon.skill);
-      const hits = hitRoll.dice.filter((d) => (d === 1 ? false : d >= weapon.skill || d === 6)).length;
+      const attacksPerModel = parseDiceExpression(weapon.attacks);
+      const bonusAttacks = modifiedCtx.bonusAttacks ?? 0;
+      const totalAttacks = (attacksPerModel + bonusAttacks) * activeModels.length;
+
+      // Apply skill improvement from orders (Fix Bayonets! WS+1)
+      const effectiveSkill = Math.max(2, weapon.skill - (modifiedCtx.skillImprovement ?? 0));
+
+      const hitRoll = rollDice(totalAttacks, 6, 'To Hit', effectiveSkill);
+      const hits = hitRoll.dice.filter((d) => (d === 1 ? false : d >= effectiveSkill || d === 6)).length;
 
       const woundThreshold = getWoundThreshold(weapon.strength, firstTarget.stats.toughness);
       const woundRoll = hits > 0 ? rollDice(hits, 6, 'To Wound', woundThreshold) : rollDice(0, 6, 'To Wound', woundThreshold);
@@ -132,7 +155,14 @@ export function FightPanel() {
         const target = targetModels[currentTargetIdx];
         if (!target) break;
 
-        const modifiedSave = target.stats.save + Math.abs(weapon.ap);
+        // Apply Take Cover! save bonus (+1 SV, max 3+)
+        const targetUnitForSave = gameState.units[target.unitId];
+        const orderSaveBonus = targetUnitForSave ? getOrderSaveModifier(gameState, targetUnitForSave) : 0;
+        let baseSave = target.stats.save;
+        if (orderSaveBonus > 0) {
+          baseSave = Math.max(3, baseSave - orderSaveBonus);
+        }
+        const modifiedSave = baseSave + Math.abs(weapon.ap);
         const invuln = target.stats.invulnSave;
         const effectiveSave = invuln ? Math.min(modifiedSave, invuln) : modifiedSave;
 

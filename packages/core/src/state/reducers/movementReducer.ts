@@ -16,6 +16,7 @@ import type { GameState } from '../../types/index';
 import type { RulesEdition } from '../../rules/RulesEdition';
 import type { Point } from '../../types/geometry';
 import type { MoveType } from '../../types/index';
+import { getOrderMovementBonus } from '../../combat/factionModifiers';
 
 export const movementReducer: SubReducer = (state, action) => {
   switch (action.type) {
@@ -59,7 +60,8 @@ export const movementReducer: SubReducer = (state, action) => {
                 return state;
               }
             } else {
-              const maxDist = edition.getMaxMoveDistance(model.moveCharacteristic, moveType);
+              const orderMoveBonus = getOrderMovementBonus(state, model.unitId);
+              const maxDist = edition.getMaxMoveDistance(model.moveCharacteristic + orderMoveBonus, moveType);
               const advanceBonus = moveType === 'advance' ? (state.turnTracking.advanceRolls[model.unitId] ?? 0) : 0;
               const totalAllowed = maxDist + advanceBonus;
 
@@ -338,7 +340,8 @@ function validateMovement(
     // Use original position from DECLARE_MOVEMENT for distance calculation
     const originPos = state.turnTracking.preMovementPositions[modelId] ?? model.position;
     const distMoved = distance(originPos, newPos);
-    const maxDist = edition.getMaxMoveDistance(model.moveCharacteristic, moveType);
+    const orderMoveBonus = getOrderMovementBonus(state, unitId);
+    const maxDist = edition.getMaxMoveDistance(model.moveCharacteristic + orderMoveBonus, moveType);
     const advanceBonus = moveType === 'advance' ? (state.turnTracking.advanceRolls[unitId] ?? 0) : 0;
     let totalAllowed = maxDist + advanceBonus;
 

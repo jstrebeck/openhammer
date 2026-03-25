@@ -128,7 +128,7 @@ export type GameAction =
   | { type: 'RESOLVE_OVERWATCH'; payload: { attackingUnitId: string; targetUnitId: string; hitRoll: DiceRoll; hits: number; woundRoll: DiceRoll; wounds: number } }
   | { type: 'RESOLVE_HEROIC_INTERVENTION'; payload: { unitId: string; targetUnitId: string; positions: Record<string, Point> } }
 
-  // --- Phase 25: Morale & Coherency Cleanup ---
+  // --- Phase 25: End-of-Turn Coherency Cleanup ---
   | { type: 'CHECK_END_OF_TURN_COHERENCY' }
   | { type: 'RESOLVE_DESPERATE_ESCAPE'; payload: { unitId: string; roll: DiceRoll; destroyedModelIds: string[] } }
 

@@ -167,7 +167,7 @@ describe('Phase 16: Core Stratagems', () => {
       const cr = CORE_STRATAGEMS.find(s => s.id === 'command-reroll');
       expect(cr).toBeDefined();
       expect(cr!.cpCost).toBe(1);
-      expect(cr!.phases).toHaveLength(6); // all phases
+      expect(cr!.phases).toHaveLength(5); // all phases
     });
 
     it('Counter-Offensive costs 2 CP and is fight-phase only', () => {

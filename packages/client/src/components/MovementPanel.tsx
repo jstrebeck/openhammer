@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
-import { rollDice, getTransportForUnit } from '@openhammer/core';
+import { rollDice, getTransportForUnit, getOrderMovementBonus } from '@openhammer/core';
 import type { MoveType } from '@openhammer/core';
 import { TransportPanel } from './TransportPanel';
 
@@ -61,7 +61,9 @@ export function MovementPanel() {
   }
 
   const advanceRoll = gameState.turnTracking.advanceRolls[unit.id];
-  const moveChar = activeModels[0]?.moveCharacteristic ?? 6;
+  const baseMoveChar = activeModels[0]?.moveCharacteristic ?? 6;
+  const orderBonus = unit ? getOrderMovementBonus(gameState, unit.id) : 0;
+  const moveChar = baseMoveChar + orderBonus;
 
   const handleDeclare = (type: MoveType) => {
     dispatch({ type: 'ACTIVATE_UNIT', payload: { unitId: unit.id } });
@@ -124,7 +126,8 @@ export function MovementPanel() {
           {moveType === 'fall_back' && 'Fall Back'}
         </div>
         <div className="text-sm text-blue-300">
-          Max: {maxMove}" per model (M{moveChar}
+          Max: {maxMove}" per model (M{baseMoveChar}
+          {orderBonus > 0 ? ` +${orderBonus}" Order` : ''}
           {moveType === 'advance' ? ` + ${advanceRoll}"` : ''})
         </div>
         <div className="text-xs text-gray-500">

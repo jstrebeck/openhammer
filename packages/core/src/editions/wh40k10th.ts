@@ -12,7 +12,6 @@ export const wh40k10thEdition: RulesEdition = {
     { id: 'shooting', name: 'Shooting Phase' },
     { id: 'charge', name: 'Charge Phase' },
     { id: 'fight', name: 'Fight Phase' },
-    { id: 'morale', name: 'Morale Phase' },
   ],
 
   getNextPhase(currentIndex: number): number | null {
@@ -53,7 +52,6 @@ export const wh40k10thEdition: RulesEdition = {
       shooting: ['shooting', 'admin'],
       charge: ['charge', 'admin'],
       fight: ['fight', 'admin'],
-      morale: ['admin'],
     };
   },
 

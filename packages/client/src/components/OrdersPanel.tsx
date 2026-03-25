@@ -5,9 +5,10 @@ import type { Unit, OrderDefinition } from '@openhammer/core';
 import type { AstraMilitarumState } from '@openhammer/core/src/detachments/astra-militarum';
 
 /**
- * Combined Regiment Orders panel — shown during the Shooting phase when
+ * Combined Regiment Orders panel — shown during the Command phase when
  * the active player has the Combined Regiment detachment selected.
  * Officers can issue one order each to friendly units within 6".
+ * Orders persist until the start of the owning player's next Command phase.
  */
 export function OrdersPanel() {
   const gameState = useGameStore((s) => s.gameState);
@@ -31,8 +32,9 @@ export function OrdersPanel() {
   );
   const availableOfficers = officerUnits.filter((u) => !amState.officersUsedThisPhase.includes(u.id));
 
-  // Units that can receive orders (friendly, active, no order yet)
-  const orderableUnits = playerUnits.filter((u) => !amState.activeOrders[u.id]);
+  // Units that can receive orders (friendly, active, not battle-shocked)
+  // A new order replaces any existing order, so units with orders are still orderable
+  const orderableUnits = playerUnits.filter((u) => !gameState.battleShocked.includes(u.id));
 
   const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);

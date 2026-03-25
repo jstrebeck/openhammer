@@ -286,7 +286,7 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
     expect(amState3?.activeOrders['officer-u1']).toBeUndefined();
   });
 
-  it('blocks unit from receiving two orders', () => {
+  it('replaces existing order when a new one is issued', () => {
     let state = setupOrderGame();
 
     // Add a second officer near the infantry
@@ -306,15 +306,14 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
       type: 'ISSUE_ORDER',
       payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'take-aim' },
     });
-    // Second officer tries to give same unit another order
+    // Second officer issues a new order to the same unit — should replace
     state = gameReducer(state, {
       type: 'ISSUE_ORDER',
       payload: { officerUnitId: 'off2-u1', targetUnitId: 'inf-u1', orderId: 'frfsrf' },
     });
 
-    // Should still have Take Aim, not FRFSRF
     const amState4 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
-    expect(amState4.activeOrders['inf-u1']).toBe('take-aim');
+    expect(amState4.activeOrders['inf-u1']).toBe('frfsrf');
   });
 
   it('blocks non-OFFICER units from issuing orders', () => {
@@ -328,7 +327,7 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
     expect(amState5?.activeOrders['officer-u1']).toBeUndefined();
   });
 
-  it('clears orders on ADVANCE_PHASE', () => {
+  it('orders persist across phases (ADVANCE_PHASE)', () => {
     let state = setupOrderGame();
     state = gameReducer(state, {
       type: 'ISSUE_ORDER',
@@ -336,27 +335,54 @@ describe('Combined Regiment Orders — ISSUE_ORDER', () => {
     });
     const amState6 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
     expect(amState6.activeOrders['inf-u1']).toBe('take-aim');
+    expect(amState6.officersUsedThisPhase).toContain('officer-u1');
 
     state = gameReducer(state, { type: 'ADVANCE_PHASE' });
 
+    // Orders should persist; only officersUsedThisPhase resets
     const amState7 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
-    expect(amState7.activeOrders).toEqual({});
+    expect(amState7.activeOrders['inf-u1']).toBe('take-aim');
     expect(amState7.officersUsedThisPhase).toEqual([]);
   });
 
-  it('Duty and Honour creates a persisting effect', () => {
+  it('orders clear at start of owning player next Command phase (NEXT_TURN)', () => {
     let state = setupOrderGame();
+
+    // Add a second player so NEXT_TURN switches between them
+    state = gameReducer(state, {
+      type: 'ADD_PLAYER',
+      payload: { player: { id: 'p2', name: 'Opponent', color: '#0000ff', commandPoints: 5 } },
+    });
+    state = { ...state, turnState: { ...state.turnState, activePlayerId: 'p1' } };
+
     state = gameReducer(state, {
       type: 'ISSUE_ORDER',
-      payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'duty-and-honour' },
+      payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'take-aim' },
     });
 
-    const amState8 = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
-    expect(amState8.activeOrders['inf-u1']).toBe('duty-and-honour');
-    const effect = state.persistingEffects.find(e => e.type === 'duty-and-honour' && e.targetUnitId === 'inf-u1');
-    expect(effect).toBeDefined();
-    expect(effect!.expiresAt.type).toBe('turn_end');
-    expect(effect!.data?.invulnSave).toBe(4);
+    // Advance to opponent's turn — orders should persist
+    state = gameReducer(state, { type: 'NEXT_TURN' });
+    const amAfterOpponentTurn = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amAfterOpponentTurn.activeOrders['inf-u1']).toBe('take-aim');
+
+    // Advance back to AM player's turn (their Command phase) — orders should clear
+    state = gameReducer(state, { type: 'NEXT_TURN' });
+    const amAfterOwnTurn = getFactionState<AstraMilitarumState>(state, 'astra-militarum')!;
+    expect(amAfterOwnTurn.activeOrders).toEqual({});
+  });
+
+  it('blocks orders to Battle-shocked units', () => {
+    let state = setupOrderGame();
+    // Battle-shock the infantry unit
+    state = { ...state, battleShocked: [...state.battleShocked, 'inf-u1'] };
+
+    state = gameReducer(state, {
+      type: 'ISSUE_ORDER',
+      payload: { officerUnitId: 'officer-u1', targetUnitId: 'inf-u1', orderId: 'take-aim' },
+    });
+
+    const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+    expect(amState?.activeOrders['inf-u1']).toBeUndefined();
   });
 });
 
@@ -537,7 +563,6 @@ describe("For the Greater Good — Guided Targets", () => {
     // Advance through remaining phases
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // → Charge
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // → Fight
-    state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // → Morale
 
     // Next turn switches to enemy
     state = gameReducer(state, { type: 'NEXT_TURN' });
@@ -557,8 +582,7 @@ describe("For the Greater Good — Guided Targets", () => {
 
     state = gameReducer(state, { type: 'DESIGNATE_GUIDED_TARGET', payload: { targetUnitId: 'e1' } });
 
-    // Go through remaining phases: Charge, Fight, Morale
-    state = gameReducer(state, { type: 'ADVANCE_PHASE' });
+    // Go through remaining phases: Charge, Fight
     state = gameReducer(state, { type: 'ADVANCE_PHASE' });
     state = gameReducer(state, { type: 'ADVANCE_PHASE' });
 
@@ -571,7 +595,6 @@ describe("For the Greater Good — Guided Targets", () => {
 
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Charge
     state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Fight
-    state = gameReducer(state, { type: 'ADVANCE_PHASE' }); // Morale
 
     // Back to T'au's turn
     state = gameReducer(state, { type: 'NEXT_TURN' });

@@ -8,11 +8,12 @@ import {
   createEmptyFightState,
   createEmptyStratagemEffects,
 } from '../../types/index';
-import type { GameState, TurnTracking, DeploymentZone, ObjectiveMarker, FactionStateSlice } from '../../types/index';
+import type { GameState, TurnTracking, DeploymentZone, ObjectiveMarker, FactionStateSlice, TurnChangeContext } from '../../types/index';
 import { getEdition } from '../../rules/registry';
 import { getRegisteredFactionHandlers } from '../../detachments/registry';
 import { evaluateScoring } from '../../missions/index';
 import { checkCoherency, isWithinRange, distanceToPoint } from '../../measurement/index';
+import { getOrderOCBonus } from '../../combat/factionModifiers';
 
 function resetFactionStateForPhase(state: GameState, newPhaseId: string): Record<string, FactionStateSlice> {
   const newFactionState = { ...state.factionState };
@@ -27,11 +28,11 @@ function resetFactionStateForPhase(state: GameState, newPhaseId: string): Record
   return newFactionState;
 }
 
-function resetFactionStateForTurn(state: GameState): Record<string, FactionStateSlice> {
+function resetFactionStateForTurn(state: GameState, context: TurnChangeContext): Record<string, FactionStateSlice> {
   const newFactionState = { ...state.factionState };
   for (const [factionId, handlers] of getRegisteredFactionHandlers()) {
     const current = state.factionState[factionId] ?? handlers.createInitial();
-    newFactionState[factionId] = handlers.onTurnChange(current as any);
+    newFactionState[factionId] = handlers.onTurnChange(current as any, context);
   }
   return newFactionState;
 }
@@ -103,7 +104,7 @@ export const lifecycleReducer: SubReducer = (state, action) => {
         stratagemsUsedThisPhase: [],
         stratagemEffects: createEmptyStratagemEffects(),
         outOfPhaseAction: undefined,
-        factionState: resetFactionStateForTurn(state),
+        factionState: resetFactionStateForTurn(state, { newActivePlayerId: newPlayerId, roundNumber: newRound }),
         cpGainedThisRound: isLastPlayer ? {} : state.cpGainedThisRound,
         // Auto-expire persisting effects at turn/round end
         persistingEffects: state.persistingEffects.filter(e => {
@@ -211,7 +212,8 @@ export const lifecycleReducer: SubReducer = (state, action) => {
             const dist = distanceToPoint(model, obj.position);
             if (dist <= 3) {
               const isBattleShocked = state.battleShocked.includes(unit.id);
-              const oc = isBattleShocked ? 0 : model.stats.objectiveControl;
+              const baseOC = model.stats.objectiveControl + getOrderOCBonus(state, unit.id);
+              const oc = isBattleShocked ? 0 : baseOC;
               ocByPlayer[unit.playerId] = (ocByPlayer[unit.playerId] ?? 0) + oc;
             }
           }
@@ -402,8 +404,9 @@ export const lifecycleReducer: SubReducer = (state, action) => {
           // Check distance: within 3" of objective (edge-to-point)
           if (!isWithinRange(model, objective.position, 3)) continue;
 
-          // OC is 0 if battle-shocked
-          const oc = state.battleShocked.includes(unit.id) ? 0 : model.stats.objectiveControl;
+          // OC is 0 if battle-shocked; Duty and Honour! adds +1 OC
+          const baseOC = model.stats.objectiveControl + getOrderOCBonus(state, unit.id);
+          const oc = state.battleShocked.includes(unit.id) ? 0 : baseOC;
           controlByPlayer[unit.playerId] = (controlByPlayer[unit.playerId] ?? 0) + oc;
         }
 

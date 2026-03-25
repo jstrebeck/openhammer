@@ -262,41 +262,46 @@ describe('Fortification Network -- Siege Warfare', () => {
 // ===============================================
 
 describe('Combined Regiment Orders -- Combat Modifiers', () => {
-  it('Take Aim applies rerollHitRollsOf1 for ranged attacks', () => {
+  it('Take Aim applies skillImprovement +1 for ranged attacks (BS +1)', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
     const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'take-aim' }, officersUsedThisPhase: [] } } };
     const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged' }) });
 
     const { ctx: modified, triggeredRules } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
 
-    expect(modified.rerollHitRollsOf1).toBe(true);
-    expect(triggeredRules).toContain('Take Aim! (re-roll hit 1s)');
+    expect(modified.skillImprovement).toBe(1);
+    expect(triggeredRules).toContain('Take Aim! (BS +1)');
   });
 
-  it('FRFSRF applies bonusAP for ranged attacks', () => {
+  it('FRFSRF applies bonusAttacks +1 for Rapid Fire weapons only', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
     const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'frfsrf' }, officersUsedThisPhase: [] } } };
-    const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged', ap: 0 }) });
 
-    const { ctx: modified, triggeredRules } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
+    // Rapid Fire weapon — should apply
+    const rfCtx = makeCtx({ weapon: makeWeapon({ type: 'ranged', abilities: ['RAPID FIRE 1'] }) });
+    const { ctx: rfModified, triggeredRules } = applyFactionAndDetachmentRules(rfCtx, stateWithOrder, unit);
+    expect(rfModified.bonusAttacks).toBe(1);
+    expect(triggeredRules).toContain('FRFSRF (A +1)');
 
-    expect(modified.bonusAP).toBe(-1);
-    expect(triggeredRules).toContain('FRFSRF (AP +1)');
+    // Non-Rapid Fire weapon — should NOT apply
+    const normalCtx = makeCtx({ weapon: makeWeapon({ type: 'ranged', abilities: [] }) });
+    const { ctx: normalModified } = applyFactionAndDetachmentRules(normalCtx, stateWithOrder, unit);
+    expect(normalModified.bonusAttacks).toBeUndefined();
   });
 
-  it('Fix Bayonets applies rerollHitRollsOf1 for melee attacks only', () => {
+  it('Fix Bayonets applies skillImprovement +1 for melee attacks only (WS +1)', () => {
     const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
     const stateWithOrder = { ...state, factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'fix-bayonets' }, officersUsedThisPhase: [] } } };
 
     // Melee — should apply
     const meleeCtx = makeCtx({ weapon: makeWeapon({ type: 'melee', name: 'Bayonet' }) });
     const { ctx: meleeModified } = applyFactionAndDetachmentRules(meleeCtx, stateWithOrder, unit);
-    expect(meleeModified.rerollHitRollsOf1).toBe(true);
+    expect(meleeModified.skillImprovement).toBe(1);
 
     // Ranged — should NOT apply
     const rangedCtx = makeCtx({ weapon: makeWeapon({ type: 'ranged' }) });
     const { ctx: rangedModified } = applyFactionAndDetachmentRules(rangedCtx, stateWithOrder, unit);
-    expect(rangedModified.rerollHitRollsOf1).toBeUndefined();
+    expect(rangedModified.skillImprovement).toBeUndefined();
   });
 
   it('Take Aim does not apply to melee attacks', () => {
@@ -306,7 +311,21 @@ describe('Combined Regiment Orders -- Combat Modifiers', () => {
 
     const { ctx: modified } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
 
-    expect(modified.rerollHitRollsOf1).toBeUndefined();
+    expect(modified.skillImprovement).toBeUndefined();
+  });
+
+  it('orders do not apply to Battle-shocked units', () => {
+    const { state, unit } = setupGameWithFaction('ASTRA MILITARUM', 'combined-regiment');
+    const stateWithOrder = {
+      ...state,
+      factionState: { ...state.factionState, 'astra-militarum': { activeOrders: { [unit.id]: 'take-aim' }, officersUsedThisPhase: [] } },
+      battleShocked: [unit.id],
+    };
+    const ctx = makeCtx({ weapon: makeWeapon({ type: 'ranged' }) });
+
+    const { ctx: modified } = applyFactionAndDetachmentRules(ctx, stateWithOrder, unit);
+
+    expect(modified.skillImprovement).toBeUndefined();
   });
 });
 

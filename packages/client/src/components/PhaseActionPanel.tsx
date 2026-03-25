@@ -13,7 +13,6 @@ const PHASE_COLORS: Record<string, string> = {
   shooting: 'border-red-500',
   charge: 'border-yellow-500',
   fight: 'border-purple-500',
-  morale: 'border-orange-500',
 };
 
 const PHASE_LABELS: Record<string, string> = {
@@ -22,7 +21,6 @@ const PHASE_LABELS: Record<string, string> = {
   shooting: 'Shooting Phase',
   charge: 'Charge Phase',
   fight: 'Fight Phase',
-  morale: 'Morale Phase',
 };
 
 export function PhaseActionPanel() {
@@ -36,7 +34,6 @@ export function PhaseActionPanel() {
 
   const borderColor = PHASE_COLORS[phaseId] ?? 'border-gray-500';
 
-  // Don't show panel for morale phase (no structured actions yet)
   const hasActions = ['command', 'movement', 'shooting', 'charge', 'fight'].includes(phaseId);
   if (!hasActions) return null;
 

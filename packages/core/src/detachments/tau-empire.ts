@@ -14,7 +14,7 @@ export const tauEmpireStateHandlers: FactionStateHandlers<TauEmpireState> = {
     return current;
   },
   // IMPORTANT: current reducer's NEXT_TURN does NOT clear guidedTargets — preserve behavior
-  onTurnChange: (current) => current,
+  onTurnChange: (current, _context) => current,
 };
 
 export const tauEmpire: FactionDefinition = {

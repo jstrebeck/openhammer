@@ -70,6 +70,10 @@ export interface AttackContext {
   rerollHitRollsOf1?: boolean;
   /** Additional AP modifier applied to the weapon (e.g., FRFSRF order: -1) */
   bonusAP?: number;
+  /** Characteristic improvement to BS/WS (e.g., Take Aim! = 1, Fix Bayonets! = 1). Applied to base skill, separate from hit roll modifiers. */
+  skillImprovement?: number;
+  /** Bonus attacks to add (e.g., FRFSRF = 1 for Rapid Fire weapons) */
+  bonusAttacks?: number;
   /** Target unit ID (for guided target / For the Greater Good checks) */
   targetUnitId?: string;
 }
@@ -133,6 +137,12 @@ export function resolveAttackSequence(
 ): AttackResult {
   const triggered: string[] = [];
 
+  // --- Characteristic Improvements (applied before modifiers) ---
+  // Skill improvement (e.g., Take Aim! BS+1, Fix Bayonets! WS+1) modifies the base characteristic
+  const effectiveBaseSkill = Math.max(2, skill - (ctx?.skillImprovement ?? 0));
+  // Bonus attacks (e.g., FRFSRF +1 Attacks for Rapid Fire)
+  const totalAttacks = numAttacks + (ctx?.bonusAttacks ?? 0);
+
   // --- Hit Modifier ---
   let hitModifier = 0;
   if (ctx) {
@@ -169,11 +179,11 @@ export function resolveAttackSequence(
   if (isTorrent) {
     // Torrent: auto-hit, no roll needed
     hitRoll = { id: generateUUID(), dice: [], sides: 6, purpose: 'To Hit (Torrent - auto)', timestamp: Date.now() };
-    hits = numAttacks;
+    hits = totalAttacks;
     triggered.push('Torrent (auto-hit)');
   } else {
-    hitRoll = rollDice(numAttacks, 6, 'To Hit', skill);
-    const effectiveSkill = Math.max(2, skill - hitModifier); // Can't go below 2+
+    hitRoll = rollDice(totalAttacks, 6, 'To Hit', effectiveBaseSkill);
+    const effectiveSkill = Math.max(2, effectiveBaseSkill - hitModifier); // Can't go below 2+
 
     hits = 0;
     for (const d of hitRoll.dice) {
@@ -215,9 +225,9 @@ export function resolveAttackSequence(
       }
     }
 
-    // Re-roll hit rolls of 1 (e.g., Take Aim / Fix Bayonets orders)
+    // Re-roll hit rolls of 1 (e.g., faction/detachment rules)
     if (ctx?.rerollHitRollsOf1) {
-      const effectiveSkill = Math.max(2, skill - hitModifier);
+      const effectiveSkill = Math.max(2, effectiveBaseSkill - hitModifier);
       const ones = hitRoll.dice.filter(d => d === 1);
       if (ones.length > 0) {
         const reRoll = rollDice(ones.length, 6, 'To Hit (re-roll 1s)', effectiveSkill);

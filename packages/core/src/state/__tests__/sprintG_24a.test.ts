@@ -224,7 +224,7 @@ describe('Phase 24a: Epic Challenge Combat Integration', () => {
 
     it('epicChallengeUnits clears on phase advance', () => {
       let state = setupTwoPlayerGame();
-      state = setPhase(state, 4);
+      state = setPhase(state, 3); // charge phase
       state = { ...state, stratagemEffects: { ...state.stratagemEffects, epicChallengeUnits: ['champ-unit'] } };
 
       state = gameReducer(state, { type: 'ADVANCE_PHASE' });

@@ -99,12 +99,12 @@ describe('gameReducer', () => {
 
   it('does not advance past last phase', () => {
     let state = createInitialGameState();
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       state = gameReducer(state, { type: 'ADVANCE_PHASE' });
     }
-    expect(state.turnState.currentPhaseIndex).toBe(5);
+    expect(state.turnState.currentPhaseIndex).toBe(4);
     const next = gameReducer(state, { type: 'ADVANCE_PHASE' });
-    expect(next.turnState.currentPhaseIndex).toBe(5);
+    expect(next.turnState.currentPhaseIndex).toBe(4);
   });
 
   it('advances to next turn', () => {

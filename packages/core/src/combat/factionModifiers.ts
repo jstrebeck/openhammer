@@ -145,30 +145,37 @@ export function applyFactionAndDetachmentRules(
   }
 
   // --- Active Orders (Combined Regiment) ---
+  // Orders do not apply to Battle-shocked units
 
   const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
   const activeOrder = amState?.activeOrders?.[attackingUnit.id];
-  if (activeOrder) {
+  const isBattleShocked = state.battleShocked?.includes(attackingUnit.id);
+  if (activeOrder && !isBattleShocked) {
     switch (activeOrder) {
       case 'take-aim':
-        if (ctx.weapon.type === 'ranged' && !modified.rerollHitRollsOf1) {
-          modified = { ...modified, rerollHitRollsOf1: true };
-          triggeredRules.push('Take Aim! (re-roll hit 1s)');
+        // Improve BS characteristic by 1 for ranged weapons
+        if (ctx.weapon.type === 'ranged') {
+          modified = { ...modified, skillImprovement: (modified.skillImprovement ?? 0) + 1 };
+          triggeredRules.push('Take Aim! (BS +1)');
         }
         break;
       case 'frfsrf':
-        if (ctx.weapon.type === 'ranged') {
-          modified = { ...modified, bonusAP: (modified.bonusAP ?? 0) - 1 };
-          triggeredRules.push('FRFSRF (AP +1)');
+        // Improve Attacks characteristic by 1 for Rapid Fire weapons only
+        if (ctx.weapon.type === 'ranged' && ctx.weapon.abilities?.some(a => a.toUpperCase().startsWith('RAPID FIRE'))) {
+          modified = { ...modified, bonusAttacks: (modified.bonusAttacks ?? 0) + 1 };
+          triggeredRules.push('FRFSRF (A +1)');
         }
         break;
       case 'fix-bayonets':
-        if (ctx.weapon.type === 'melee' && !modified.rerollHitRollsOf1) {
-          modified = { ...modified, rerollHitRollsOf1: true };
-          triggeredRules.push('Fix Bayonets! (re-roll hit 1s)');
+        // Improve WS characteristic by 1 for melee weapons
+        if (ctx.weapon.type === 'melee') {
+          modified = { ...modified, skillImprovement: (modified.skillImprovement ?? 0) + 1 };
+          triggeredRules.push('Fix Bayonets! (WS +1)');
         }
         break;
-      // move-move-move and duty-and-honour are handled elsewhere (movement/saves)
+      // move-move-move: +3" M, handled in movement validation
+      // take-cover: +1 SV (max 3+), handled in save resolution via getOrderSaveModifier()
+      // duty-and-honour: +1 LD, +1 OC, handled in battle-shock and objective control
     }
   }
 
@@ -209,4 +216,56 @@ export function applyDefensiveDetachmentRules(
   }
 
   return { woundRollModifier, triggeredRules };
+}
+
+/**
+ * Get the save modifier from active orders for a target unit.
+ * Take Cover! grants +1 to Save (cannot improve to better than 3+).
+ * Returns 0 if no save-modifying order is active or unit is Battle-shocked.
+ */
+export function getOrderSaveModifier(state: GameState, targetUnit: Unit): number {
+  const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+  const activeOrder = amState?.activeOrders?.[targetUnit.id];
+  if (!activeOrder || activeOrder !== 'take-cover') return 0;
+  if (state.battleShocked?.includes(targetUnit.id)) return 0;
+  return 1; // +1 save improvement (caller must enforce 3+ cap)
+}
+
+/**
+ * Get the movement bonus from active orders for a unit.
+ * Move! Move! Move! grants +3" to Move characteristic.
+ * Returns 0 if no movement-modifying order is active or unit is Battle-shocked.
+ */
+export function getOrderMovementBonus(state: GameState, unitId: string): number {
+  const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+  const activeOrder = amState?.activeOrders?.[unitId];
+  if (!activeOrder || activeOrder !== 'move-move-move') return 0;
+  if (state.battleShocked?.includes(unitId)) return 0;
+  return 3;
+}
+
+/**
+ * Get the OC bonus from active orders for a unit.
+ * Duty and Honour! grants +1 OC.
+ * Returns 0 if no OC-modifying order is active or unit is Battle-shocked.
+ */
+export function getOrderOCBonus(state: GameState, unitId: string): number {
+  const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+  const activeOrder = amState?.activeOrders?.[unitId];
+  if (!activeOrder || activeOrder !== 'duty-and-honour') return 0;
+  if (state.battleShocked?.includes(unitId)) return 0;
+  return 1;
+}
+
+/**
+ * Get the Leadership bonus from active orders for a unit.
+ * Duty and Honour! grants +1 LD.
+ * Returns 0 if no LD-modifying order is active or unit is Battle-shocked.
+ */
+export function getOrderLeadershipBonus(state: GameState, unitId: string): number {
+  const amState = getFactionState<AstraMilitarumState>(state, 'astra-militarum');
+  const activeOrder = amState?.activeOrders?.[unitId];
+  if (!activeOrder || activeOrder !== 'duty-and-honour') return 0;
+  if (state.battleShocked?.includes(unitId)) return 0;
+  return 1;
 }

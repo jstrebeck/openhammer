@@ -33,7 +33,6 @@ const phaseToolMap: Record<string, Set<Tool>> = {
   shooting: new Set(['select', 'measure', 'los']),
   charge:   new Set(['select', 'measure']),
   fight:    new Set(['select']),
-  morale:   new Set(['select']),
 };
 
 function isToolEnabledForPhase(toolId: Tool, phaseId: string | undefined, gameStarted: boolean): boolean {

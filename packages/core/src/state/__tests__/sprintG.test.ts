@@ -43,7 +43,7 @@ function addUnit(
   return gameReducer(state, { type: 'ADD_UNIT', payload: { unit, models: modelObjs } });
 }
 
-/** Set the current phase index (0=command, 1=movement, 2=shooting, 3=charge, 4=fight, 5=morale) */
+/** Set the current phase index (0=command, 1=movement, 2=shooting, 3=charge, 4=fight) */
 function setPhase(state: GameState, phaseIndex: number): GameState {
   return {
     ...state,
@@ -410,7 +410,7 @@ describe('Phase 24: Stratagem Effects', () => {
 
     it('clears epicChallengeUnits on phase advance', () => {
       let state = setupTwoPlayerGame();
-      state = setPhase(state, 4);
+      state = setPhase(state, 3); // charge phase
       state = { ...state, stratagemEffects: { ...state.stratagemEffects, epicChallengeUnits: ['some-unit'] } };
 
       const result = gameReducer(state, { type: 'ADVANCE_PHASE' });
@@ -569,10 +569,10 @@ describe('Phase 24: Stratagem Effects', () => {
 });
 
 // ===============================================
-// Phase 25: Morale & Coherency Cleanup
+// Phase 25: End-of-Turn Coherency Cleanup
 // ===============================================
 
-describe('Phase 25: Morale & Coherency Cleanup', () => {
+describe('Phase 25: End-of-Turn Coherency Cleanup', () => {
   // --- End-of-turn coherency ---
 
   describe('End-of-turn coherency', () => {

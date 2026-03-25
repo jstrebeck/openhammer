@@ -3,12 +3,23 @@ import type { FactionDefinition, FactionStateHandlers } from '../types/index';
 export interface AstraMilitarumState {
   activeOrders: Record<string, string>;
   officersUsedThisPhase: string[];
+  /** Player ID of the player who issued the current round of orders */
+  orderOwnerPlayerId?: string;
 }
 
 export const astraMilitarumStateHandlers: FactionStateHandlers<AstraMilitarumState> = {
   createInitial: () => ({ activeOrders: {}, officersUsedThisPhase: [] }),
-  onPhaseChange: () => ({ activeOrders: {}, officersUsedThisPhase: [] }),
-  onTurnChange: () => ({ activeOrders: {}, officersUsedThisPhase: [] }),
+  // Orders persist across phases — only reset officer usage tracking
+  onPhaseChange: (current) => ({ ...current, officersUsedThisPhase: [] }),
+  // Orders persist until the start of the owning player's next Command phase
+  onTurnChange: (current, context) => {
+    // Clear orders when the order-issuing player's turn begins (their Command phase)
+    if (current.orderOwnerPlayerId && current.orderOwnerPlayerId === context.newActivePlayerId) {
+      return { activeOrders: {}, officersUsedThisPhase: [], orderOwnerPlayerId: undefined };
+    }
+    // Not the owner's turn — preserve orders, reset officer tracking
+    return { ...current, officersUsedThisPhase: [] };
+  },
 };
 
 export const astraMilitarum: FactionDefinition = {
@@ -27,7 +38,7 @@ export const astraMilitarum: FactionDefinition = {
       name: 'Combined Regiment',
       factionId: 'astra-militarum',
       rules:
-        'Orders: At the start of your Shooting phase, each OFFICER model can issue one Order to a friendly ASTRA MILITARUM unit within 6". Choose one: Take Aim (re-roll Hit rolls of 1), First Rank Fire! Second Rank Fire! (ranged weapons gain AP improved by 1), Move! Move! Move! (+2" to Move characteristic), Fix Bayonets! (re-roll melee Hit rolls of 1), Duty and Honour! (4+ invulnerable save until start of your next turn).',
+        'Orders: OFFICER models can issue Orders in your Command phase. Each OFFICER can issue one Order to a friendly ASTRA MILITARUM unit within 6". Orders last until the start of your next Command phase. A unit can only be affected by one Order at a time (a new Order replaces the current one). Orders cannot be issued to Battle-shocked units. Choose one: Move! Move! Move! (M +3"), Fix Bayonets! (WS +1), Take Aim! (BS +1), First Rank, Fire! Second Rank, Fire! (A +1 for Rapid Fire weapons), Take Cover! (SV +1, max 3+), Duty and Honour! (LD +1, OC +1).',
       stratagems: [
         {
           id: 'am-fields-of-fire',

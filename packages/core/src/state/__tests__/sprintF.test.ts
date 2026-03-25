@@ -56,7 +56,7 @@ function addAircraft(
   return gameReducer(state, { type: 'ADD_UNIT', payload: { unit, models: modelObjs } });
 }
 
-/** Set the current phase index (0=command, 1=movement, 2=shooting, 3=charge, 4=fight, 5=morale) */
+/** Set the current phase index (0=command, 1=movement, 2=shooting, 3=charge, 4=fight) */
 function setPhase(state: GameState, phaseIndex: number): GameState {
   return {
     ...state,

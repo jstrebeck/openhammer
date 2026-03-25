@@ -10,11 +10,14 @@ import {
   canTargetWithRangedWeapon,
   COMBINED_REGIMENT_ORDERS,
   getFactionState,
+  getOrderSaveModifier,
+  applyFactionAndDetachmentRules,
+  parseWeaponAbility,
 } from '@openhammer/core';
+import type { AttackContext } from '@openhammer/core/src/combat/attackPipeline';
 import type { Weapon, DiceRoll, VisibilityStatus } from '@openhammer/core';
 import type { AstraMilitarumState } from '@openhammer/core/src/detachments/astra-militarum';
 import type { TauEmpireState } from '@openhammer/core/src/detachments/tau-empire';
-import { OrdersPanel } from './OrdersPanel';
 
 /** Get Tailwind color class for weapon ability badge */
 function getAbilityColor(ability: string): string {
@@ -128,13 +131,31 @@ export function ShootingPanel() {
       const weapon = rangedWeapons.find((w) => w.id === weaponId);
       if (!weapon) continue;
 
-      // Calculate attacks
+      // Build attack context and apply faction/detachment/order modifiers
+      const baseCtx: AttackContext = {
+        weapon,
+        abilities: (weapon.abilities ?? []).map((a) => parseWeaponAbility(a)).filter(Boolean) as AttackContext['abilities'],
+        distanceToTarget: 12,
+        targetUnitSize: targetModels.length,
+        targetKeywords: targetUnit.keywords,
+        attackerStationary: !gameState.turnTracking.unitMovement[attackerUnit.id] || gameState.turnTracking.unitMovement[attackerUnit.id] === 'stationary',
+        attackerCharged: false,
+        attackerModelCount: activeModels.length,
+        targetUnitId: targetUnit.id,
+      };
+      const { ctx: modifiedCtx } = applyFactionAndDetachmentRules(baseCtx, gameState, attackerUnit);
+
+      // Calculate attacks (with bonus attacks from orders like FRFSRF)
       const attacksPerModel = parseDiceExpression(weapon.attacks);
-      const totalAttacks = attacksPerModel * activeModels.length;
+      const bonusAttacks = modifiedCtx.bonusAttacks ?? 0;
+      const totalAttacks = (attacksPerModel + bonusAttacks) * activeModels.length;
+
+      // Apply skill improvement from orders (Take Aim! BS+1)
+      const effectiveSkill = Math.max(2, weapon.skill - (modifiedCtx.skillImprovement ?? 0));
 
       // Hit roll
-      const hitRoll = rollDice(totalAttacks, 6, 'To Hit', weapon.skill);
-      const hits = hitRoll.dice.filter((d) => (d === 1 ? false : d >= weapon.skill || d === 6)).length;
+      const hitRoll = rollDice(totalAttacks, 6, 'To Hit', effectiveSkill);
+      const hits = hitRoll.dice.filter((d) => (d === 1 ? false : d >= effectiveSkill || d === 6)).length;
 
       // Wound roll
       const woundThreshold = getWoundThreshold(weapon.strength, firstTarget.stats.toughness);
@@ -168,7 +189,14 @@ export function ShootingPanel() {
         const target = targetModels[currentTargetIdx];
         if (!target) break;
 
-        const modifiedSave = target.stats.save + Math.abs(weapon.ap);
+        // Apply Take Cover! save bonus (+1 SV, max 3+)
+        const targetUnitForSave = gameState.units[target.unitId];
+        const orderSaveBonus = targetUnitForSave ? getOrderSaveModifier(gameState, targetUnitForSave) : 0;
+        let baseSave = target.stats.save;
+        if (orderSaveBonus > 0) {
+          baseSave = Math.max(3, baseSave - orderSaveBonus); // Improve save, but not better than 3+
+        }
+        const modifiedSave = baseSave + Math.abs(weapon.ap);
         const invuln = target.stats.invulnSave;
         const effectiveSave = invuln ? Math.min(modifiedSave, invuln) : modifiedSave;
 
@@ -272,10 +300,8 @@ export function ShootingPanel() {
   const guidedTargetId = tauState?.guidedTargets?.[activePlayerId];
   const guidedTargetUnit = guidedTargetId ? gameState.units[guidedTargetId] : null;
 
-  // Always render OrdersPanel at top, then the shooting flow below
   return (
     <div>
-      <OrdersPanel />
       {/* Guided target indicator for T'au players */}
       {isTauPlayer && (
         <div className="mb-3 pb-3 border-b border-gray-700">
@@ -321,7 +347,7 @@ export function ShootingPanel() {
   );
 }
 
-// Extracted shooting flow so OrdersPanel always renders above it
+// Extracted shooting flow component
 function ShootingFlow({
   attackerUnit,
   rangedWeapons,

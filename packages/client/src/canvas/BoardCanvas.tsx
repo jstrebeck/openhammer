@@ -18,7 +18,7 @@ import { AuraOverlay } from './AuraOverlay';
 import { EngagementRangeOverlay } from './EngagementRangeOverlay';
 import { CoherencyOverlay } from './CoherencyOverlay';
 import type { Point, BaseShape } from '@openhammer/core';
-import { offsetPolygon, baseShapeDimensionsInches, distance as measureDistance, generateUUID } from '@openhammer/core';
+import { offsetPolygon, baseShapeDimensionsInches, distance as measureDistance, generateUUID, getOrderMovementBonus } from '@openhammer/core';
 import { useMultiplayerStore } from '../networking/useMultiplayer';
 
 /** Test if a world-space point is inside a model's base shape (accounting for facing rotation) */
@@ -63,7 +63,8 @@ function clampToMoveRange(modelId: string, startPos: Point, newPos: Point): Poin
   if (!moveType) return startPos; // no declared movement — block move
   if (moveType === 'stationary') return startPos; // can't move at all
 
-  const moveChar = model.moveCharacteristic;
+  const orderMoveBonus = getOrderMovementBonus(gs, model.unitId);
+  const moveChar = model.moveCharacteristic + orderMoveBonus;
   const advanceBonus = moveType === 'advance' ? (gs.turnTracking.advanceRolls[model.unitId] ?? 0) : 0;
   const maxDist = moveChar + advanceBonus;
 
@@ -292,7 +293,7 @@ export function BoardCanvas() {
         }
 
         // Weapon range rings: show during shooting phase when a unit is selected
-        const editionPhaseNames = ['command', 'movement', 'shooting', 'charge', 'fight', 'morale'];
+        const editionPhaseNames = ['command', 'movement', 'shooting', 'charge', 'fight'];
         const currentPhaseName = editionPhaseNames[gameState.turnState.currentPhaseIndex] ?? '';
         if (currentPhaseName === 'shooting' && uiState.selectedModelIds.length > 0) {
           const firstModel = gameState.models[uiState.selectedModelIds[0]];
@@ -427,7 +428,7 @@ export function BoardCanvas() {
         const gs = useGameStore.getState().gameState;
         const gameStarted = gs.gameStarted;
         const editionPhases = [
-          'command', 'movement', 'shooting', 'charge', 'fight', 'morale',
+          'command', 'movement', 'shooting', 'charge', 'fight',
         ];
         const currentPhaseId = editionPhases[gs.turnState.currentPhaseIndex] ?? '';
         const canDrag = !gameStarted || currentPhaseId === 'movement';
@@ -446,7 +447,8 @@ export function BoardCanvas() {
           modelLayerRef.current?.setDragging(selected);
           const firstSelected = models[selected[0]];
           if (firstSelected) {
-            let moveRange = firstSelected.moveCharacteristic;
+            const unitOrderBonus = firstSelected.unitId ? getOrderMovementBonus(gs, firstSelected.unitId) : 0;
+            let moveRange = firstSelected.moveCharacteristic + unitOrderBonus;
             if (firstSelected.unitId) {
               const moveType = gs.turnTracking.unitMovement[firstSelected.unitId];
               if (moveType === 'advance') {

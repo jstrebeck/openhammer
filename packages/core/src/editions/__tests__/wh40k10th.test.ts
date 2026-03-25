@@ -7,22 +7,21 @@ describe('Warhammer 40K 10th Edition', () => {
     expect(wh40k10thEdition.gameSystem).toBe('40k');
   });
 
-  it('has 6 phases in correct order', () => {
-    expect(wh40k10thEdition.phases).toHaveLength(6);
+  it('has 5 phases in correct order', () => {
+    expect(wh40k10thEdition.phases).toHaveLength(5);
     expect(wh40k10thEdition.phases.map((p) => p.id)).toEqual([
       'command',
       'movement',
       'shooting',
       'charge',
       'fight',
-      'morale',
     ]);
   });
 
   it('advances phases correctly', () => {
     expect(wh40k10thEdition.getNextPhase(0)).toBe(1);
-    expect(wh40k10thEdition.getNextPhase(4)).toBe(5);
-    expect(wh40k10thEdition.getNextPhase(5)).toBeNull(); // last phase
+    expect(wh40k10thEdition.getNextPhase(3)).toBe(4);
+    expect(wh40k10thEdition.getNextPhase(4)).toBeNull(); // last phase
   });
 
   it('returns correct movement distance', () => {
