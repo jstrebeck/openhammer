@@ -37,9 +37,26 @@ function resetFactionStateForTurn(state: GameState, context: TurnChangeContext):
   return newFactionState;
 }
 
+function hasUnresolvedPendingSaves(state: GameState): boolean {
+  return (
+    state.shootingState.pendingSaves.some(ps => !ps.resolved) ||
+    state.fightState.pendingSaves.some(ps => !ps.resolved)
+  );
+}
+
 export const lifecycleReducer: SubReducer = (state, action) => {
   switch (action.type) {
     case 'ADVANCE_PHASE': {
+      if (hasUnresolvedPendingSaves(state)) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            type: 'message',
+            text: '[BLOCKED] Cannot advance phase — pending saves must be resolved first',
+            timestamp: Date.now(),
+          }),
+        };
+      }
       const edition = getEdition(state.editionId);
       if (!edition) return state;
       const nextIndex = edition.getNextPhase(state.turnState.currentPhaseIndex);
@@ -82,6 +99,16 @@ export const lifecycleReducer: SubReducer = (state, action) => {
     }
 
     case 'NEXT_TURN': {
+      if (hasUnresolvedPendingSaves(state)) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            type: 'message',
+            text: '[BLOCKED] Cannot advance turn — pending saves must be resolved first',
+            timestamp: Date.now(),
+          }),
+        };
+      }
       const playerIds = Object.keys(state.players);
       const currentIdx = playerIds.indexOf(state.turnState.activePlayerId);
       const isLastPlayer = currentIdx >= playerIds.length - 1;

@@ -423,4 +423,44 @@ describe('RESOLVE_PENDING_SAVES', () => {
   });
 });
 
+describe('Phase/turn transition gating', () => {
+  it('blocks ADVANCE_PHASE with unresolved shooting pending saves', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 2, woundRoll, wounds: 1,
+      },
+    });
+
+    const phaseBefore = state.turnState.currentPhaseIndex;
+    state = gameReducer(state, { type: 'ADVANCE_PHASE' });
+    expect(state.turnState.currentPhaseIndex).toBe(phaseBefore);
+  });
+
+  it('blocks NEXT_TURN with unresolved pending saves', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 2, woundRoll, wounds: 1,
+      },
+    });
+
+    const turnBefore = state.turnState.turnNumber;
+    state = gameReducer(state, { type: 'NEXT_TURN' });
+    expect(state.turnState.turnNumber).toBe(turnBefore);
+  });
+});
+
 export { setupShootingState };
