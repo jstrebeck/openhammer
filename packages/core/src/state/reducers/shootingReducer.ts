@@ -4,7 +4,7 @@ import { generateUUID } from '../../utils/uuid';
 import { getEdition } from '../../rules/registry';
 import { distanceBetweenModels } from '../../measurement/index';
 import { isUnitInEngagementRange, getEngagementShootingMode } from '../../combat/shooting';
-import { weaponHasAbility } from '../../combat/abilities';
+import { weaponHasAbility, getUnitAbilityValue } from '../../combat/abilities';
 
 export const shootingReducer: SubReducer = (state, action) => {
   switch (action.type) {
@@ -130,12 +130,45 @@ export const shootingReducer: SubReducer = (state, action) => {
         }
       }
 
+      // Create PendingSave if there are wounds to save against
+      let newPendingSaves = state.shootingState.pendingSaves;
+      if (wounds > 0) {
+        const weapon = attackingUnit?.weapons.find(w => w.id === weaponId);
+        const targetUnit = state.units[targetUnitId];
+
+        // Populate fnpThreshold from target unit abilities
+        let fnpThreshold: number | undefined;
+        if (targetUnit) {
+          const fnpValue = getUnitAbilityValue(targetUnit, 'FEEL NO PAIN');
+          if (fnpValue !== undefined) fnpThreshold = fnpValue;
+        }
+
+        newPendingSaves = [
+          ...state.shootingState.pendingSaves,
+          {
+            id: generateUUID(),
+            attackSequenceId: attack.id,
+            attackingPlayerId: attackingUnit?.playerId ?? '',
+            defendingPlayerId: targetUnit?.playerId ?? '',
+            targetUnitId,
+            weaponName,
+            wounds,
+            ap: weapon?.ap ?? 0,
+            damage: String(weapon?.damage ?? '1'),
+            fnpThreshold,
+            mortalWounds: 0,
+            resolved: false,
+          },
+        ];
+      }
+
       return {
         ...state,
         weaponsFired: newWeaponsFired,
         shootingState: {
           ...state.shootingState,
           activeAttacks: [...state.shootingState.activeAttacks, attack],
+          pendingSaves: newPendingSaves,
         },
         log: appendLog(state.log, {
           type: 'message',
@@ -143,24 +176,6 @@ export const shootingReducer: SubReducer = (state, action) => {
           timestamp: Date.now(),
         }),
       };
-    }
-
-    case 'RESOLVE_SAVE_ROLL': {
-      const { targetModelId, saveRoll, saved, damageToApply } = action.payload;
-      let newState = {
-        ...state,
-        log: appendLog(state.log, { type: 'dice_roll', roll: saveRoll, timestamp: Date.now() }),
-      };
-
-      if (!saved && damageToApply > 0) {
-        // Apply damage to the target model
-        newState = shootingReducer(newState, {
-          type: 'APPLY_DAMAGE',
-          payload: { modelId: targetModelId, damage: damageToApply, source: 'shooting' },
-        }) ?? newState;
-      }
-
-      return newState;
     }
 
     case 'APPLY_DAMAGE': {
@@ -189,6 +204,20 @@ export const shootingReducer: SubReducer = (state, action) => {
 
     case 'COMPLETE_SHOOTING': {
       const { unitId } = action.payload;
+
+      // Block if there are unresolved pending saves
+      const hasUnresolvedSaves = state.shootingState.pendingSaves.some(ps => !ps.resolved);
+      if (hasUnresolvedSaves) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            type: 'message',
+            text: '[BLOCKED] Cannot complete shooting — pending saves must be resolved first',
+            timestamp: Date.now(),
+          }),
+        };
+      }
+
       return {
         ...state,
         shootingState: {
@@ -197,6 +226,7 @@ export const shootingReducer: SubReducer = (state, action) => {
           weaponAssignments: [],
           activeAttacks: [],
           unitsShot: [...state.shootingState.unitsShot, unitId],
+          pendingSaves: [],
         },
         turnTracking: {
           ...state.turnTracking,

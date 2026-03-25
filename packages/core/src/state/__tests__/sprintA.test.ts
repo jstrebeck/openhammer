@@ -755,7 +755,7 @@ describe('Integration: Full Shooting Attack Sequence', () => {
     abilities: [],
   };
 
-  it('complete sequence: declare → assign → resolve → save → damage', () => {
+  it('complete sequence: declare → assign → resolve → pending save created', () => {
     let state = setupTwoPlayerGame();
     state = addUnit(state, 'u1', 'p1', [{ id: 'm1', x: 10, y: 10 }], [bolter]);
     state = addUnit(state, 'u2', 'p2', [{ id: 'm2', x: 20, y: 10 }]);
@@ -789,17 +789,29 @@ describe('Integration: Full Shooting Attack Sequence', () => {
       },
     });
 
-    // Resolve save (failed save, 1 damage)
-    const saveRoll = rollDice(1, 6, 'Save', 4);
-    state = gameReducer(state, {
-      type: 'RESOLVE_SAVE_ROLL',
-      payload: { targetModelId: 'm2', saveRoll, saved: false, damageToApply: 1 },
-    });
+    // A pending save should have been created
+    expect(state.shootingState.pendingSaves).toHaveLength(1);
+    const ps = state.shootingState.pendingSaves[0];
+    expect(ps.wounds).toBe(1);
+    expect(ps.ap).toBe(-1);
+    expect(ps.damage).toBe('1');
+    expect(ps.targetUnitId).toBe('u2');
+    expect(ps.resolved).toBe(false);
 
-    // Model should have taken damage
-    expect(state.models['m2'].wounds).toBe(1);
+    // COMPLETE_SHOOTING should be blocked while pending saves are unresolved
+    const blockedState = gameReducer(state, { type: 'COMPLETE_SHOOTING', payload: { unitId: 'u1' } });
+    expect(blockedState.shootingState.activeShootingUnit).toBe('u1');
 
-    // Complete shooting
+    // Mark pending save as resolved (simulating what RESOLVE_PENDING_SAVES will do)
+    state = {
+      ...state,
+      shootingState: {
+        ...state.shootingState,
+        pendingSaves: state.shootingState.pendingSaves.map(s => ({ ...s, resolved: true })),
+      },
+    };
+
+    // Now COMPLETE_SHOOTING should succeed
     state = gameReducer(state, { type: 'COMPLETE_SHOOTING', payload: { unitId: 'u1' } });
     expect(state.shootingState.unitsShot).toContain('u1');
   });
