@@ -31,3 +31,4 @@ export * from './aircraft/index';
 export * from './missions/index';
 export * from './sequencing/index';
 export * from './detachments/index';
+export * from './utils/uuid';

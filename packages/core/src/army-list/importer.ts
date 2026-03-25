@@ -4,6 +4,7 @@ import { baseSizeToInches, baseShapeEffectiveDiameterMm } from '../types/index';
 import { lookupBaseShape } from './baseLookup';
 import { gameReducer } from '../state/reducer';
 import { getFactionByCatalogueName } from '../detachments/registry';
+import { generateUUID } from '../utils/uuid';
 
 /**
  * Import a Battlescribe JSON roster into the game state for a given player.
@@ -75,7 +76,7 @@ export function buildArmyUnits(
       rowMaxHeight = 0;
     }
 
-    const unitId = crypto.randomUUID();
+    const unitId = generateUUID();
     const models: Model[] = [];
     const modelsPerRow = Math.max(1, Math.round(block.width / modelSpacing));
     let col = 0;
@@ -83,7 +84,7 @@ export function buildArmyUnits(
 
     for (const modelGroup of block.parsed.modelGroups) {
       for (let i = 0; i < modelGroup.count; i++) {
-        const modelId = crypto.randomUUID();
+        const modelId = generateUUID();
         const position = {
           x: startX + cursorX + col * modelSpacing,
           y: startY + cursorY + localRow * modelSpacing,
@@ -301,7 +302,7 @@ function parseWeaponProfile(profile: BattlescribeProfile): Weapon | null {
   const keywordsStr = get('Keywords');
 
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     name: profile.name,
     type: isRanged ? 'ranged' : 'melee',
     range: isRanged ? parseStatValue(rangeStr) : undefined,

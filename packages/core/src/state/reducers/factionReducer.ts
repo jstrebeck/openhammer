@@ -2,6 +2,7 @@ import type { GameState } from '../../types/index';
 import { COMBINED_REGIMENT_ORDERS } from '../../types/index';
 import type { SubReducer } from '../helpers';
 import { appendLog } from '../helpers';
+import { generateUUID } from '../../utils/uuid';
 import { getFactionState } from '../../detachments/registry';
 import type { AstraMilitarumState } from '../../detachments/astra-militarum';
 import type { TauEmpireState } from '../../detachments/tau-empire';
@@ -68,7 +69,7 @@ export const factionReducer: SubReducer = (state, action) => {
           persistingEffects: [
             ...newState.persistingEffects,
             {
-              id: crypto.randomUUID(),
+              id: generateUUID(),
               type: 'duty-and-honour',
               targetUnitId,
               sourceId: officerUnitId,

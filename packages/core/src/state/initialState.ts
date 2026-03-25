@@ -9,6 +9,7 @@ import {
   createEmptyStratagemEffects,
 } from '../types/index';
 import { DEFAULT_EDITION_ID } from '../rules/registry';
+import { generateUUID } from '../utils/uuid';
 
 export function createInitialGameState(options?: {
   editionId?: string;
@@ -16,7 +17,7 @@ export function createInitialGameState(options?: {
   boardHeight?: number;
 }): GameState {
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     editionId: options?.editionId ?? DEFAULT_EDITION_ID,
     board: {
       width: options?.boardWidth ?? 60,

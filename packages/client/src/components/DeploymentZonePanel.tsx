@@ -1,3 +1,4 @@
+import { generateUUID } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
 
 interface DeploymentPreset {
@@ -102,7 +103,7 @@ export function DeploymentZonePanel() {
         type: 'ADD_DEPLOYMENT_ZONE',
         payload: {
           zone: {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             playerId: player?.id ?? '',
             polygon: zoneDef.polygon(bw, bh),
             label: zoneDef.label,

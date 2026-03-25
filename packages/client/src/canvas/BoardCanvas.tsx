@@ -18,7 +18,7 @@ import { AuraOverlay } from './AuraOverlay';
 import { EngagementRangeOverlay } from './EngagementRangeOverlay';
 import { CoherencyOverlay } from './CoherencyOverlay';
 import type { Point, BaseShape } from '@openhammer/core';
-import { offsetPolygon, baseShapeDimensionsInches, distance as measureDistance } from '@openhammer/core';
+import { offsetPolygon, baseShapeDimensionsInches, distance as measureDistance, generateUUID } from '@openhammer/core';
 import { useMultiplayerStore } from '../networking/useMultiplayer';
 
 /** Test if a world-space point is inside a model's base shape (accounting for facing rotation) */
@@ -506,7 +506,7 @@ export function BoardCanvas() {
         // Place the selected template at click position
         const polygon = offsetPolygon(terrainPlacement.template.polygon, worldPos);
         const terrain = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           polygon,
           height: terrainPlacement.template.height,
           traits: [...terrainPlacement.template.traits],
@@ -541,7 +541,7 @@ export function BoardCanvas() {
       if (worldPos.x < 0 || worldPos.x > board.width || worldPos.y < 0 || worldPos.y > board.height) return;
       const nextNumber = Object.keys(objectives).length + 1;
       const objective = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         position: worldPos,
         number: nextNumber,
       };

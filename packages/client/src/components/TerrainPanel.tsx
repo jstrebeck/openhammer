@@ -1,6 +1,6 @@
 import { useUIStore } from '../store/uiStore';
 import { useGameStore } from '../store/gameStore';
-import { TERRAIN_TEMPLATES } from '@openhammer/core';
+import { TERRAIN_TEMPLATES, generateUUID } from '@openhammer/core';
 
 export function TerrainPanel() {
   const activeTool = useUIStore((s) => s.activeTool);
@@ -16,7 +16,7 @@ export function TerrainPanel() {
     const { vertices } = terrainPlacement;
     if (vertices.length < 3) return;
     const terrain = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       polygon: vertices,
       height: 5,
       traits: [] as string[],

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { generateUUID } from '@openhammer/core';
 import type { Enhancement } from '@openhammer/core';
 
 /**
@@ -28,7 +29,7 @@ export function EnhancementAssignment({ playerId }: { playerId: string }) {
   const handleAssign = () => {
     if (!name.trim() || !selectedModelId) return;
     const enhancement: Enhancement = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       name: name.trim(),
       pointsCost: cost,
       assignedToModelId: selectedModelId,

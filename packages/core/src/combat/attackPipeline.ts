@@ -1,6 +1,7 @@
 import type { DiceRoll, Weapon } from '../types/index';
 import { rollDice } from '../dice/index';
 import type { ParsedAbility } from './abilities';
+import { generateUUID } from '../utils/uuid';
 
 // ===== Dice Expression Parser =====
 
@@ -167,7 +168,7 @@ export function resolveAttackSequence(
 
   if (isTorrent) {
     // Torrent: auto-hit, no roll needed
-    hitRoll = { id: crypto.randomUUID(), dice: [], sides: 6, purpose: 'To Hit (Torrent - auto)', timestamp: Date.now() };
+    hitRoll = { id: generateUUID(), dice: [], sides: 6, purpose: 'To Hit (Torrent - auto)', timestamp: Date.now() };
     hits = numAttacks;
     triggered.push('Torrent (auto-hit)');
   } else {
@@ -347,7 +348,7 @@ export function resolveAttackSequence(
       }
     }
   } else {
-    woundRoll = { id: crypto.randomUUID(), dice: [], sides: 6, threshold: effectiveWoundThreshold, purpose: 'To Wound', timestamp: Date.now() };
+    woundRoll = { id: generateUUID(), dice: [], sides: 6, threshold: effectiveWoundThreshold, purpose: 'To Wound', timestamp: Date.now() };
   }
 
   // --- Damage calculation ---

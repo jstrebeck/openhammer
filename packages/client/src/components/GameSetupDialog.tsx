@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { validateArmyList, buildArmyUnits, MISSIONS, rollDice, detectFactionFromRoster, getDetachmentsForFaction, getFaction } from '@openhammer/core';
+import { validateArmyList, buildArmyUnits, MISSIONS, rollDice, detectFactionFromRoster, getDetachmentsForFaction, getFaction, generateUUID } from '@openhammer/core';
 import type { ArmyListValidationError, BattlescribeRoster, Mission, Detachment } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
@@ -157,7 +157,7 @@ export function GameSetupDialog() {
     if (isMultiplayer && mpPlayerId && currentState.players[mpPlayerId]) {
       playerId = mpPlayerId;
     } else {
-      playerId = crypto.randomUUID();
+      playerId = generateUUID();
       useGameStore.getState().dispatch({
         type: 'ADD_PLAYER',
         payload: { player: { id: playerId, name: playerName, color: nextColor, commandPoints: 0 } },

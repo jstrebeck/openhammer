@@ -1,4 +1,5 @@
 import type { DiceRoll } from '../types/index';
+import { generateUUID } from '../utils/uuid';
 
 /** Roll a pool of dice and return a DiceRoll result */
 export function rollDice(
@@ -13,7 +14,7 @@ export function rollDice(
   }
 
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     dice,
     sides,
     threshold,

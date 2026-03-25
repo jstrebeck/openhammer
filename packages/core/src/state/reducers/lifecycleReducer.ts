@@ -1,5 +1,6 @@
 import type { SubReducer } from '../helpers';
 import { appendLog } from '../helpers';
+import { generateUUID } from '../../utils/uuid';
 import {
   createEmptyTurnTracking,
   createEmptyShootingState,
@@ -128,7 +129,7 @@ export const lifecycleReducer: SubReducer = (state, action) => {
       for (const zone of mission.deploymentMap) {
         const playerId = zone.role === 'attacker' ? state.attackerId : state.defenderId;
         const player = playerId ? state.players[playerId] : undefined;
-        const zoneId = crypto.randomUUID();
+        const zoneId = generateUUID();
         newZones[zoneId] = {
           id: zoneId,
           playerId: playerId ?? '',
@@ -141,7 +142,7 @@ export const lifecycleReducer: SubReducer = (state, action) => {
       // Create objectives from mission definition
       const newObjectives: Record<string, ObjectiveMarker> = {};
       for (const obj of mission.objectivePlacements) {
-        const objId = crypto.randomUUID();
+        const objId = generateUUID();
         newObjectives[objId] = {
           id: objId,
           position: obj.position,

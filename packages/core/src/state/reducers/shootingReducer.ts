@@ -1,5 +1,6 @@
 import type { SubReducer } from '../helpers';
 import { appendLog } from '../helpers';
+import { generateUUID } from '../../utils/uuid';
 import { getEdition } from '../../rules/registry';
 import { distanceBetweenModels } from '../../measurement/index';
 import { isUnitInEngagementRange, getEngagementShootingMode } from '../../combat/shooting';
@@ -105,7 +106,7 @@ export const shootingReducer: SubReducer = (state, action) => {
       }
 
       const attack: import('../../types/index').AttackSequence = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         attackingUnitId,
         attackingModelId,
         weaponId,

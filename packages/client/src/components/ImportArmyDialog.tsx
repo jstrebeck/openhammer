@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { validateArmyList, buildArmyUnits } from '@openhammer/core';
+import { validateArmyList, buildArmyUnits, generateUUID } from '@openhammer/core';
 import type { ArmyListValidationError, BattlescribeRoster, DeploymentZone } from '@openhammer/core';
 import { useGameStore } from '../store/gameStore';
 import { useMultiplayerStore } from '../networking/useMultiplayer';
@@ -77,7 +77,7 @@ export function ImportArmyDialog({ onClose }: Props) {
     if (mpRoomId && mpPlayerId && gameState.players[mpPlayerId]) {
       playerId = mpPlayerId;
     } else {
-      playerId = crypto.randomUUID();
+      playerId = generateUUID();
       useGameStore.getState().dispatch({
         type: 'ADD_PLAYER',
         payload: { player: { id: playerId, name: armyName, color: nextColor, commandPoints: 0 } },
