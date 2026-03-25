@@ -91,6 +91,7 @@ export function getActionCategory(actionType: string): ActionCategory | null {
     case 'DETACH_LEADER':
     case 'APPLY_COMMAND_REROLL':
     case 'RESOLVE_TANK_SHOCK':
+    case 'RESOLVE_PENDING_SAVES':
     case 'RESOLVE_GRENADE':
     case 'CHECK_END_OF_TURN_COHERENCY':
     case 'RESOLVE_DESPERATE_ESCAPE':

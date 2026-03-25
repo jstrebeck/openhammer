@@ -55,6 +55,7 @@ export type GameAction =
       wounds: number;
     } }
   | { type: 'RESOLVE_SAVE_ROLL'; payload: { targetModelId: string; saveRoll: DiceRoll; saved: boolean; damageToApply: number } }
+  | { type: 'RESOLVE_PENDING_SAVES'; payload: { pendingSaveId: string; results: import('../types/index').PendingSaveResult[] } }
   | { type: 'APPLY_DAMAGE'; payload: { modelId: string; damage: number; source: string } }
   | { type: 'COMPLETE_SHOOTING'; payload: { unitId: string } }
 
