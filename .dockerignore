@@ -4,6 +4,7 @@ packages/*/dist
 packages/*/*.tsbuildinfo
 .git
 infrastructure
+!infrastructure/nginx.conf
 docs
 *.md
 !package.json

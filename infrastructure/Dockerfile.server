@@ -19,7 +19,7 @@ COPY packages/server/ packages/server/
 COPY tsconfig.base.json ./
 
 # Build core first, then server
-RUN npm run build -w packages/core && npm run build -w packages/server
+RUN npm run build -w packages/core && npx tsc -p packages/server/tsconfig.build.json
 
 # Stage 2: Production runtime
 FROM node:20-alpine
