@@ -77,7 +77,7 @@ clean-dist: ## Remove build artifacts only (keep node_modules)
 	rm -f packages/*/*.tsbuildinfo
 
 # Docker
-REGISTRY := 192.168.2.203:5000
+# REGISTRY := REGISTRY_IP_HERE
 
 docker-build: ## Build Docker images for client and server
 	docker build -t $(REGISTRY)/openhammer/client:latest -f infrastructure/Dockerfile.client .

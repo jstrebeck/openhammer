@@ -18,8 +18,10 @@ COPY packages/core/ packages/core/
 COPY packages/server/ packages/server/
 COPY tsconfig.base.json ./
 
-# Build core first, then server
-RUN npm run build -w packages/core && npx tsc -p packages/server/tsconfig.build.json
+# Bundle server + core into a single file with esbuild
+RUN npx esbuild packages/server/src/index.ts \
+  --bundle --platform=node --format=esm --outfile=server.js \
+  --packages=external
 
 # Stage 2: Production runtime
 FROM node:20-alpine
@@ -34,14 +36,9 @@ COPY packages/client/package.json packages/client/
 
 RUN npm ci --omit=dev
 
-# Copy compiled output
-COPY --from=build /app/packages/core/dist packages/core/dist
-COPY --from=build /app/packages/server/dist packages/server/dist
-
-# Copy core package.json so Node resolves the package correctly
-COPY packages/core/package.json packages/core/
+COPY --from=build /app/server.js .
 
 ENV PORT=3001
 EXPOSE 3001
 
-CMD ["node", "packages/server/dist/index.js"]
+CMD ["node", "server.js"]

@@ -11,7 +11,7 @@ import {
   findRoomByClient,
   broadcast,
   send,
-} from './rooms';
+} from './rooms.js';
 
 // Ensure editions are registered — import from rooms.ts which imports core
 
