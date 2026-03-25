@@ -185,4 +185,242 @@ describe('Pending Saves - Fight', () => {
   });
 });
 
+describe('RESOLVE_PENDING_SAVES', () => {
+  it('resolves saves and applies damage to models', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 2, woundRoll, wounds: 2,
+      },
+    });
+
+    const pendingSave = state.shootingState.pendingSaves[0];
+    const saveRoll1 = rollDice(1, 6, 'Save', 4);
+    const saveRoll2 = rollDice(1, 6, 'Save', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [
+          { targetModelId: 'dm1', saveRoll: saveRoll1, saved: false, damageApplied: 1 },
+          { targetModelId: 'dm2', saveRoll: saveRoll2, saved: false, damageApplied: 1 },
+        ],
+      },
+    });
+
+    expect(state.models['dm1'].status).toBe('destroyed');
+    expect(state.models['dm2'].status).toBe('destroyed');
+    const resolved = state.shootingState.pendingSaves.find(ps => ps.id === pendingSave.id);
+    expect(resolved?.resolved).toBe(true);
+    expect(resolved?.results).toHaveLength(2);
+  });
+
+  it('saved rolls do not apply damage', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 2, woundRoll, wounds: 2,
+      },
+    });
+
+    const pendingSave = state.shootingState.pendingSaves[0];
+    const saveRoll1 = rollDice(1, 6, 'Save', 4);
+    const saveRoll2 = rollDice(1, 6, 'Save', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [
+          { targetModelId: 'dm1', saveRoll: saveRoll1, saved: true, damageApplied: 0 },
+          { targetModelId: 'dm2', saveRoll: saveRoll2, saved: true, damageApplied: 0 },
+        ],
+      },
+    });
+
+    expect(state.models['dm1'].status).toBe('active');
+    expect(state.models['dm2'].status).toBe('active');
+    expect(state.models['dm1'].wounds).toBe(1);
+  });
+
+  it('COMPLETE_SHOOTING succeeds after all saves resolved', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 2, woundRoll, wounds: 2,
+      },
+    });
+
+    const pendingSave = state.shootingState.pendingSaves[0];
+    const saveRoll = rollDice(1, 6, 'Save', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [
+          { targetModelId: 'dm1', saveRoll, saved: true, damageApplied: 0 },
+          { targetModelId: 'dm2', saveRoll, saved: true, damageApplied: 0 },
+        ],
+      },
+    });
+
+    state = gameReducer(state, { type: 'COMPLETE_SHOOTING', payload: { unitId: 'au1' } });
+    expect(state.shootingState.activeShootingUnit).toBeNull();
+    expect(state.shootingState.unitsShot).toContain('au1');
+  });
+
+  it('marks the linked AttackSequence as resolved', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 2, woundRoll, wounds: 2,
+      },
+    });
+
+    const pendingSave = state.shootingState.pendingSaves[0];
+    const saveRoll = rollDice(1, 6, 'Save', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [
+          { targetModelId: 'dm1', saveRoll, saved: false, damageApplied: 1 },
+          { targetModelId: 'dm2', saveRoll, saved: true, damageApplied: 0 },
+        ],
+      },
+    });
+
+    const attack = state.shootingState.activeAttacks.find(a => a.id === pendingSave.attackSequenceId);
+    expect(attack?.resolved).toBe(true);
+    expect(attack?.woundAllocations).toHaveLength(2);
+  });
+
+  it('resolves pending saves in fightState (melee)', () => {
+    let state = createInitialGameState();
+    const p1 = makePlayer({ id: 'p1', name: 'Attacker' });
+    const p2 = makePlayer({ id: 'p2', name: 'Defender' });
+    state = gameReducer(state, { type: 'ADD_PLAYER', payload: { player: p1 } });
+    state = gameReducer(state, { type: 'ADD_PLAYER', payload: { player: p2 } });
+
+    const am = makeModel({ id: 'am1', unitId: 'au1', position: { x: 10, y: 10 } });
+    const au = makeUnit({
+      id: 'au1', playerId: 'p1', modelIds: ['am1'],
+      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: 0, damage: '1' }],
+    });
+    state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: au, models: [am] } });
+
+    const dm = makeModel({ id: 'dm1', unitId: 'du1', position: { x: 11, y: 10 }, wounds: 2, maxWounds: 2 });
+    const du = makeUnit({ id: 'du1', playerId: 'p2', modelIds: ['dm1'] });
+    state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: du, models: [dm] } });
+
+    const hitRoll = rollDice(3, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_MELEE_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'mw1',
+        weaponName: 'Chainsword', targetUnitId: 'du1',
+        numAttacks: 3, hitRoll, hits: 2, woundRoll, wounds: 2,
+      },
+    });
+
+    const pendingSave = state.fightState.pendingSaves[0];
+    const saveRoll = rollDice(1, 6, 'Save', 3);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [
+          { targetModelId: 'dm1', saveRoll, saved: false, damageApplied: 1 },
+          { targetModelId: 'dm1', saveRoll, saved: false, damageApplied: 1 },
+        ],
+      },
+    });
+
+    expect(state.models['dm1'].status).toBe('destroyed');
+    expect(state.fightState.pendingSaves[0].resolved).toBe(true);
+  });
+
+  it('rejects RESOLVE_PENDING_SAVES for non-existent ID', () => {
+    let state = setupShootingState();
+    const saveRoll = rollDice(1, 6, 'Save', 4);
+
+    const stateBefore = state;
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: 'non-existent-id',
+        results: [{ targetModelId: 'dm1', saveRoll, saved: false, damageApplied: 1 }],
+      },
+    });
+
+    expect(state.models['dm1'].wounds).toBe(stateBefore.models['dm1'].wounds);
+  });
+
+  it('rejects RESOLVE_PENDING_SAVES for already-resolved saves', () => {
+    let state = setupShootingState();
+    const hitRoll = rollDice(2, 6, 'To Hit', 3);
+    const woundRoll = rollDice(2, 6, 'To Wound', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_SHOOTING_ATTACK',
+      payload: {
+        attackingUnitId: 'au1', attackingModelId: 'am1', weaponId: 'w1',
+        weaponName: 'Bolt Rifle', targetUnitId: 'du1',
+        numAttacks: 2, hitRoll, hits: 1, woundRoll, wounds: 1,
+      },
+    });
+
+    const pendingSave = state.shootingState.pendingSaves[0];
+    const saveRoll = rollDice(1, 6, 'Save', 4);
+
+    state = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [{ targetModelId: 'dm1', saveRoll, saved: true, damageApplied: 0 }],
+      },
+    });
+
+    const stateAfter = gameReducer(state, {
+      type: 'RESOLVE_PENDING_SAVES',
+      payload: {
+        pendingSaveId: pendingSave.id,
+        results: [{ targetModelId: 'dm1', saveRoll, saved: false, damageApplied: 1 }],
+      },
+    });
+
+    expect(stateAfter.models['dm1'].status).toBe('active');
+  });
+});
+
 export { setupShootingState };

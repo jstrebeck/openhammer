@@ -10,6 +10,7 @@ import { aircraftReducer } from './reducers/aircraftReducer';
 import { commandReducer } from './reducers/commandReducer';
 import { movementReducer } from './reducers/movementReducer';
 import { shootingReducer } from './reducers/shootingReducer';
+import { pendingSavesReducer } from './reducers/pendingSavesReducer';
 import { fightReducer } from './reducers/fightReducer';
 import { stratagemReducer } from './reducers/stratagemReducer';
 import { deploymentReducer } from './reducers/deploymentReducer';
@@ -20,6 +21,7 @@ const subReducers: SubReducer[] = [
   setupReducer,
   movementReducer,
   shootingReducer,
+  pendingSavesReducer,
   chargeReducer,
   fightReducer,
   commandReducer,
