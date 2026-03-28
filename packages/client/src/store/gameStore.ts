@@ -47,6 +47,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   undo: () =>
     set((state) => {
       if (state.past.length === 0) return state;
+      // Block undo while pending saves are unresolved
+      const hasPending =
+        state.gameState.shootingState.pendingSaves.some(ps => !ps.resolved) ||
+        state.gameState.fightState.pendingSaves.some(ps => !ps.resolved);
+      if (hasPending) return state;
       const previous = state.past[state.past.length - 1];
       return {
         past: state.past.slice(0, -1),
