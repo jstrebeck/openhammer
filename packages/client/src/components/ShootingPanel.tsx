@@ -3,14 +3,11 @@ import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
 import {
   rollDice,
-  countSuccesses,
   getWoundThreshold,
   parseDiceExpression,
   checkUnitVisibility,
-  canTargetWithRangedWeapon,
   COMBINED_REGIMENT_ORDERS,
   getFactionState,
-  getOrderSaveModifier,
   applyFactionAndDetachmentRules,
   parseWeaponAbility,
 } from '@openhammer/core';
@@ -18,6 +15,7 @@ import type { AttackContext } from '@openhammer/core/src/combat/attackPipeline';
 import type { Weapon, DiceRoll, VisibilityStatus } from '@openhammer/core';
 import type { AstraMilitarumState } from '@openhammer/core/src/detachments/astra-militarum';
 import type { TauEmpireState } from '@openhammer/core/src/detachments/tau-empire';
+import { SaveRollPanel } from './SaveRollPanel';
 
 /** Get Tailwind color class for weapon ability badge */
 function getAbilityColor(ability: string): string {
@@ -51,8 +49,6 @@ interface AttackResult {
   woundThreshold: number;
   woundRoll: DiceRoll;
   wounds: number;
-  saveResults: Array<{ roll: DiceRoll; saved: boolean; damage: number }>;
-  totalDamage: number;
 }
 
 export function ShootingPanel() {
@@ -179,55 +175,6 @@ export function ShootingPanel() {
         },
       });
 
-      // Save rolls
-      const saveResults: AttackResult['saveResults'] = [];
-      let totalDamage = 0;
-
-      // Allocate wounds to target models
-      let currentTargetIdx = 0;
-      for (let i = 0; i < wounds; i++) {
-        const target = targetModels[currentTargetIdx];
-        if (!target) break;
-
-        // Apply Take Cover! save bonus (+1 SV, max 3+)
-        const targetUnitForSave = gameState.units[target.unitId];
-        const orderSaveBonus = targetUnitForSave ? getOrderSaveModifier(gameState, targetUnitForSave) : 0;
-        let baseSave = target.stats.save;
-        if (orderSaveBonus > 0) {
-          baseSave = Math.max(3, baseSave - orderSaveBonus); // Improve save, but not better than 3+
-        }
-        const modifiedSave = baseSave + Math.abs(weapon.ap);
-        const invuln = target.stats.invulnSave;
-        const effectiveSave = invuln ? Math.min(modifiedSave, invuln) : modifiedSave;
-
-        const saveRoll = rollDice(1, 6, 'Save', effectiveSave);
-        const dieResult = saveRoll.dice[0];
-        const saved = dieResult !== 1 && dieResult >= effectiveSave;
-
-        const dmg = saved ? 0 : parseDiceExpression(weapon.damage);
-        totalDamage += dmg;
-
-        saveResults.push({ roll: saveRoll, saved, damage: dmg });
-
-        if (!saved && dmg > 0) {
-          dispatch({
-            type: 'RESOLVE_SAVE_ROLL',
-            payload: {
-              targetModelId: target.id,
-              saveRoll,
-              saved: false,
-              damageToApply: dmg,
-            },
-          } as any);
-
-          // Check if target is destroyed, move to next
-          const updatedTarget = gameState.models[target.id];
-          if (updatedTarget && updatedTarget.wounds - dmg <= 0) {
-            currentTargetIdx++;
-          }
-        }
-      }
-
       results.push({
         weaponName: weapon.name,
         numAttacks: totalAttacks,
@@ -236,8 +183,6 @@ export function ShootingPanel() {
         woundThreshold,
         woundRoll,
         wounds,
-        saveResults,
-        totalDamage,
       });
     }
 
@@ -458,7 +403,6 @@ function ShootingFlow({
 
   // Step: results
   if (step === 'results' && attackResults.length > 0) {
-    const totalDmg = attackResults.reduce((sum, r) => sum + r.totalDamage, 0);
     return (
       <div className="space-y-3">
         <div className="text-xs text-gray-400">
@@ -498,34 +442,13 @@ function ShootingFlow({
                 </div>
               </div>
             )}
-
-            {/* Save Results */}
-            {result.saveResults.length > 0 && (
-              <div>
-                <div className="text-[10px] text-gray-500">
-                  Saves: {result.saveResults.filter((s) => s.saved).length} saved, {result.saveResults.filter((s) => !s.saved).length} failed
-                </div>
-                <div className="flex flex-wrap gap-0.5 mt-0.5">
-                  {result.saveResults.map((s, j) => (
-                    <span key={j} className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${
-                      s.saved ? 'bg-green-600 text-white' : 'bg-red-900/60 text-red-300'
-                    }`}>
-                      {s.roll.dice[0]}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="text-xs font-medium text-red-400">
-              {result.totalDamage} damage dealt
-            </div>
           </div>
         ))}
 
-        <div className="border-t border-gray-600 pt-2 text-sm font-bold text-red-400">
-          Total: {totalDmg} damage
-        </div>
+        {/* Pending Save Rolls */}
+        {gameState.shootingState.pendingSaves.map(ps => (
+          <SaveRollPanel key={ps.id} pendingSave={ps} />
+        ))}
 
         <button
           onClick={handleComplete}
