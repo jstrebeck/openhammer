@@ -412,7 +412,7 @@ export const fightReducer: SubReducer = (state, action) => {
           weaponName,
           wounds,
           ap: weapon?.ap ?? 0,
-          damage: weapon?.damage ?? '1',
+          damage: String(weapon?.damage ?? '1'),
           fnpThreshold,
           mortalWounds: 0,
           resolved: false,

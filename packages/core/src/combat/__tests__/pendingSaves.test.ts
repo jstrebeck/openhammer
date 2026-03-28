@@ -120,7 +120,7 @@ describe('Pending Saves - Fight', () => {
     const am = makeModel({ id: 'am1', unitId: 'au1', position: { x: 10, y: 10 } });
     const au = makeUnit({
       id: 'au1', playerId: 'p1', modelIds: ['am1'],
-      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: -1, damage: '1' }],
+      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: -1, damage: '1', abilities: [] }],
     });
     state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: au, models: [am] } });
 
@@ -157,7 +157,7 @@ describe('Pending Saves - Fight', () => {
     const am = makeModel({ id: 'am1', unitId: 'au1', position: { x: 10, y: 10 } });
     const au = makeUnit({
       id: 'au1', playerId: 'p1', modelIds: ['am1'],
-      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: -1, damage: '1' }],
+      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: -1, damage: '1', abilities: [] }],
     });
     state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: au, models: [am] } });
 
@@ -332,7 +332,7 @@ describe('RESOLVE_PENDING_SAVES', () => {
     const am = makeModel({ id: 'am1', unitId: 'au1', position: { x: 10, y: 10 } });
     const au = makeUnit({
       id: 'au1', playerId: 'p1', modelIds: ['am1'],
-      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: 0, damage: '1' }],
+      weapons: [{ id: 'mw1', name: 'Chainsword', type: 'melee', attacks: '3', skill: 3, strength: 4, ap: 0, damage: '1', abilities: [] }],
     });
     state = gameReducer(state, { type: 'ADD_UNIT', payload: { unit: au, models: [am] } });
 
@@ -457,9 +457,9 @@ describe('Phase/turn transition gating', () => {
       },
     });
 
-    const turnBefore = state.turnState.turnNumber;
+    const turnBefore = state.turnState.roundNumber;
     state = gameReducer(state, { type: 'NEXT_TURN' });
-    expect(state.turnState.turnNumber).toBe(turnBefore);
+    expect(state.turnState.roundNumber).toBe(turnBefore);
   });
 });
 
