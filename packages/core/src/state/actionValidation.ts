@@ -23,7 +23,6 @@ export function getActionCategory(actionType: string): ActionCategory | null {
     case 'DECLARE_SHOOTING':
     case 'ASSIGN_WEAPON_TARGETS':
     case 'RESOLVE_SHOOTING_ATTACK':
-    case 'RESOLVE_SAVE_ROLL':
     case 'APPLY_DAMAGE':
     case 'COMPLETE_SHOOTING':
     case 'RESOLVE_HAZARDOUS':

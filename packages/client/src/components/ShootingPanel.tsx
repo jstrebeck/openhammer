@@ -218,7 +218,7 @@ export function ShootingPanel() {
               saved: false,
               damageToApply: dmg,
             },
-          });
+          } as any);
 
           // Check if target is destroyed, move to next
           const updatedTarget = gameState.models[target.id];

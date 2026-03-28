@@ -179,7 +179,7 @@ export function FightPanel() {
           dispatch({
             type: 'RESOLVE_SAVE_ROLL',
             payload: { targetModelId: target.id, saveRoll, saved: false, damageToApply: dmg },
-          });
+          } as any);
           const updatedTarget = gameState.models[target.id];
           if (updatedTarget && updatedTarget.wounds - dmg <= 0) {
             currentTargetIdx++;
