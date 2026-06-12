@@ -179,6 +179,16 @@ export interface TurnTracking {
   surgeMoveUsedThisPhase: Record<string, boolean>;
   /** Original model positions at DECLARE_MOVEMENT time, keyed by modelId */
   preMovementPositions: Record<string, import('./geometry').Point>;
+  /** Units destroyed this turn with the position they last occupied (centroid of their models).
+   *  Used by rules like Retaliation Cadre's Bonded by Honour. Reset on NEXT_TURN. */
+  unitsDestroyedThisTurn: DestroyedUnitRecord[];
+}
+
+/** Records where a unit was when its last model was destroyed */
+export interface DestroyedUnitRecord {
+  unitId: string;
+  playerId: string;
+  position: import('./geometry').Point;
 }
 
 export function createEmptyTurnTracking(): TurnTracking {
@@ -192,6 +202,7 @@ export function createEmptyTurnTracking(): TurnTracking {
     disembarkedThisPhase: [],
     surgeMoveUsedThisPhase: {},
     preMovementPositions: {},
+    unitsDestroyedThisTurn: [],
   };
 }
 
@@ -227,6 +238,8 @@ export interface PendingSave {
   ap: number; // Raw weapon AP (negative, e.g. -2)
   damage: string; // Dice expression e.g. "1", "D6"
   coverSaveModifier?: number;
+  /** Bonus invulnerable save granted by stratagems (e.g., 6+ from Go to Ground) */
+  bonusInvulnSave?: number;
   fnpThreshold?: number;
   mortalWounds: number;
   resolved: boolean;
