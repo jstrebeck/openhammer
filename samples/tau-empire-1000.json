@@ -1,0 +1,820 @@
+{
+  "roster": {
+    "name": "T'au Empire — Sample Cadre",
+    "costs": [{ "name": "pts", "value": 1010 }],
+    "forces": [
+      {
+        "name": "Combined Arms Detachment",
+        "catalogueName": "T'au Empire",
+        "selections": [
+          {
+            "name": "Commander in Crisis Battlesuit",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 160 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Character", "primary": false },
+              { "name": "Battlesuit", "primary": false },
+              { "name": "Fly", "primary": false },
+              { "name": "Jet Pack", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Commander in Crisis Battlesuit",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "10\"" },
+                  { "name": "T", "$text": "5" },
+                  { "name": "SV", "$text": "3+" },
+                  { "name": "W", "$text": "6" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "1" }
+                ]
+              },
+              {
+                "name": "Deep Strike",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "This unit can be set up in Reserves and arrive more than 9\" from enemy models." }
+                ]
+              },
+              {
+                "name": "Leader",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "This model can be attached to a Bodyguard unit." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Plasma rifle",
+                "number": 2,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Plasma rifle",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "24\"" },
+                      { "name": "A", "$text": "1" },
+                      { "name": "BS", "$text": "3+" },
+                      { "name": "S", "$text": "8" },
+                      { "name": "AP", "$text": "-3" },
+                      { "name": "D", "$text": "3" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Battlesuit fists",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Battlesuit fists",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "3" },
+                      { "name": "WS", "$text": "3+" },
+                      { "name": "S", "$text": "6" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Cadre Fireblade",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 65 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Character", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Markerlight", "primary": false },
+              { "name": "Grenades", "primary": false },
+              { "name": "Fire Warrior", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Cadre Fireblade",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "4+" },
+                  { "name": "W", "$text": "4" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "1" }
+                ]
+              },
+              {
+                "name": "Leader",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "This model can be attached to a Strike Team or Breacher Team." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Fireblade pulse rifle",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Fireblade pulse rifle",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "30\"" },
+                      { "name": "A", "$text": "2" },
+                      { "name": "BS", "$text": "3+" },
+                      { "name": "S", "$text": "5" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "2" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Close combat weapon",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Close combat weapon",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "2" },
+                      { "name": "WS", "$text": "4+" },
+                      { "name": "S", "$text": "3" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Strike Team",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 120 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battleline", "primary": false },
+              { "name": "Grenades", "primary": false },
+              { "name": "Fire Warrior", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Fire Warrior",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "4+" },
+                  { "name": "W", "$text": "1" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              },
+              {
+                "name": "Photon Grenades",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "Enemy units cannot be set up or end moves within Engagement Range while this unit defends with photon grenades." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Fire Warrior Shas'ui",
+                "number": 1,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Pulse rifle",
+                    "number": 1,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse rifle",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "30\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Fire Warrior",
+                "number": 9,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Pulse rifle",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse rifle",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "30\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Pulse pistol",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse pistol",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "12\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Pistol" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Close combat weapon",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Close combat weapon",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "WS", "$text": "5+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Strike Team",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 120 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battleline", "primary": false },
+              { "name": "Grenades", "primary": false },
+              { "name": "Fire Warrior", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Fire Warrior",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "4+" },
+                  { "name": "W", "$text": "1" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              },
+              {
+                "name": "Photon Grenades",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "Enemy units cannot be set up or end moves within Engagement Range while this unit defends with photon grenades." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Fire Warrior Shas'ui",
+                "number": 1,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Pulse rifle",
+                    "number": 1,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse rifle",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "30\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Fire Warrior",
+                "number": 9,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Pulse rifle",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse rifle",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "30\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Pulse pistol",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse pistol",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "12\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Pistol" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Close combat weapon",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Close combat weapon",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "WS", "$text": "5+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Pathfinder Team",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 110 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Markerlight", "primary": false },
+              { "name": "Grenades", "primary": false },
+              { "name": "Fire Warrior", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Pathfinder",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "7\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "5+" },
+                  { "name": "W", "$text": "1" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "1" }
+                ]
+              },
+              {
+                "name": "Infiltrators",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "During deployment, this unit can be set up anywhere on the battlefield more than 9\" from the enemy deployment zone and all enemy models." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Pathfinder Shas'ui",
+                "number": 1,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Pulse carbine",
+                    "number": 1,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse carbine",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "20\"" },
+                          { "name": "A", "$text": "2" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Assault" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Pathfinder",
+                "number": 9,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Pulse carbine",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Pulse carbine",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "20\"" },
+                          { "name": "A", "$text": "2" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Assault" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Close combat weapon",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Close combat weapon",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "WS", "$text": "5+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Crisis Battlesuits",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 230 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battlesuit", "primary": false },
+              { "name": "Fly", "primary": false },
+              { "name": "Jet Pack", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Crisis Battlesuit",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "10\"" },
+                  { "name": "T", "$text": "5" },
+                  { "name": "SV", "$text": "3+" },
+                  { "name": "W", "$text": "5" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              },
+              {
+                "name": "Deep Strike",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "This unit can be set up in Reserves and arrive more than 9\" from enemy models." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Crisis Battlesuit Shas'vre",
+                "number": 1,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Missile pod",
+                    "number": 2,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Missile pod",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "30\"" },
+                          { "name": "A", "$text": "2" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "7" },
+                          { "name": "AP", "$text": "-1" },
+                          { "name": "D", "$text": "2" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Crisis Battlesuit Shas'ui",
+                "number": 2,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Missile pod",
+                    "number": 4,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Missile pod",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "30\"" },
+                          { "name": "A", "$text": "2" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "7" },
+                          { "name": "AP", "$text": "-1" },
+                          { "name": "D", "$text": "2" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Battlesuit fists",
+                    "number": 2,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Battlesuit fists",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "2" },
+                          { "name": "WS", "$text": "5+" },
+                          { "name": "S", "$text": "5" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Broadside Battlesuit",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 125 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battlesuit", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Broadside Battlesuit",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "5\"" },
+                  { "name": "T", "$text": "6" },
+                  { "name": "SV", "$text": "2+" },
+                  { "name": "W", "$text": "8" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Heavy rail rifle",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Heavy rail rifle",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "30\"" },
+                      { "name": "A", "$text": "2" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "12" },
+                      { "name": "AP", "$text": "-4" },
+                      { "name": "D", "$text": "D6+1" },
+                      { "name": "Keywords", "$text": "Devastating Wounds, Heavy" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Twin smart missile system",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Twin smart missile system",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "30\"" },
+                      { "name": "A", "$text": "4" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "5" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "Indirect Fire, Twin-linked" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Crushing bulk",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Crushing bulk",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "3" },
+                      { "name": "WS", "$text": "5+" },
+                      { "name": "S", "$text": "6" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Kroot Carnivores",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 80 }],
+            "categories": [
+              { "name": "Faction: T'au Empire", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battleline", "primary": false },
+              { "name": "Kroot", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Kroot Carnivore",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "7\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "6+" },
+                  { "name": "W", "$text": "1" },
+                  { "name": "LD", "$text": "8+" },
+                  { "name": "OC", "$text": "1" }
+                ]
+              },
+              {
+                "name": "Scouts 7\"",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "Before the first turn begins, this unit can make a Normal move of up to 7\"." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Kroot Carnivore",
+                "number": 10,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Kroot rifle",
+                    "number": 10,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Kroot rifle",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "24\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "4" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      },
+                      {
+                        "name": "Kroot blades",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "2" },
+                          { "name": "WS", "$text": "4+" },
+                          { "name": "S", "$text": "4" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

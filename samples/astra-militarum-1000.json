@@ -1,0 +1,704 @@
+{
+  "roster": {
+    "name": "Astra Militarum — Sample Regiment",
+    "costs": [{ "name": "pts", "value": 970 }],
+    "forces": [
+      {
+        "name": "Combined Regiment",
+        "catalogueName": "Astra Militarum",
+        "selections": [
+          {
+            "name": "Cadian Castellan",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 80 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Character", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Officer", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Cadian Castellan",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "4+" },
+                  { "name": "W", "$text": "4" },
+                  { "name": "LD", "$text": "6+" },
+                  { "name": "OC", "$text": "1" }
+                ]
+              },
+              {
+                "name": "Leader",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "This model can be attached to a Cadian Shock Troops unit." }
+                ]
+              },
+              {
+                "name": "Voice of Command",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "In your Command phase, this model can issue one Order to a Regiment unit within 6\"." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Laspistol",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Laspistol",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "12\"" },
+                      { "name": "A", "$text": "1" },
+                      { "name": "BS", "$text": "3+" },
+                      { "name": "S", "$text": "3" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "Pistol" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Power weapon",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Power weapon",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "4" },
+                      { "name": "WS", "$text": "3+" },
+                      { "name": "S", "$text": "5" },
+                      { "name": "AP", "$text": "-2" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Cadian Shock Troops",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 115 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battleline", "primary": false },
+              { "name": "Regiment", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Cadian Shock Trooper",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "5+" },
+                  { "name": "W", "$text": "1" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Cadian Sergeant",
+                "number": 1,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Laspistol",
+                    "number": 1,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Laspistol",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "12\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Pistol" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Cadian Shock Trooper",
+                "number": 9,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Lasgun",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Lasgun",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "24\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Frag grenade",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Frag grenade",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "12\"" },
+                          { "name": "A", "$text": "D6" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "4" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Blast" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Bayonet",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Bayonet",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "WS", "$text": "4+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Cadian Shock Troops",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 115 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Battleline", "primary": false },
+              { "name": "Regiment", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Cadian Shock Trooper",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "5+" },
+                  { "name": "W", "$text": "1" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Cadian Sergeant",
+                "number": 1,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Laspistol",
+                    "number": 1,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Laspistol",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "12\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Pistol" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Cadian Shock Trooper",
+                "number": 9,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Lasgun",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Lasgun",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "24\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Rapid Fire 1" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Frag grenade",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Frag grenade",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "12\"" },
+                          { "name": "A", "$text": "D6" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "4" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "Blast" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Bayonet",
+                    "number": 9,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Bayonet",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "WS", "$text": "4+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Heavy Weapons Squad",
+            "number": 1,
+            "type": "unit",
+            "costs": [{ "name": "pts", "value": 110 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Infantry", "primary": false },
+              { "name": "Regiment", "primary": false },
+              { "name": "Grenades", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Heavy Weapons Team",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "6\"" },
+                  { "name": "T", "$text": "3" },
+                  { "name": "SV", "$text": "5+" },
+                  { "name": "W", "$text": "2" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "1" }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Heavy Weapons Team",
+                "number": 3,
+                "type": "model",
+                "selections": [
+                  {
+                    "name": "Lascannon",
+                    "number": 3,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Lascannon",
+                        "typeName": "Ranged Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "48\"" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "BS", "$text": "4+" },
+                          { "name": "S", "$text": "12" },
+                          { "name": "AP", "$text": "-3" },
+                          { "name": "D", "$text": "D6+1" },
+                          { "name": "Keywords", "$text": "Heavy" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Close combat weapon",
+                    "number": 3,
+                    "type": "upgrade",
+                    "profiles": [
+                      {
+                        "name": "Close combat weapon",
+                        "typeName": "Melee Weapons",
+                        "characteristics": [
+                          { "name": "Range", "$text": "Melee" },
+                          { "name": "A", "$text": "1" },
+                          { "name": "WS", "$text": "5+" },
+                          { "name": "S", "$text": "3" },
+                          { "name": "AP", "$text": "0" },
+                          { "name": "D", "$text": "1" },
+                          { "name": "Keywords", "$text": "-" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Leman Russ Battle Tank",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 250 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Vehicle", "primary": false },
+              { "name": "Smoke", "primary": false },
+              { "name": "Squadron", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Leman Russ Battle Tank",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "10\"" },
+                  { "name": "T", "$text": "11" },
+                  { "name": "SV", "$text": "2+" },
+                  { "name": "W", "$text": "13" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "3" }
+                ]
+              },
+              {
+                "name": "Deadly Demise D6",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "When this model is destroyed, roll one D6: on a 6, each unit within 6\" suffers D6 mortal wounds." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Leman Russ battle cannon",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Leman Russ battle cannon",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "48\"" },
+                      { "name": "A", "$text": "D6+3" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "10" },
+                      { "name": "AP", "$text": "-1" },
+                      { "name": "D", "$text": "3" },
+                      { "name": "Keywords", "$text": "Blast" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Heavy bolter",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Heavy bolter",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "36\"" },
+                      { "name": "A", "$text": "3" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "5" },
+                      { "name": "AP", "$text": "-1" },
+                      { "name": "D", "$text": "2" },
+                      { "name": "Keywords", "$text": "Sustained Hits 1" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Lascannon",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Lascannon",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "48\"" },
+                      { "name": "A", "$text": "1" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "12" },
+                      { "name": "AP", "$text": "-3" },
+                      { "name": "D", "$text": "D6+1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Armoured tracks",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Armoured tracks",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "3" },
+                      { "name": "WS", "$text": "4+" },
+                      { "name": "S", "$text": "6" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Basilisk",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 200 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Vehicle", "primary": false },
+              { "name": "Smoke", "primary": false },
+              { "name": "Artillery", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Basilisk",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "10\"" },
+                  { "name": "T", "$text": "10" },
+                  { "name": "SV", "$text": "3+" },
+                  { "name": "W", "$text": "11" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "3" }
+                ]
+              },
+              {
+                "name": "Deadly Demise D6",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "When this model is destroyed, roll one D6: on a 6, each unit within 6\" suffers D6 mortal wounds." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Earthshaker cannon",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Earthshaker cannon",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "240\"" },
+                      { "name": "A", "$text": "D6" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "9" },
+                      { "name": "AP", "$text": "-2" },
+                      { "name": "D", "$text": "3" },
+                      { "name": "Keywords", "$text": "Blast, Heavy, Indirect Fire" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Heavy bolter",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Heavy bolter",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "36\"" },
+                      { "name": "A", "$text": "3" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "5" },
+                      { "name": "AP", "$text": "-1" },
+                      { "name": "D", "$text": "2" },
+                      { "name": "Keywords", "$text": "Sustained Hits 1" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Armoured tracks",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Armoured tracks",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "3" },
+                      { "name": "WS", "$text": "4+" },
+                      { "name": "S", "$text": "6" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Armoured Sentinel",
+            "number": 1,
+            "type": "model",
+            "costs": [{ "name": "pts", "value": 100 }],
+            "categories": [
+              { "name": "Faction: Astra Militarum", "primary": false },
+              { "name": "Vehicle", "primary": false },
+              { "name": "Walker", "primary": false },
+              { "name": "Smoke", "primary": false },
+              { "name": "Regiment", "primary": false }
+            ],
+            "profiles": [
+              {
+                "name": "Armoured Sentinel",
+                "typeName": "Unit",
+                "characteristics": [
+                  { "name": "M", "$text": "8\"" },
+                  { "name": "T", "$text": "7" },
+                  { "name": "SV", "$text": "3+" },
+                  { "name": "W", "$text": "7" },
+                  { "name": "LD", "$text": "7+" },
+                  { "name": "OC", "$text": "2" }
+                ]
+              },
+              {
+                "name": "Deadly Demise 1",
+                "typeName": "Abilities",
+                "characteristics": [
+                  { "name": "Description", "$text": "When this model is destroyed, roll one D6: on a 6, each unit within 6\" suffers 1 mortal wound." }
+                ]
+              }
+            ],
+            "selections": [
+              {
+                "name": "Plasma cannon",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Plasma cannon",
+                    "typeName": "Ranged Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "36\"" },
+                      { "name": "A", "$text": "D3" },
+                      { "name": "BS", "$text": "4+" },
+                      { "name": "S", "$text": "8" },
+                      { "name": "AP", "$text": "-3" },
+                      { "name": "D", "$text": "2" },
+                      { "name": "Keywords", "$text": "Blast, Hazardous" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Sentinel chainsaw",
+                "number": 1,
+                "type": "upgrade",
+                "profiles": [
+                  {
+                    "name": "Sentinel chainsaw",
+                    "typeName": "Melee Weapons",
+                    "characteristics": [
+                      { "name": "Range", "$text": "Melee" },
+                      { "name": "A", "$text": "2" },
+                      { "name": "WS", "$text": "4+" },
+                      { "name": "S", "$text": "6" },
+                      { "name": "AP", "$text": "0" },
+                      { "name": "D", "$text": "1" },
+                      { "name": "Keywords", "$text": "-" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

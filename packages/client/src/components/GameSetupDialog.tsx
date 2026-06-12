@@ -6,6 +6,13 @@ import { useUIStore } from '../store/uiStore';
 import { PositionedDetachmentTooltip } from './DetachmentTooltip';
 import { useMultiplayerStore, multiplayerDisconnect } from '../networking/useMultiplayer';
 import { PLAYER_COLORS } from '../canvas/constants';
+import tauSampleArmy from '../../../../samples/tau-empire-1000.json';
+import amSampleArmy from '../../../../samples/astra-militarum-1000.json';
+
+const SAMPLE_ARMIES: Array<{ label: string; data: unknown }> = [
+  { label: "T'au Empire (1000 pts)", data: tauSampleArmy },
+  { label: 'Astra Militarum (1000 pts)', data: amSampleArmy },
+];
 
 type SetupStep = 'waiting' | 'waiting-for-host' | 'map' | 'rolloff' | 'import-attacker' | 'detachment-attacker' | 'import-defender' | 'detachment-defender' | 'done';
 
@@ -617,7 +624,7 @@ export function GameSetupDialog() {
                   ? `You have been assigned as the ${myAssignedRole === 'attacker' ? 'Attacker' : 'Defender'}. Import your army list.`
                   : `Import the ${importLabel} army list.`}
               </div>
-              <div>
+              <div className="flex items-center gap-2 flex-wrap">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -631,6 +638,18 @@ export function GameSetupDialog() {
                 >
                   Load .json file
                 </button>
+                {SAMPLE_ARMIES.map((sample) => (
+                  <button
+                    key={sample.label}
+                    onClick={() => {
+                      setJsonText(JSON.stringify(sample.data));
+                      setErrors([]);
+                    }}
+                    className="px-4 py-2 bg-blue-900/50 border border-blue-700/50 text-blue-200 rounded hover:bg-blue-800/50 text-sm"
+                  >
+                    Sample: {sample.label}
+                  </button>
+                ))}
               </div>
 
               <div>
