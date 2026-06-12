@@ -8,9 +8,9 @@ OpenHammer is a browser-based digital tabletop for playing Warhammer 40K. Built 
 - **`packages/client`** — React 18 + PixiJS 8 frontend. Zustand for state management. Tailwind CSS for UI chrome.
 - **`packages/server`** — Express + `ws` WebSocket server for multiplayer rooms.
 
-## Current State — Sprint F (Phases 21, 22, 23) Complete
+## Current State — Playable T'au Empire vs Astra Militarum
 
-Phases 1–6 (foundation), Sprint A (gameplay enforcement), Sprint B (command & morale), Sprint C (weapon & unit abilities), Sprint D (terrain & stratagems), Sprint E (transports, aircraft, mortal wounds), and Sprint F (rules fidelity — movement/combat validation, shooting rules completion, unit abilities & attached units) implemented. 328 tests passing across 18 test files.
+All sprints (A–O) complete, plus the faction-rules integration pass (2026-06): the client attack flow now runs the full ability-aware pipeline (real distances, weapon abilities, faction/detachment rules, Orders, stratagem and cover modifiers all affect actual dice), defender-interactive save rolls carry cover/invuln/FNP modifiers, destroyed-unit positions are tracked for Retaliation Cadre, Kroot gain Scouts 7", and sample 1000-pt T'au and Astra Militarum armies ship in `samples/` with one-click loading in the setup dialog. A scripted five-round full game (deployment → all phases → scoring → winner) runs as an integration test (`packages/core/src/__tests__/fullGame.test.ts`). 631 tests passing across 41 test files.
 
 ### What's Built
 
@@ -31,7 +31,7 @@ Phases 1–6 (foundation), Sprint A (gameplay enforcement), Sprint B (command & 
 - **Phase enforcement**: actions categorized (movement/shooting/charge/fight/setup/admin) and validated against PhaseActionMap; enforce mode blocks, warn mode logs, off mode allows all
 - **Turn tracking**: TurnTracking state tracks unitMovement, advanceRolls, unitsActivated, unitsCompleted, chargedUnits per turn
 - **Movement enforcement**: DECLARE_MOVEMENT + COMMIT_MOVEMENT with validateMovement checking distance limits, battlefield edge, engagement range, and unit coherency
-- **Structured shooting**: DECLARE_SHOOTING → ASSIGN_WEAPON_TARGETS → RESOLVE_SHOOTING_ATTACK → RESOLVE_SAVE_ROLL → APPLY_DAMAGE → COMPLETE_SHOOTING, with AttackSequence tracking and shooting eligibility checks
+- **Structured shooting**: DECLARE_SHOOTING → ASSIGN_WEAPON_TARGETS → RESOLVE_SHOOTING_ATTACK (creates PendingSave) → RESOLVE_PENDING_SAVES (defender rolls saves) → COMPLETE_SHOOTING, with AttackSequence tracking and shooting eligibility checks
 - **Charge phase**: DECLARE_CHARGE → ROLL_CHARGE → COMMIT_CHARGE_MOVE/FAIL_CHARGE, with charge eligibility and Charge Bonus (Fights First via chargedUnits)
 - **Fight phase**: INITIALIZE_FIGHT_PHASE → SELECT_UNIT_TO_FIGHT → PILE_IN → RESOLVE_MELEE_ATTACK → CONSOLIDATE → COMPLETE_FIGHT, with Fights First/Remaining steps, alternating selection, and re-scan for eligibility
 - **Command phase**: START_COMMAND_PHASE auto-grants +1 CP to both players and clears battle-shocked status for active player's units
@@ -114,7 +114,7 @@ make install          # Install dependencies
 make dev              # Client dev server (localhost:5173)
 make dev-server       # Server dev server (localhost:3001)
 make dev-all          # Both in parallel
-make test             # Run all 84 tests
+make test             # Run all tests
 make typecheck        # Type-check all 3 packages
 make build            # Production build
 ```

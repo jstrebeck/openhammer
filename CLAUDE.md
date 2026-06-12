@@ -9,7 +9,7 @@ make install            # Install all workspace dependencies
 make dev                # Client dev server (Vite, localhost:5173)
 make dev-server         # Server dev server (tsx watch, localhost:3001)
 make dev-all            # Both in parallel (needs concurrently)
-make test               # Run all tests (84 tests across 9 files)
+make test               # Run all tests
 make test-core          # Core tests only
 make test-client        # Client tests only
 make typecheck          # Type-check all three packages
@@ -80,7 +80,11 @@ Express + `ws`. Server is authoritative: it applies actions via `gameReducer` on
 
 **Movement flow:** `DECLARE_MOVEMENT` → optional `ROLL_ADVANCE` → `COMMIT_MOVEMENT`. The `validateMovement()` function checks distance, edge, engagement range, and coherency. Enforcement level from `rulesConfig.movementRange`.
 
-**Shooting flow:** `DECLARE_SHOOTING` → `ASSIGN_WEAPON_TARGETS` → `RESOLVE_SHOOTING_ATTACK` → `RESOLVE_SAVE_ROLL` → `APPLY_DAMAGE` → `COMPLETE_SHOOTING`. The combat module (`packages/core/src/combat/index.ts`) provides `resolveAttackSequence()`, `resolveSave()`, `parseDiceExpression()`, `getWoundThreshold()`.
+**Shooting flow:** `DECLARE_SHOOTING` → `ASSIGN_WEAPON_TARGETS` → `RESOLVE_SHOOTING_ATTACK` (creates a `PendingSave`) → `RESOLVE_PENDING_SAVES` (defender rolls saves interactively) → `COMPLETE_SHOOTING`. The combat modules (`packages/core/src/combat/` — `attackPipeline.ts`, `saves.ts`, `abilities.ts`, `woundAllocation.ts`, `factionModifiers.ts`, `stratagems.ts`) provide `resolveAttackSequence()`, `calculateAttacks()`, `resolveSave()`, `computeDefensiveSaveModifiers()`, `parseDiceExpression()`, `getWoundThreshold()`. The client panels (ShootingPanel/FightPanel) build a full `AttackContext` (real distances, movement state, target keywords), run `applyFactionAndDetachmentRules()`, and resolve through the ability-aware pipeline — weapon abilities, faction rules, detachment rules, and Orders all affect actual gameplay dice.
+
+**Faction rules** live in `packages/core/src/detachments/` (T'au Empire and Astra Militarum fully enforced — faction rules plus all 4 detachments each). Combat-time modifiers are applied via `applyFactionAndDetachmentRules()` / `applyDefensiveDetachmentRules()` in `combat/factionModifiers.ts`. Destroyed-unit positions (for Retaliation Cadre) are tracked centrally in `gameReducer` on `turnTracking.unitsDestroyedThisTurn`.
+
+**Sample armies** for instant play live in `samples/` (T'au Empire and Astra Militarum, ~1000 pts each, Battlescribe JSON). They're bundled into the client as "Sample" buttons in the game setup dialog and validated by `army-list/__tests__/sampleArmies.test.ts`. A full five-round scripted game (setup → deployment → all phases → scoring → winner) runs in `packages/core/src/__tests__/fullGame.test.ts`.
 
 **Charge flow:** `DECLARE_CHARGE` → `ROLL_CHARGE` → `COMMIT_CHARGE_MOVE` or `FAIL_CHARGE`. Successful charges add to `turnTracking.chargedUnits` for Fights First in the Fight Phase.
 
