@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
 import {
-  rollDice,
   getWoundThreshold,
-  parseDiceExpression,
   applyFactionAndDetachmentRules,
   parseWeaponAbility,
+  calculateAttacks,
+  resolveAttackSequence,
 } from '@openhammer/core';
 import type { DiceRoll } from '@openhammer/core';
 import type { AttackContext } from '@openhammer/core/src/combat/attackPipeline';
@@ -20,6 +20,8 @@ interface MeleeResult {
   woundThreshold: number;
   woundRoll: DiceRoll;
   wounds: number;
+  mortalWounds?: number;
+  triggeredAbilities?: string[];
 }
 
 export function FightPanel() {
@@ -112,21 +114,20 @@ export function FightPanel() {
         attackerModelCount: activeModels.length,
         targetUnitId: targetUnit.id,
       };
-      const { ctx: modifiedCtx } = applyFactionAndDetachmentRules(baseCtx, gameState, fighterUnit);
+      const { ctx: modifiedCtx, triggeredRules } = applyFactionAndDetachmentRules(baseCtx, gameState, fighterUnit);
 
-      const attacksPerModel = parseDiceExpression(weapon.attacks);
-      const bonusAttacks = modifiedCtx.bonusAttacks ?? 0;
-      const totalAttacks = (attacksPerModel + bonusAttacks) * activeModels.length;
+      // Full pipeline: Lance, Anti-X, Devastating Wounds, Twin-linked, Lethal/Sustained Hits, etc.
+      const numAttacks = calculateAttacks(modifiedCtx);
+      const result = resolveAttackSequence(
+        numAttacks,
+        weapon.skill,
+        weapon.strength,
+        firstTarget.stats.toughness,
+        modifiedCtx,
+      );
 
-      // Apply skill improvement from orders (Fix Bayonets! WS+1)
-      const effectiveSkill = Math.max(2, weapon.skill - (modifiedCtx.skillImprovement ?? 0));
-
-      const hitRoll = rollDice(totalAttacks, 6, 'To Hit', effectiveSkill);
-      const hits = hitRoll.dice.filter((d) => (d === 1 ? false : d >= effectiveSkill || d === 6)).length;
-
-      const woundThreshold = getWoundThreshold(weapon.strength, firstTarget.stats.toughness);
-      const woundRoll = hits > 0 ? rollDice(hits, 6, 'To Wound', woundThreshold) : rollDice(0, 6, 'To Wound', woundThreshold);
-      const wounds = woundRoll.dice.filter((d) => (d === 1 ? false : d >= woundThreshold || d === 6)).length;
+      const savableWounds = result.wounds - result.mortalWounds;
+      const triggeredAbilities = [...new Set([...triggeredRules, ...result.triggeredAbilities])];
 
       dispatch({
         type: 'RESOLVE_MELEE_ATTACK',
@@ -136,22 +137,27 @@ export function FightPanel() {
           weaponId: weapon.id,
           weaponName: weapon.name,
           targetUnitId: targetUnit.id,
-          numAttacks: totalAttacks,
-          hitRoll,
-          hits,
-          woundRoll,
-          wounds,
+          numAttacks: result.numAttacks,
+          hitRoll: result.hitRoll,
+          hits: result.hits,
+          woundRoll: result.woundRoll,
+          wounds: savableWounds,
+          mortalWounds: result.mortalWounds,
+          effectiveDamage: result.effectiveDamage,
+          triggeredAbilities,
         },
       });
 
       results.push({
         weaponName: weapon.name,
-        numAttacks: totalAttacks,
-        hitRoll,
-        hits,
-        woundThreshold,
-        woundRoll,
-        wounds,
+        numAttacks: result.numAttacks,
+        hitRoll: result.hitRoll,
+        hits: result.hits,
+        woundThreshold: getWoundThreshold(weapon.strength, firstTarget.stats.toughness),
+        woundRoll: result.woundRoll,
+        wounds: savableWounds,
+        mortalWounds: result.mortalWounds,
+        triggeredAbilities,
       });
     }
 
@@ -324,6 +330,20 @@ export function FightPanel() {
           {attackResults.map((result, idx) => (
             <div key={idx} className="border border-gray-700 rounded p-2 space-y-1.5">
               <div className="text-xs font-medium text-white">{result.weaponName}</div>
+              {result.triggeredAbilities && result.triggeredAbilities.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {result.triggeredAbilities.map((ability, j) => (
+                    <span key={j} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-600/70 text-gray-200">
+                      {ability}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {(result.mortalWounds ?? 0) > 0 && (
+                <div className="text-[10px] text-purple-300 font-medium">
+                  {result.mortalWounds} mortal wound{result.mortalWounds === 1 ? '' : 's'} (no saves allowed)
+                </div>
+              )}
               <div>
                 <div className="text-[10px] text-gray-500">To Hit ({result.hitRoll.threshold}+): {result.hits}/{result.numAttacks}</div>
                 <div className="flex flex-wrap gap-0.5 mt-0.5">

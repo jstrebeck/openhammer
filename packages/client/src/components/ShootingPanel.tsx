@@ -2,14 +2,18 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
 import {
-  rollDice,
   getWoundThreshold,
-  parseDiceExpression,
   checkUnitVisibility,
   COMBINED_REGIMENT_ORDERS,
   getFactionState,
   applyFactionAndDetachmentRules,
+  applyDefensiveDetachmentRules,
   parseWeaponAbility,
+  calculateAttacks,
+  resolveAttackSequence,
+  distanceBetweenModels,
+  unitHasStealth,
+  getStratagemHitModifier,
 } from '@openhammer/core';
 import type { AttackContext } from '@openhammer/core/src/combat/attackPipeline';
 import type { Weapon, DiceRoll, VisibilityStatus } from '@openhammer/core';
@@ -49,6 +53,8 @@ interface AttackResult {
   woundThreshold: number;
   woundRoll: DiceRoll;
   wounds: number;
+  mortalWounds?: number;
+  triggeredAbilities?: string[];
 }
 
 export function ShootingPanel() {
@@ -122,7 +128,21 @@ export function ShootingPanel() {
     );
     dispatch({ type: 'ASSIGN_WEAPON_TARGETS', payload: { assignments } });
 
-    // Resolve each weapon
+    // True edge-to-edge distance between the closest attacker and target models
+    const distanceToTarget = Math.min(
+      ...activeModels.flatMap((am) => targetModels.map((tm) => distanceBetweenModels(am, tm))),
+    );
+
+    const moveType = gameState.turnTracking.unitMovement[attackerUnit.id];
+
+    // Target-side hit modifiers: Stealth ability, Smokescreen stratagem
+    const targetHitModifier =
+      (unitHasStealth(targetUnit) ? -1 : 0) + getStratagemHitModifier(gameState, targetUnit.id);
+
+    // Defensive detachment rules (e.g., Armoured Company's -1 to Wound from >12")
+    const { woundRollModifier } = applyDefensiveDetachmentRules(gameState, targetUnit, distanceToTarget);
+
+    // Resolve each weapon through the full ability-aware attack pipeline
     for (const weaponId of selectedWeaponIds) {
       const weapon = rangedWeapons.find((w) => w.id === weaponId);
       if (!weapon) continue;
@@ -131,32 +151,31 @@ export function ShootingPanel() {
       const baseCtx: AttackContext = {
         weapon,
         abilities: (weapon.abilities ?? []).map((a) => parseWeaponAbility(a)).filter(Boolean) as AttackContext['abilities'],
-        distanceToTarget: 12,
+        distanceToTarget,
         targetUnitSize: targetModels.length,
         targetKeywords: targetUnit.keywords,
-        attackerStationary: !gameState.turnTracking.unitMovement[attackerUnit.id] || gameState.turnTracking.unitMovement[attackerUnit.id] === 'stationary',
+        attackerStationary: !moveType || moveType === 'stationary',
         attackerCharged: false,
         attackerModelCount: activeModels.length,
         targetUnitId: targetUnit.id,
+        targetHitModifier: targetHitModifier !== 0 ? targetHitModifier : undefined,
+        woundRollModifier: woundRollModifier !== 0 ? woundRollModifier : undefined,
       };
-      const { ctx: modifiedCtx } = applyFactionAndDetachmentRules(baseCtx, gameState, attackerUnit);
+      const { ctx: modifiedCtx, triggeredRules } = applyFactionAndDetachmentRules(baseCtx, gameState, attackerUnit);
 
-      // Calculate attacks (with bonus attacks from orders like FRFSRF)
-      const attacksPerModel = parseDiceExpression(weapon.attacks);
-      const bonusAttacks = modifiedCtx.bonusAttacks ?? 0;
-      const totalAttacks = (attacksPerModel + bonusAttacks) * activeModels.length;
+      // Full pipeline: Blast/Rapid Fire attack counts, Torrent/Heavy/crits/Lethal/Sustained
+      // hit resolution, Lance/Anti/Devastating/Twin-linked wound resolution, Melta damage
+      const numAttacks = calculateAttacks(modifiedCtx);
+      const result = resolveAttackSequence(
+        numAttacks,
+        weapon.skill,
+        weapon.strength,
+        firstTarget.stats.toughness,
+        modifiedCtx,
+      );
 
-      // Apply skill improvement from orders (Take Aim! BS+1)
-      const effectiveSkill = Math.max(2, weapon.skill - (modifiedCtx.skillImprovement ?? 0));
-
-      // Hit roll
-      const hitRoll = rollDice(totalAttacks, 6, 'To Hit', effectiveSkill);
-      const hits = hitRoll.dice.filter((d) => (d === 1 ? false : d >= effectiveSkill || d === 6)).length;
-
-      // Wound roll
-      const woundThreshold = getWoundThreshold(weapon.strength, firstTarget.stats.toughness);
-      const woundRoll = hits > 0 ? rollDice(hits, 6, 'To Wound', woundThreshold) : rollDice(0, 6, 'To Wound', woundThreshold);
-      const wounds = woundRoll.dice.filter((d) => (d === 1 ? false : d >= woundThreshold || d === 6)).length;
+      const savableWounds = result.wounds - result.mortalWounds;
+      const triggeredAbilities = [...new Set([...triggeredRules, ...result.triggeredAbilities])];
 
       // Dispatch attack resolution
       dispatch({
@@ -167,22 +186,27 @@ export function ShootingPanel() {
           weaponId: weapon.id,
           weaponName: weapon.name,
           targetUnitId: targetUnit.id,
-          numAttacks: totalAttacks,
-          hitRoll,
-          hits,
-          woundRoll,
-          wounds,
+          numAttacks: result.numAttacks,
+          hitRoll: result.hitRoll,
+          hits: result.hits,
+          woundRoll: result.woundRoll,
+          wounds: savableWounds,
+          mortalWounds: result.mortalWounds,
+          effectiveDamage: result.effectiveDamage,
+          triggeredAbilities,
         },
       });
 
       results.push({
         weaponName: weapon.name,
-        numAttacks: totalAttacks,
-        hitRoll,
-        hits,
-        woundThreshold,
-        woundRoll,
-        wounds,
+        numAttacks: result.numAttacks,
+        hitRoll: result.hitRoll,
+        hits: result.hits,
+        woundThreshold: getWoundThreshold(weapon.strength, firstTarget.stats.toughness),
+        woundRoll: result.woundRoll,
+        wounds: savableWounds,
+        mortalWounds: result.mortalWounds,
+        triggeredAbilities,
       });
     }
 
@@ -412,6 +436,22 @@ function ShootingFlow({
         {attackResults.map((result, idx) => (
           <div key={idx} className="border border-gray-700 rounded p-2 space-y-1.5">
             <div className="text-xs font-medium text-white">{result.weaponName}</div>
+
+            {/* Triggered abilities & faction rules */}
+            {result.triggeredAbilities && result.triggeredAbilities.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {result.triggeredAbilities.map((ability, j) => (
+                  <span key={j} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${getAbilityColor(ability)}`}>
+                    {ability}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(result.mortalWounds ?? 0) > 0 && (
+              <div className="text-[10px] text-purple-300 font-medium">
+                {result.mortalWounds} mortal wound{result.mortalWounds === 1 ? '' : 's'} (no saves allowed)
+              </div>
+            )}
 
             {/* Hit Roll */}
             <div>
