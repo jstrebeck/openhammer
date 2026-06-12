@@ -3,8 +3,70 @@ import type { AttackContext } from './attackPipeline';
 import { getFactionState } from '../detachments/registry';
 import type { AstraMilitarumState } from '../detachments/astra-militarum';
 import type { TauEmpireState } from '../detachments/tau-empire';
+import { distanceToPoint } from '../measurement/index';
+import { getUnitAbilityValue } from './abilities';
 
 // ===== Faction & Detachment Rule Modifiers =====
+
+/**
+ * The unit's effective Scout move distance in inches, or undefined if it cannot Scout.
+ * Combines the datasheet SCOUT X" ability with detachment grants
+ * (Kroot Hunting Pack: all KROOT units gain Scouts 7").
+ */
+export function getEffectiveScoutDistance(state: GameState, unit: Unit): number | undefined {
+  const own = getUnitAbilityValue(unit, 'SCOUT');
+  let granted: number | undefined;
+  const detachment = state.playerDetachments[unit.playerId];
+  if (
+    detachment?.id === 'kroot-hunting-pack' &&
+    unit.keywords.some(k => k.toUpperCase() === 'KROOT')
+  ) {
+    granted = 7;
+  }
+  if (own === undefined && granted === undefined) return undefined;
+  return Math.max(own ?? 0, granted ?? 0);
+}
+
+/** A unit is below Starting Strength once it has fewer active models than it started with. */
+export function isUnitBelowStartingStrength(state: GameState, unitId: string): boolean {
+  const unit = state.units[unitId];
+  if (!unit) return false;
+  const starting = unit.startingStrength ?? unit.modelIds.length;
+  const active = unit.modelIds.filter(id => state.models[id]?.status === 'active').length;
+  return active < starting;
+}
+
+/** Whether any active model in the unit is within `range` (edge-to-edge) of an objective marker. */
+export function isUnitNearObjective(state: GameState, unitId: string, range = 3): boolean {
+  const unit = state.units[unitId];
+  if (!unit) return false;
+  const objectives = Object.values(state.objectives);
+  if (objectives.length === 0) return false;
+  return unit.modelIds.some(id => {
+    const model = state.models[id];
+    if (!model || model.status !== 'active') return false;
+    return objectives.some(obj => distanceToPoint(model, obj.position) <= range);
+  });
+}
+
+/** Whether any active model in the unit is within `range` (edge-to-edge) of a spot where
+ *  one of `playerId`'s units was destroyed this turn. */
+export function isUnitNearDestroyedFriendly(
+  state: GameState,
+  unitId: string,
+  playerId: string,
+  range = 6,
+): boolean {
+  const records = state.turnTracking.unitsDestroyedThisTurn.filter(r => r.playerId === playerId);
+  if (records.length === 0) return false;
+  const unit = state.units[unitId];
+  if (!unit) return false;
+  return unit.modelIds.some(id => {
+    const model = state.models[id];
+    if (!model || model.status !== 'active') return false;
+    return records.some(r => distanceToPoint(model, r.position) <= range);
+  });
+}
 
 /**
  * Apply faction and detachment rule modifiers to an AttackContext.
@@ -60,15 +122,27 @@ export function applyFactionAndDetachmentRules(
       case 'kauyon': {
         if (ctx.weapon.type === 'ranged') {
           const round = state.turnState.roundNumber;
-          if (round >= 4 && !modified.rerollHitRollsOf1) {
-            // Round 4+: re-roll ALL failed hit rolls (we use rerollHitRollsOf1 as approximation;
-            // full re-roll would need a new field — for now this is a strong approximation)
-            modified = { ...modified, rerollHitRollsOf1: true };
-            triggeredRules.push('Patient Hunter (re-roll hits, R4+)');
+          if (round >= 4) {
+            modified = { ...modified, rerollAllFailedHits: true };
+            triggeredRules.push('Patient Hunter (re-roll failed hits, R4+)');
           } else if (round >= 3 && !modified.rerollHitRollsOf1) {
             modified = { ...modified, rerollHitRollsOf1: true };
             triggeredRules.push('Patient Hunter (re-roll hit 1s, R3+)');
           }
+        }
+        break;
+      }
+
+      // Retaliation Cadre: Bonded by Honour — ranged attacks targeting enemies within 6"
+      // of a friendly unit destroyed this turn re-roll Hit and Wound rolls
+      case 'retaliation-cadre': {
+        if (
+          ctx.weapon.type === 'ranged' &&
+          ctx.targetUnitId &&
+          isUnitNearDestroyedFriendly(state, ctx.targetUnitId, playerId, 6)
+        ) {
+          modified = { ...modified, rerollAllFailedHits: true, rerollAllFailedWounds: true };
+          triggeredRules.push('Bonded by Honour (re-roll hits & wounds)');
         }
         break;
       }
@@ -95,12 +169,10 @@ export function applyFactionAndDetachmentRules(
         if (
           ctx.weapon.type === 'melee' &&
           attackingUnit.keywords.some(k => k.toUpperCase() === 'KROOT') &&
-          !modified.rerollHitRollsOf1
+          !modified.rerollHitRollsOf1 &&
+          ctx.targetUnitId &&
+          isUnitBelowStartingStrength(state, ctx.targetUnitId)
         ) {
-          // Check if target is below starting strength
-          // We need target unit info — use targetUnitSize vs target's startingStrength
-          // For now, apply if targetUnitSize < attackerModelCount is a rough proxy
-          // (the caller should pass accurate data)
           modified = { ...modified, rerollHitRollsOf1: true };
           triggeredRules.push('Guerrilla Tactics (re-roll hit 1s)');
         }
@@ -111,10 +183,12 @@ export function applyFactionAndDetachmentRules(
 
       // Fortification Network: re-roll wound rolls of 1 when targeting units near objectives
       case 'fortification-network': {
-        if (ctx.weapon.type === 'ranged' && !modified.rerollWoundRollsOf1) {
-          // The full rule checks "within range of an objective marker" — we set the flag
-          // and let the caller decide whether the target qualifies (near objective).
-          // For now, always apply (caller can skip setting this detachment if target isn't near objective).
+        if (
+          ctx.weapon.type === 'ranged' &&
+          !modified.rerollWoundRollsOf1 &&
+          ctx.targetUnitId &&
+          isUnitNearObjective(state, ctx.targetUnitId, 3)
+        ) {
           modified = { ...modified, rerollWoundRollsOf1: true };
           triggeredRules.push('Siege Warfare (re-roll wound 1s)');
         }
