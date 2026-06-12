@@ -68,6 +68,10 @@ export interface AttackContext {
   rerollWoundRollsOf1?: boolean;
   /** If true, re-roll hit rolls of 1 (e.g., Take Aim / Fix Bayonets orders) */
   rerollHitRollsOf1?: boolean;
+  /** If true, re-roll ALL failed hit rolls (e.g., Kauyon Round 4+, Retaliation Cadre). Supersedes rerollHitRollsOf1. */
+  rerollAllFailedHits?: boolean;
+  /** If true, re-roll ALL failed wound rolls (e.g., Retaliation Cadre). Supersedes rerollWoundRollsOf1. */
+  rerollAllFailedWounds?: boolean;
   /** Additional AP modifier applied to the weapon (e.g., FRFSRF order: -1) */
   bonusAP?: number;
   /** Characteristic improvement to BS/WS (e.g., Take Aim! = 1, Fix Bayonets! = 1). Applied to base skill, separate from hit roll modifiers. */
@@ -122,6 +126,9 @@ export function calculateAttacks(ctx: AttackContext): number {
     }
   }
 
+  // Bonus attacks per model (e.g., FRFSRF order: +1 Attacks for Rapid Fire weapons)
+  attacks += (ctx.bonusAttacks ?? 0) * ctx.attackerModelCount;
+
   return Math.max(1, attacks);
 }
 
@@ -140,8 +147,8 @@ export function resolveAttackSequence(
   // --- Characteristic Improvements (applied before modifiers) ---
   // Skill improvement (e.g., Take Aim! BS+1, Fix Bayonets! WS+1) modifies the base characteristic
   const effectiveBaseSkill = Math.max(2, skill - (ctx?.skillImprovement ?? 0));
-  // Bonus attacks (e.g., FRFSRF +1 Attacks for Rapid Fire)
-  const totalAttacks = numAttacks + (ctx?.bonusAttacks ?? 0);
+  // Bonus attacks (e.g., FRFSRF) are folded into the attack count by calculateAttacks()
+  const totalAttacks = numAttacks;
 
   // --- Hit Modifier ---
   let hitModifier = 0;
@@ -184,76 +191,66 @@ export function resolveAttackSequence(
   } else {
     hitRoll = rollDice(totalAttacks, 6, 'To Hit', effectiveBaseSkill);
     const effectiveSkill = Math.max(2, effectiveBaseSkill - hitModifier); // Can't go below 2+
+    const critThreshold = ctx?.criticalHitThreshold ?? 6;
+    const conversionVal = ctx ? getAbilityValue(ctx, 'CONVERSION') : undefined;
+
+    // Scores a single hit die: unmodified 1 always fails, unmodified >= critThreshold is a crit,
+    // Conversion X crits on 4+ when the target is more than X" away.
+    const scoreHitDie = (d: number): { hit: boolean; crit: boolean } => {
+      if (d === 1) return { hit: false, crit: false };
+      const isCrit =
+        d >= critThreshold ||
+        (conversionVal !== undefined && ctx!.distanceToTarget > conversionVal && d >= 4);
+      return { hit: isCrit || d + hitModifier >= effectiveSkill, crit: isCrit };
+    };
+
+    const applyHitDie = (d: number): boolean => {
+      const { hit, crit } = scoreHitDie(d);
+      if (!hit) return false;
+      hits++;
+      if (crit) {
+        criticalHits++;
+        // Lethal Hits: critical hit auto-wounds
+        if (ctx && hasAbility(ctx, 'LETHAL HITS')) {
+          autoWounds++;
+          hits--; // Remove from normal hits — goes straight to wounds
+          if (triggered.indexOf('Lethal Hits') === -1) triggered.push('Lethal Hits');
+        }
+        // Sustained Hits X: critical hit scores X extra hits
+        if (ctx) {
+          const sustainedVal = getAbilityValue(ctx, 'SUSTAINED HITS');
+          if (sustainedVal !== undefined) {
+            extraHits += sustainedVal;
+            hits += sustainedVal;
+            if (triggered.indexOf(`Sustained Hits ${sustainedVal}`) === -1) triggered.push(`Sustained Hits ${sustainedVal}`);
+          }
+        }
+      }
+      return true;
+    };
 
     hits = 0;
+    const failedHitDice: number[] = [];
     for (const d of hitRoll.dice) {
-      if (d === 1) continue; // Unmodified 1 always fails
-      const critThreshold = ctx?.criticalHitThreshold ?? 6;
-      const isCrit = d >= critThreshold; // Unmodified roll >= threshold is a critical hit
-
-      // Conversion X: crits on 4+ if target > X" away
-      let conversionCrit = false;
-      if (ctx) {
-        const convVal = getAbilityValue(ctx, 'CONVERSION');
-        if (convVal !== undefined && ctx.distanceToTarget > convVal && d >= 4) {
-          conversionCrit = true;
-        }
-      }
-
-      if (isCrit || conversionCrit || d + hitModifier >= effectiveSkill) {
-        hits++;
-        if (isCrit || conversionCrit) {
-          criticalHits++;
-
-          // Lethal Hits: critical hit auto-wounds
-          if (ctx && hasAbility(ctx, 'LETHAL HITS')) {
-            autoWounds++;
-            hits--; // Remove from normal hits — goes straight to wounds
-            if (triggered.indexOf('Lethal Hits') === -1) triggered.push('Lethal Hits');
-          }
-
-          // Sustained Hits X: critical hit scores X extra hits
-          if (ctx) {
-            const sustainedVal = getAbilityValue(ctx, 'SUSTAINED HITS');
-            if (sustainedVal !== undefined) {
-              extraHits += sustainedVal;
-              hits += sustainedVal;
-              if (triggered.indexOf(`Sustained Hits ${sustainedVal}`) === -1) triggered.push(`Sustained Hits ${sustainedVal}`);
-            }
-          }
-        }
-      }
+      if (!applyHitDie(d)) failedHitDice.push(d);
     }
 
-    // Re-roll hit rolls of 1 (e.g., faction/detachment rules)
-    if (ctx?.rerollHitRollsOf1) {
-      const effectiveSkill = Math.max(2, effectiveBaseSkill - hitModifier);
-      const ones = hitRoll.dice.filter(d => d === 1);
-      if (ones.length > 0) {
-        const reRoll = rollDice(ones.length, 6, 'To Hit (re-roll 1s)', effectiveSkill);
-        for (const d of reRoll.dice) {
-          if (d === 1) continue;
-          const critThreshold = ctx.criticalHitThreshold ?? 6;
-          const isCrit = d >= critThreshold;
-          if (isCrit || d + hitModifier >= effectiveSkill) {
-            hits++;
-            if (isCrit) {
-              criticalHits++;
-              if (hasAbility(ctx, 'LETHAL HITS')) {
-                autoWounds++;
-                hits--;
-              }
-              const sustainedVal = getAbilityValue(ctx, 'SUSTAINED HITS');
-              if (sustainedVal !== undefined) {
-                extraHits += sustainedVal;
-                hits += sustainedVal;
-              }
-            }
-          }
-        }
-        hitRoll = { ...hitRoll, dice: [...hitRoll.dice, ...reRoll.dice] };
-        if (triggered.indexOf('Re-roll hit 1s') === -1) triggered.push('Re-roll hit 1s');
+    // Re-roll failed hit rolls: either all of them (Kauyon R4+, Retaliation Cadre)
+    // or only unmodified 1s (Take Aim, Kauyon R3, etc.)
+    const hitDiceToReroll = ctx?.rerollAllFailedHits
+      ? failedHitDice
+      : ctx?.rerollHitRollsOf1
+        ? failedHitDice.filter(d => d === 1)
+        : [];
+    if (hitDiceToReroll.length > 0) {
+      const label = ctx?.rerollAllFailedHits ? 'To Hit (re-roll failed)' : 'To Hit (re-roll 1s)';
+      const reRoll = rollDice(hitDiceToReroll.length, 6, label, effectiveSkill);
+      for (const d of reRoll.dice) {
+        applyHitDie(d);
       }
+      hitRoll = { ...hitRoll, dice: [...hitRoll.dice, ...reRoll.dice] };
+      const trigLabel = ctx?.rerollAllFailedHits ? 'Re-roll failed hits' : 'Re-roll hit 1s';
+      if (triggered.indexOf(trigLabel) === -1) triggered.push(trigLabel);
     }
   }
 
@@ -292,70 +289,68 @@ export function resolveAttackSequence(
   if (woundsToRoll > 0) {
     woundRoll = rollDice(woundsToRoll, 6, 'To Wound', effectiveWoundThreshold);
 
-    for (const d of woundRoll.dice) {
-      if (d === 1) continue; // Unmodified 1 always fails
-      const isCritWound = d === 6;
-
-      // Anti-KEYWORD X+: critical wound on X+ vs matching keyword
-      let antiCrit = false;
-      if (ctx) {
+    // Scores a single wound die: unmodified 1 always fails, unmodified 6 is a crit,
+    // Anti-KEYWORD X+ crits on X+ against matching targets.
+    const scoreWoundDie = (d: number): { wound: boolean; crit: boolean } => {
+      if (d === 1) return { wound: false, crit: false };
+      let crit = d === 6;
+      if (!crit && ctx) {
         const antiAbility = ctx.abilities.find(a => a.name === 'ANTI');
-        if (antiAbility && antiAbility.keyword && antiAbility.value !== undefined) {
-          if (ctx.targetKeywords.some(k => k.toUpperCase() === antiAbility.keyword)) {
-            if (d >= antiAbility.value) {
-              antiCrit = true;
-              if (triggered.indexOf(`Anti-${antiAbility.keyword}`) === -1) triggered.push(`Anti-${antiAbility.keyword}`);
-            }
-          }
+        if (
+          antiAbility?.keyword &&
+          antiAbility.value !== undefined &&
+          ctx.targetKeywords.some(k => k.toUpperCase() === antiAbility.keyword) &&
+          d >= antiAbility.value
+        ) {
+          crit = true;
+          if (triggered.indexOf(`Anti-${antiAbility.keyword}`) === -1) triggered.push(`Anti-${antiAbility.keyword}`);
         }
       }
+      return { wound: crit || d + woundModifier >= effectiveWoundThreshold, crit };
+    };
 
-      if (isCritWound || antiCrit || d + woundModifier >= effectiveWoundThreshold) {
-        // Devastating Wounds: critical wound → mortal wounds
-        if ((isCritWound || antiCrit) && ctx && hasAbility(ctx, 'DEVASTATING WOUNDS')) {
-          const dmg = parseDiceExpression(ctx.weapon.damage);
-          mortalWounds += dmg;
-          if (triggered.indexOf('Devastating Wounds') === -1) triggered.push('Devastating Wounds');
-        } else {
-          wounds++;
-        }
+    const applyWoundDie = (d: number): boolean => {
+      const { wound, crit } = scoreWoundDie(d);
+      if (!wound) return false;
+      // Devastating Wounds: critical wound → mortal wounds
+      if (crit && ctx && hasAbility(ctx, 'DEVASTATING WOUNDS')) {
+        const dmg = parseDiceExpression(ctx.weapon.damage);
+        mortalWounds += dmg;
+        if (triggered.indexOf('Devastating Wounds') === -1) triggered.push('Devastating Wounds');
+      } else {
+        wounds++;
       }
+      return true;
+    };
+
+    const failedWoundDice: number[] = [];
+    for (const d of woundRoll.dice) {
+      if (!applyWoundDie(d)) failedWoundDice.push(d);
     }
 
-    // Twin-linked: re-roll failed wound rolls
-    if (ctx && hasAbility(ctx, 'TWIN-LINKED')) {
-      const failed = woundRoll.dice.filter(d => {
-        if (d === 1) return true;
-        return d + woundModifier < effectiveWoundThreshold && d !== 6;
-      });
-      if (failed.length > 0) {
-        const reRoll = rollDice(failed.length, 6, 'To Wound (re-roll)', effectiveWoundThreshold);
-        for (const d of reRoll.dice) {
-          if (d === 1) continue;
-          if (d === 6 || d + woundModifier >= effectiveWoundThreshold) {
-            wounds++;
-          }
-        }
-        // Merge re-roll dice into wound roll for display
-        woundRoll = { ...woundRoll, dice: [...woundRoll.dice, ...reRoll.dice] };
-        if (triggered.indexOf('Twin-linked (re-roll)') === -1) triggered.push('Twin-linked (re-roll)');
+    // Re-roll failed wound rolls: all of them (Twin-linked, Retaliation Cadre)
+    // or only unmodified 1s (Fortification Network, Patient Ambush, etc.)
+    const rerollAllWounds = (ctx && hasAbility(ctx, 'TWIN-LINKED')) || ctx?.rerollAllFailedWounds;
+    const woundDiceToReroll = rerollAllWounds
+      ? failedWoundDice
+      : ctx?.rerollWoundRollsOf1
+        ? failedWoundDice.filter(d => d === 1)
+        : [];
+    if (woundDiceToReroll.length > 0) {
+      const label = rerollAllWounds ? 'To Wound (re-roll failed)' : 'To Wound (re-roll 1s)';
+      const reRoll = rollDice(woundDiceToReroll.length, 6, label, effectiveWoundThreshold);
+      for (const d of reRoll.dice) {
+        applyWoundDie(d);
       }
-    }
-
-    // Re-roll wound rolls of 1 (e.g., Fortification Network detachment rule)
-    if (ctx?.rerollWoundRollsOf1 && !hasAbility(ctx, 'TWIN-LINKED')) {
-      const ones = woundRoll.dice.filter(d => d === 1);
-      if (ones.length > 0) {
-        const reRoll = rollDice(ones.length, 6, 'To Wound (re-roll 1s)', effectiveWoundThreshold);
-        for (const d of reRoll.dice) {
-          if (d === 1) continue;
-          if (d === 6 || d + woundModifier >= effectiveWoundThreshold) {
-            wounds++;
-          }
-        }
-        woundRoll = { ...woundRoll, dice: [...woundRoll.dice, ...reRoll.dice] };
-        if (triggered.indexOf('Re-roll wound 1s') === -1) triggered.push('Re-roll wound 1s');
-      }
+      // Merge re-roll dice into wound roll for display
+      woundRoll = { ...woundRoll, dice: [...woundRoll.dice, ...reRoll.dice] };
+      const trigLabel =
+        ctx && hasAbility(ctx, 'TWIN-LINKED')
+          ? 'Twin-linked (re-roll)'
+          : rerollAllWounds
+            ? 'Re-roll failed wounds'
+            : 'Re-roll wound 1s';
+      if (triggered.indexOf(trigLabel) === -1) triggered.push(trigLabel);
     }
   } else {
     woundRoll = { id: generateUUID(), dice: [], sides: 6, threshold: effectiveWoundThreshold, purpose: 'To Wound', timestamp: Date.now() };
