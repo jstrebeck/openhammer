@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**`PLAN.md` is the single living roadmap** — all prior plan docs (ROADMAP, GAMEPLAY-ROADMAP, ARMY-ROADMAP, ARCHITECTURE-CONCERNS) are archived in `docs/archive/`. A feature counts as done only when it is reachable in the client UI and changes real game state — not when the core helper exists. Verify wiring (component mounted, action dispatched) before checking items off.
+
 ## Commands
 
 ```bash

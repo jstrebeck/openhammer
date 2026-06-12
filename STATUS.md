@@ -101,7 +101,7 @@ All sprints (A–O) complete, plus the faction-rules integration pass (2026-06):
 
 ## Known Issues / Rough Edges
 
-- **Model base sizes are inferred from keywords** (Vehicle->60mm, Infantry->32mm, etc.) because Battlescribe JSON doesn't include base size data. A lookup table or per-model override UI would improve accuracy. Tracked in ROADMAP.md.
+- **Model base sizes are inferred from keywords** (Vehicle->60mm, Infantry->32mm, etc.) because Battlescribe JSON doesn't include base size data. A lookup table or per-model override UI would improve accuracy. Tracked in PLAN.md.
 - **Rules enforcement is config-only** — the Off/Warn/Enforce settings are stored but not yet wired to actually validate moves or show warnings on the canvas. The infrastructure is in place to add this.
 - **Light theme is partial** — the toggle works and changes the layout background, but most UI panels are hardcoded to dark gray. Full light theme would need `dark:` variants on all components.
 - **Quick roll doesn't handle dice expressions** — weapons with attacks like "D6" or damage like "D3+1" fall back to 1. Would need a dice expression parser.
