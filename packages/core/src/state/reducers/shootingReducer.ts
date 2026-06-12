@@ -5,6 +5,7 @@ import { getEdition } from '../../rules/registry';
 import { distanceBetweenModels } from '../../measurement/index';
 import { isUnitInEngagementRange, getEngagementShootingMode } from '../../combat/shooting';
 import { weaponHasAbility, getUnitAbilityValue } from '../../combat/abilities';
+import { computeDefensiveSaveModifiers } from '../../combat/saves';
 
 export const shootingReducer: SubReducer = (state, action) => {
   switch (action.type) {
@@ -86,7 +87,7 @@ export const shootingReducer: SubReducer = (state, action) => {
     }
 
     case 'RESOLVE_SHOOTING_ATTACK': {
-      const { attackingUnitId, attackingModelId, weaponId, weaponName, targetUnitId, numAttacks, hitRoll, hits, woundRoll, wounds } = action.payload;
+      const { attackingUnitId, attackingModelId, weaponId, weaponName, targetUnitId, numAttacks, hitRoll, hits, woundRoll, wounds, mortalWounds = 0, effectiveDamage, triggeredAbilities } = action.payload;
 
       // One Shot validation: check if this weapon was already fired this battle
       const oneShotKey = `${attackingUnitId}:${weaponId}`;
@@ -130,9 +131,9 @@ export const shootingReducer: SubReducer = (state, action) => {
         }
       }
 
-      // Create PendingSave if there are wounds to save against
+      // Create PendingSave if there are wounds to save against or mortal wounds to apply
       let newPendingSaves = state.shootingState.pendingSaves;
-      if (wounds > 0) {
+      if (wounds > 0 || mortalWounds > 0) {
         const weapon = attackingUnit?.weapons.find(w => w.id === weaponId);
         const targetUnit = state.units[targetUnitId];
 
@@ -142,6 +143,10 @@ export const shootingReducer: SubReducer = (state, action) => {
           const fnpValue = getUnitAbilityValue(targetUnit, 'FEEL NO PAIN');
           if (fnpValue !== undefined) fnpThreshold = fnpValue;
         }
+
+        // Defensive modifiers: terrain cover, Smokescreen/Go to Ground, Take Cover! order,
+        // Indirect Fire — negated by Ignores Cover where applicable
+        const defensiveMods = computeDefensiveSaveModifiers(state, attackingUnitId, targetUnitId, weapon);
 
         newPendingSaves = [
           ...state.shootingState.pendingSaves,
@@ -154,9 +159,11 @@ export const shootingReducer: SubReducer = (state, action) => {
             weaponName,
             wounds,
             ap: weapon?.ap ?? 0,
-            damage: String(weapon?.damage ?? '1'),
+            damage: effectiveDamage !== undefined ? String(effectiveDamage) : String(weapon?.damage ?? '1'),
+            coverSaveModifier: defensiveMods.coverSaveModifier > 0 ? defensiveMods.coverSaveModifier : undefined,
+            bonusInvulnSave: defensiveMods.bonusInvulnSave,
             fnpThreshold,
-            mortalWounds: 0,
+            mortalWounds,
             resolved: false,
           },
         ];
@@ -172,7 +179,7 @@ export const shootingReducer: SubReducer = (state, action) => {
         },
         log: appendLog(state.log, {
           type: 'message',
-          text: `${weaponName}: ${numAttacks} attacks → ${hits} hits → ${wounds} wounds`,
+          text: `${weaponName}: ${numAttacks} attacks → ${hits} hits → ${wounds} wounds${mortalWounds > 0 ? ` + ${mortalWounds} mortal` : ''}${triggeredAbilities?.length ? ` [${triggeredAbilities.join(', ')}]` : ''}`,
           timestamp: Date.now(),
         }),
       };

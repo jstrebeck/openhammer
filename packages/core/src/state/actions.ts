@@ -53,6 +53,12 @@ export type GameAction =
       hits: number;
       woundRoll: DiceRoll;
       wounds: number;
+      /** Mortal wounds from Devastating Wounds — applied without saves */
+      mortalWounds?: number;
+      /** Damage per failed save after ability modifiers (e.g., Melta) */
+      effectiveDamage?: number;
+      /** Ability/rule names that triggered, for the game log */
+      triggeredAbilities?: string[];
     } }
   | { type: 'RESOLVE_PENDING_SAVES'; payload: { pendingSaveId: string; results: import('../types/index').PendingSaveResult[] } }
   | { type: 'APPLY_DAMAGE'; payload: { modelId: string; damage: number; source: string } }
@@ -90,6 +96,12 @@ export type GameAction =
       hits: number;
       woundRoll: DiceRoll;
       wounds: number;
+      /** Mortal wounds from Devastating Wounds — applied without saves */
+      mortalWounds?: number;
+      /** Damage per failed save after ability modifiers (e.g., Melta) */
+      effectiveDamage?: number;
+      /** Ability/rule names that triggered, for the game log */
+      triggeredAbilities?: string[];
     } }
   | { type: 'CONSOLIDATE'; payload: { unitId: string; positions: Record<string, Point> } }
   | { type: 'COMPLETE_FIGHT'; payload: { unitId: string } }

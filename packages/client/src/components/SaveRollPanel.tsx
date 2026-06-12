@@ -60,7 +60,12 @@ export function SaveRollPanel({ pendingSave }: SaveRollPanelProps) {
         target.stats.save,
         pendingSave.ap,
         target.stats.invulnSave,
-        pendingSave.coverSaveModifier ? { coverSaveModifier: pendingSave.coverSaveModifier } : undefined,
+        pendingSave.coverSaveModifier || pendingSave.bonusInvulnSave
+          ? {
+              coverSaveModifier: pendingSave.coverSaveModifier,
+              bonusInvulnSave: pendingSave.bonusInvulnSave,
+            }
+          : undefined,
       );
 
       let damageApplied = 0;

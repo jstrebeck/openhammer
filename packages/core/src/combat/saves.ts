@@ -1,7 +1,51 @@
-import type { DiceRoll } from '../types/index';
+import type { DiceRoll, GameState, Weapon } from '../types/index';
 import { rollDice } from '../dice/index';
+import { determineCover } from '../terrain/cover';
+import { getStratagemSaveModifiers } from './stratagems';
+import { getOrderSaveModifier } from './factionModifiers';
+import { weaponHasAbility } from './abilities';
 
 // ===== Save Resolution =====
+
+/**
+ * Compute the defensive save modifiers for an incoming attack, combining every
+ * Benefit of Cover source (terrain, Smokescreen, Go to Ground, Take Cover! order,
+ * Indirect Fire) and Go to Ground's 6+ invulnerable save.
+ *
+ * Benefit of Cover is not cumulative — the result is capped at +1. Weapons with
+ * [IGNORES COVER] negate the cover bonus but not Go to Ground's invulnerable save.
+ * Melee attacks never benefit from cover.
+ */
+export function computeDefensiveSaveModifiers(
+  state: GameState,
+  attackingUnitId: string,
+  targetUnitId: string,
+  weapon?: Weapon,
+): { coverSaveModifier: number; bonusInvulnSave?: number } {
+  const targetUnit = state.units[targetUnitId];
+  if (!targetUnit) return { coverSaveModifier: 0 };
+  if (weapon?.type === 'melee') return { coverSaveModifier: 0 };
+
+  const strat = getStratagemSaveModifiers(state, targetUnitId);
+  // Go to Ground's invuln is not a cover benefit — Ignores Cover does not negate it
+  const bonusInvulnSave = strat.bonusInvulnSave;
+
+  const ignoresCover = weapon ? weaponHasAbility(weapon, 'IGNORES COVER') : false;
+  let hasCover = false;
+  if (!ignoresCover) {
+    hasCover = strat.coverSaveModifier > 0;
+    if (!hasCover && getOrderSaveModifier(state, targetUnit) > 0) hasCover = true;
+    if (!hasCover && weapon && weaponHasAbility(weapon, 'INDIRECT FIRE')) hasCover = true;
+    if (!hasCover) {
+      const attackingUnit = state.units[attackingUnitId];
+      if (attackingUnit) {
+        hasCover = determineCover(attackingUnit, targetUnit, state).hasCover;
+      }
+    }
+  }
+
+  return { coverSaveModifier: hasCover ? 1 : 0, bonusInvulnSave };
+}
 
 export function resolveSave(
   saveCharacteristic: number,

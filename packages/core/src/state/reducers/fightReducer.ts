@@ -347,7 +347,7 @@ export const fightReducer: SubReducer = (state, action) => {
     }
 
     case 'RESOLVE_MELEE_ATTACK': {
-      const { attackingUnitId, attackingModelId, weaponId, weaponName, targetUnitId, numAttacks, hitRoll, hits, woundRoll, wounds } = action.payload;
+      const { attackingUnitId, attackingModelId, weaponId, weaponName, targetUnitId, numAttacks, hitRoll, hits, woundRoll, wounds, mortalWounds = 0, effectiveDamage, triggeredAbilities } = action.payload;
 
       // Validate melee target eligibility
       const meleeEdition = getEdition(state.editionId);
@@ -390,10 +390,10 @@ export const fightReducer: SubReducer = (state, action) => {
         resolved: false,
       };
 
-      // Create PendingSave if there are wounds to save against
+      // Create PendingSave if there are wounds to save against or mortal wounds to apply
       const meleeUnit = state.units[attackingUnitId];
       let newPendingSaves = state.fightState.pendingSaves;
-      if (wounds > 0) {
+      if (wounds > 0 || mortalWounds > 0) {
         const weapon = meleeUnit?.weapons.find(w => w.id === weaponId);
         const targetUnit = state.units[targetUnitId];
 
@@ -412,9 +412,9 @@ export const fightReducer: SubReducer = (state, action) => {
           weaponName,
           wounds,
           ap: weapon?.ap ?? 0,
-          damage: String(weapon?.damage ?? '1'),
+          damage: effectiveDamage !== undefined ? String(effectiveDamage) : String(weapon?.damage ?? '1'),
           fnpThreshold,
-          mortalWounds: 0,
+          mortalWounds,
           resolved: false,
         }];
       }
@@ -428,7 +428,7 @@ export const fightReducer: SubReducer = (state, action) => {
         },
         log: appendLog(state.log, {
           type: 'message',
-          text: `${weaponName} (melee): ${numAttacks} attacks → ${hits} hits → ${wounds} wounds`,
+          text: `${weaponName} (melee): ${numAttacks} attacks → ${hits} hits → ${wounds} wounds${mortalWounds > 0 ? ` + ${mortalWounds} mortal` : ''}${triggeredAbilities?.length ? ` [${triggeredAbilities.join(', ')}]` : ''}`,
           timestamp: Date.now(),
         }),
       };
