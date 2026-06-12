@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { getUnitAbilityValue } from '@openhammer/core';
+import { getEffectiveScoutDistance } from '@openhammer/core';
 
 /**
  * Sprint O: Scout move pre-game movement dialog.
@@ -11,10 +11,10 @@ export function ScoutMoveDialog({ onClose }: { onClose: () => void }) {
   const dispatch = useGameStore((s) => s.dispatch);
   const [movedUnits, setMovedUnits] = useState<Set<string>>(new Set());
 
-  // Find all units with Scout ability
-  const scoutUnits = Object.values(gameState.units).filter((u) => {
-    return u.abilities.some((a) => a.toUpperCase().startsWith('SCOUT'));
-  });
+  // Find all units that can Scout (datasheet ability or detachment grant, e.g. Kroot Hunting Pack)
+  const scoutUnits = Object.values(gameState.units).filter(
+    (u) => getEffectiveScoutDistance(gameState, u) !== undefined,
+  );
 
   const handleCommitScout = (unitId: string) => {
     const unit = gameState.units[unitId];
@@ -53,7 +53,7 @@ export function ScoutMoveDialog({ onClose }: { onClose: () => void }) {
 
       <div className="space-y-1.5">
         {scoutUnits.map((u) => {
-          const scoutDist = getUnitAbilityValue(u, 'SCOUT') ?? 0;
+          const scoutDist = getEffectiveScoutDistance(gameState, u) ?? 0;
           const done = movedUnits.has(u.id);
           return (
             <div key={u.id} className="flex items-center gap-2 text-xs">

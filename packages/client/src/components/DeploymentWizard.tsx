@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
-import { unitHasAbility, getUnitAbilityValue } from '@openhammer/core';
+import { getEffectiveScoutDistance } from '@openhammer/core';
 import type { SetupPhase } from '@openhammer/core';
 
 /**
@@ -37,7 +37,7 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
   // Scout units (exclude already-completed)
   const scoutMovesCompleted = deploymentState.scoutMovesCompleted;
   const scoutUnits = Object.values(gameState.units).filter(u =>
-    unitHasAbility(u, 'SCOUT') && !scoutMovesCompleted.includes(u.id),
+    getEffectiveScoutDistance(gameState, u) !== undefined && !scoutMovesCompleted.includes(u.id),
   );
 
   // Helper to advance setup phase
@@ -264,7 +264,7 @@ export function DeploymentWizard({ onClose }: { onClose: () => void }) {
             </div>
             <div className="space-y-1">
               {scoutUnits.map((unit) => {
-                const scoutDist = getUnitAbilityValue(unit, 'SCOUT') ?? 0;
+                const scoutDist = getEffectiveScoutDistance(gameState, unit) ?? 0;
                 const isActive = activeUnitId === unit.id;
                 return (
                   <div
