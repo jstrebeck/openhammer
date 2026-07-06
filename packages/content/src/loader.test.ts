@@ -70,6 +70,15 @@ describe('loadEditionContent(wh40k-10e)', () => {
     expect(insane?.window).toBe('command.battleShockFailed');
   });
 
+  it('loads leviathan terrain layouts as data', () => {
+    expect(loaded.terrainLayouts.length).toBeGreaterThanOrEqual(1);
+    const layout = loaded.terrainLayouts[0]!;
+    expect(layout.boardSize).toEqual({ width: 60, height: 44 });
+    expect(layout.pieces.length).toBeGreaterThanOrEqual(6);
+    expect(layout.pieces.every((p) => p.footprint.length >= 3)).toBe(true);
+    expect(layout.pieces.some((p) => p.traits.includes('ruins'))).toBe(true);
+  });
+
   it('loads leviathan deployment maps and missions', () => {
     expect(loaded.deploymentMaps.map((m) => m.id).sort()).toEqual([
       'dawn-of-war',

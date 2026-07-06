@@ -179,6 +179,63 @@ export interface PendingDecision {
 }
 
 // ---------------------------------------------------------------------------
+// In-flight sequences (all serializable — games survive restarts mid-step)
+// ---------------------------------------------------------------------------
+
+/** Minimal pre-game flow: roll-off → role choice → alternating deployment. */
+export interface SetupState {
+  rostersLoaded: [boolean, boolean];
+  rollOff: {
+    purpose: 'attackerChoice' | 'firstTurn';
+    rolls: [number, number];
+    winner: PlayerIndex;
+  } | null;
+  attacker: PlayerIndex | null;
+  deployNext: PlayerIndex | null;
+  readyToStart: boolean;
+}
+
+export interface PendingMove {
+  unitId: UnitId;
+  kind: 'normal' | 'advance' | 'fallBack';
+  /** Per-model distance budget in inches (M, +D6 if advancing). */
+  budget: number;
+  advanceRoll: number | null;
+}
+
+/** Serializable snapshot of the save/damage half of an attack computation. */
+export interface SaveComputation {
+  ap: number;
+  damageExpr: string;
+  damageBonus: number;
+  minimumDamage: number;
+  cover: boolean;
+  ignoresCover: boolean;
+  invulnerableSave: number | null;
+  saveModifiers: number[];
+  feelNoPain: number | null;
+}
+
+export interface ShootingAssignment {
+  weaponId: string;
+  targetUnitId: UnitId;
+}
+
+/** One unit's shooting, resolved weapon by weapon with defender saves between. */
+export interface ShootingSequence {
+  attackerUnitId: UnitId;
+  remaining: ShootingAssignment[];
+  current: {
+    weaponId: string;
+    weaponName: string;
+    targetUnitId: UnitId;
+    woundsPending: number;
+    mortalWounds: number;
+    save: SaveComputation;
+  } | null;
+}
+
+// ---------------------------------------------------------------------------
 // Game log
 // ---------------------------------------------------------------------------
 
@@ -230,6 +287,9 @@ export interface GameState {
   activeEffects: ActiveEffect[];
   usage: UsageCounters;
 
+  setup: SetupState | null;
+  pendingMove: PendingMove | null;
+  shooting: ShootingSequence | null;
   pendingDecision: PendingDecision | null;
 
   rng: RngState;

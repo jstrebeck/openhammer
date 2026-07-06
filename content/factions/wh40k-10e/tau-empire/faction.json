@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "tau-empire",
+  "name": "T'au Empire",
+  "editionId": "wh40k-10e",
+  "armyRule": {
+    "name": "For the Greater Good",
+    "paraphrase": "Friendly units can spot for each other, sharpening the aim of guided ranged attacks.",
+    "effects": []
+  }
+}

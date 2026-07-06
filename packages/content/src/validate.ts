@@ -15,6 +15,7 @@ export type ContentKind =
   | 'stratagems'
   | 'deployment-maps'
   | 'missions'
+  | 'terrain-layouts'
   | 'datasheet'
   | 'detachment'
   | 'faction';
@@ -26,6 +27,7 @@ const KIND_TO_SCHEMA_ID: Record<ContentKind, string> = {
   stratagems: 'openhammer://schemas/stratagems',
   'deployment-maps': 'openhammer://schemas/deployment-maps',
   missions: 'openhammer://schemas/missions',
+  'terrain-layouts': 'openhammer://schemas/terrain-layouts',
   datasheet: 'openhammer://schemas/datasheet',
   detachment: 'openhammer://schemas/detachment',
   faction: 'openhammer://schemas/faction',

@@ -1,6 +1,7 @@
-import type { CoreParameters, Datasheet } from './types/content.js';
+import type { CoreParameters, Datasheet, EditionDef } from './types/content.js';
 import type { GameState, PlayerState, UnitState } from './types/state.js';
 import type { ContentAccess, HookContext } from './effects/context.js';
+import type { ReducerEnv, RulesContent } from './state/env.js';
 
 /** 10e-shaped parameters for tests (mirrors edition.json values). */
 export const testParams: CoreParameters = {
@@ -89,6 +90,9 @@ export function makeState(partial: Partial<GameState> = {}): GameState {
     board: { width: 60, height: 44, terrain: [], objectives: [], deploymentZones: [] },
     activeEffects: [],
     usage: { counts: {} },
+    setup: null,
+    pendingMove: null,
+    shooting: null,
     pendingDecision: null,
     rng: { seed: 1, counter: 0 },
     log: [],
@@ -108,6 +112,66 @@ export function makeContentAccess(datasheets: Record<string, Datasheet> = {}): C
       return [...(ds?.keywords ?? []), ...(ds?.factionKeywords ?? []), ...unit.tokens];
     },
   };
+}
+
+/** A 10e-shaped test edition matching the real pack's phase structure. */
+export const testEdition: EditionDef = {
+  id: 'test-edition',
+  name: 'Test Edition',
+  version: 'test',
+  schemaVersion: 1,
+  battleRounds: 5,
+  phases: [
+    {
+      id: 'command',
+      name: 'Command Phase',
+      steps: [
+        { id: 'command', name: 'Command' },
+        { id: 'battleShock', name: 'Battle-shock' },
+      ],
+    },
+    {
+      id: 'movement',
+      name: 'Movement Phase',
+      steps: [
+        { id: 'moveUnits', name: 'Move Units' },
+        { id: 'reinforcements', name: 'Reinforcements' },
+      ],
+    },
+    { id: 'shooting', name: 'Shooting Phase', steps: [{ id: 'shoot', name: 'Shoot' }] },
+    { id: 'charge', name: 'Charge Phase', steps: [{ id: 'charge', name: 'Charge' }] },
+    {
+      id: 'fight',
+      name: 'Fight Phase',
+      steps: [
+        { id: 'fightsFirst', name: 'Fights First' },
+        { id: 'remainingCombats', name: 'Remaining Combats' },
+      ],
+    },
+  ],
+  parameters: testParams,
+};
+
+export function makeRulesContent(
+  overrides: Partial<RulesContent> & { datasheets?: Record<string, Datasheet> } = {},
+): RulesContent {
+  const { datasheets, ...rest } = overrides;
+  const access = makeContentAccess(datasheets ?? {});
+  return {
+    edition: testEdition,
+    getDatasheet: access.getDatasheet,
+    getUnitKeywords: access.getUnitKeywords,
+    getWeaponAbility: () => ({ effects: [], flags: [] }),
+    getCoreAbility: () => ({ effects: [] }),
+    effectOrder: {},
+    ...rest,
+  };
+}
+
+export function makeEnv(
+  overrides: Partial<RulesContent> & { datasheets?: Record<string, Datasheet> } = {},
+): ReducerEnv {
+  return { content: makeRulesContent(overrides) };
 }
 
 export function makeContext(partial: Partial<HookContext> = {}): HookContext {

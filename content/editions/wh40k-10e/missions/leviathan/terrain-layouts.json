@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "layouts": [
+    {
+      "id": "gt-layout-1",
+      "name": "GT Layout 1 (symmetric ruins)",
+      "boardSize": { "width": 60, "height": 44 },
+      "pieces": [
+        {
+          "id": "ruin-center-w",
+          "name": "Large Ruin",
+          "traits": ["ruins", "areaTerrain"],
+          "height": 4,
+          "footprint": [
+            { "x": 17, "y": 19.5 },
+            { "x": 25, "y": 19.5 },
+            { "x": 25, "y": 24.5 },
+            { "x": 17, "y": 24.5 }
+          ]
+        },
+        {
+          "id": "ruin-center-e",
+          "name": "Large Ruin",
+          "traits": ["ruins", "areaTerrain"],
+          "height": 4,
+          "footprint": [
+            { "x": 35, "y": 19.5 },
+            { "x": 43, "y": 19.5 },
+            { "x": 43, "y": 24.5 },
+            { "x": 35, "y": 24.5 }
+          ]
+        },
+        {
+          "id": "ruin-nw",
+          "name": "Ruin",
+          "traits": ["ruins", "areaTerrain"],
+          "height": 3,
+          "footprint": [
+            { "x": 9, "y": 9 },
+            { "x": 15, "y": 9 },
+            { "x": 15, "y": 13 },
+            { "x": 9, "y": 13 }
+          ]
+        },
+        {
+          "id": "ruin-ne",
+          "name": "Ruin",
+          "traits": ["ruins", "areaTerrain"],
+          "height": 3,
+          "footprint": [
+            { "x": 45, "y": 9 },
+            { "x": 51, "y": 9 },
+            { "x": 51, "y": 13 },
+            { "x": 45, "y": 13 }
+          ]
+        },
+        {
+          "id": "ruin-sw",
+          "name": "Ruin",
+          "traits": ["ruins", "areaTerrain"],
+          "height": 3,
+          "footprint": [
+            { "x": 9, "y": 31 },
+            { "x": 15, "y": 31 },
+            { "x": 15, "y": 35 },
+            { "x": 9, "y": 35 }
+          ]
+        },
+        {
+          "id": "ruin-se",
+          "name": "Ruin",
+          "traits": ["ruins", "areaTerrain"],
+          "height": 3,
+          "footprint": [
+            { "x": 45, "y": 31 },
+            { "x": 51, "y": 31 },
+            { "x": 51, "y": 35 },
+            { "x": 45, "y": 35 }
+          ]
+        },
+        {
+          "id": "woods-w",
+          "name": "Woods",
+          "traits": ["woods", "areaTerrain"],
+          "height": 3,
+          "footprint": [
+            { "x": 3, "y": 19 },
+            { "x": 9, "y": 19 },
+            { "x": 9, "y": 25 },
+            { "x": 3, "y": 25 }
+          ]
+        },
+        {
+          "id": "woods-e",
+          "name": "Woods",
+          "traits": ["woods", "areaTerrain"],
+          "height": 3,
+          "footprint": [
+            { "x": 51, "y": 19 },
+            { "x": 57, "y": 19 },
+            { "x": 57, "y": 25 },
+            { "x": 51, "y": 25 }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -2,10 +2,24 @@ export {
   DEFAULT_CONTENT_ROOT,
   ContentLoadError,
   loadEditionContent,
+  loadFactionPack,
   instantiateAbilityEffects,
   type CoreAbilityDef,
   type LoadedEditionContent,
+  type LoadedFactionPack,
 } from './loader.js';
+export {
+  parseRoster,
+  matchRoster,
+  normalizeName,
+  type ParsedRoster,
+  type RosterUnit,
+  type RosterWeapon,
+  type RosterProfile,
+  type RosterCharacteristic,
+  type ImportResult,
+  type ImportedUnit,
+} from './importer.js';
 export {
   SUPPORTED_SCHEMA_VERSION,
   validateContent,

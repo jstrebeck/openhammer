@@ -454,6 +454,19 @@ export interface ScoringRuleDef {
   maxTotal?: number;
 }
 
+export interface TerrainLayoutDef {
+  id: string;
+  name: string;
+  boardSize: { width: number; height: number };
+  pieces: {
+    id: string;
+    name: string;
+    traits: string[];
+    height: number;
+    footprint: { x: number; y: number }[];
+  }[];
+}
+
 export interface MissionDef {
   id: string;
   name: string;

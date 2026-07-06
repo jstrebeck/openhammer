@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "astra-militarum/leman-russ-battle-tank",
+  "name": "Leman Russ Battle Tank",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Vehicle",
+    "Smoke",
+    "Squadron"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Leman Russ Battle Tank",
+      "move": 10,
+      "toughness": 11,
+      "save": 2,
+      "wounds": 13,
+      "leadership": 7,
+      "objectiveControl": 3,
+      "baseSizeMm": 100,
+      "heightInches": 3.5
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 250
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "leman-russ-battle-cannon",
+      "name": "Leman Russ battle cannon",
+      "kind": "ranged",
+      "range": 48,
+      "attacks": "D6+3",
+      "skill": 4,
+      "strength": 10,
+      "ap": -1,
+      "damage": "3",
+      "abilities": [
+        {
+          "id": "blast"
+        }
+      ]
+    },
+    {
+      "id": "heavy-bolter",
+      "name": "Heavy bolter",
+      "kind": "ranged",
+      "range": 36,
+      "attacks": "3",
+      "skill": 4,
+      "strength": 5,
+      "ap": -1,
+      "damage": "2",
+      "abilities": [
+        {
+          "id": "sustained-hits",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "lascannon",
+      "name": "Lascannon",
+      "kind": "ranged",
+      "range": 48,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 12,
+      "ap": -3,
+      "damage": "D6+1",
+      "abilities": []
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "armoured-tracks",
+      "name": "Armoured tracks",
+      "kind": "melee",
+      "range": null,
+      "attacks": "3",
+      "skill": 4,
+      "strength": 6,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.deadly-demise"
+    }
+  ],
+  "abilities": [],
+  "wargearNotes": "TODO m4: Deadly Demise D6 (non-numeric value)"
+}

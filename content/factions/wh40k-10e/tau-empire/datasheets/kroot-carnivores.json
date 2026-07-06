@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "tau-empire/kroot-carnivores",
+  "name": "Kroot Carnivores",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Infantry",
+    "Battleline",
+    "Kroot",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Kroot Carnivore",
+      "move": 7,
+      "toughness": 3,
+      "save": 6,
+      "wounds": 1,
+      "leadership": 8,
+      "objectiveControl": 1,
+      "baseSizeMm": 28,
+      "heightInches": 1.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 10,
+        "points": 80
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "kroot-rifle",
+      "name": "Kroot rifle",
+      "kind": "ranged",
+      "range": 24,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 4,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "rapid-fire",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "kroot-blades",
+      "name": "Kroot blades",
+      "kind": "melee",
+      "range": null,
+      "attacks": "2",
+      "skill": 4,
+      "strength": 4,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.scout",
+      "value": 7
+    }
+  ],
+  "abilities": []
+}

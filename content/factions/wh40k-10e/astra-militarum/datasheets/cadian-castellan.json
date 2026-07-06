@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "astra-militarum/cadian-castellan",
+  "name": "Cadian Castellan",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Character",
+    "Infantry",
+    "Officer",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Cadian Castellan",
+      "move": 6,
+      "toughness": 3,
+      "save": 4,
+      "wounds": 4,
+      "leadership": 6,
+      "objectiveControl": 1,
+      "baseSizeMm": 32,
+      "heightInches": 1.4
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 80
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "laspistol",
+      "name": "Laspistol",
+      "kind": "ranged",
+      "range": 12,
+      "attacks": "1",
+      "skill": 3,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "pistol"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "power-weapon",
+      "name": "Power weapon",
+      "kind": "melee",
+      "range": null,
+      "attacks": "4",
+      "skill": 3,
+      "strength": 5,
+      "ap": -2,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.leader"
+    }
+  ],
+  "abilities": [],
+  "wargearNotes": "TODO m4: Voice of Command",
+  "leader": {
+    "canLead": []
+  }
+}

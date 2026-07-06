@@ -2,16 +2,16 @@ import type { EditionDef } from '../types/content.js';
 import type { GameState, LogEntry, PlayerIndex, UnitState } from '../types/state.js';
 import { sweepExpiredEffects, sweepUsageCounters } from '../effects/engine.js';
 import type { ActionResult, GameAction } from './actions.js';
+import type { ReducerEnv } from './env.js';
+import { reduceSetup } from './setupReducer.js';
+import { reduceMovement } from './movementReducer.js';
+import { reduceShooting } from './shootingReducer.js';
 
 /**
  * The pure, server-authoritative reducer. Phase order comes from the
  * edition pack — the reducer never names a phase beyond the generic
  * 'setup' / 'ended' sentinels.
  */
-
-export interface ReducerEnv {
-  edition: EditionDef;
-}
 
 export const SETUP_PHASE = 'setup';
 export const ENDED_PHASE = 'ended';
@@ -20,6 +20,33 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
   if (state.result !== null && action.type !== 'concede') {
     return { ok: false, error: 'The battle has ended.', code: 'GAME_ENDED' };
   }
+
+  if (action.type === 'concede') {
+    const winner: PlayerIndex = action.player === 0 ? 1 : 0;
+    return {
+      ok: true,
+      state: appendLog(
+        { ...state, result: { winner, concededBy: action.player }, phase: ENDED_PHASE },
+        { kind: 'concede', player: action.player, message: `Player ${action.player + 1} concedes.` },
+      ),
+    };
+  }
+
+  // While a reactive decision is open, only the action resolving it may pass.
+  if (state.pendingDecision !== null && action.type !== 'resolveSaves') {
+    return {
+      ok: false,
+      error: `Waiting on ${state.players[state.pendingDecision.player].name} (${state.pendingDecision.kind}).`,
+      code: 'PENDING_DECISION',
+    };
+  }
+
+  const setupResult = reduceSetup(state, action, env);
+  if (setupResult) return setupResult;
+  const movementResult = reduceMovement(state, action, env);
+  if (movementResult) return movementResult;
+  const shootingResult = reduceShooting(state, action, env);
+  if (shootingResult) return shootingResult;
 
   switch (action.type) {
     case 'advanceStep':
@@ -30,25 +57,20 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
           code: 'OUT_OF_TURN',
         };
       }
-      if (state.pendingDecision !== null) {
+      if (state.phase === SETUP_PHASE && !state.setup?.readyToStart) {
         return {
           ok: false,
-          error: 'A decision is pending; the sequence cannot advance past it.',
-          code: 'PENDING_DECISION',
+          error: 'Setup is not complete (rosters, roll-off, deployment, first-turn roll).',
+          code: 'ILLEGAL',
         };
       }
+      if (state.pendingMove !== null) {
+        return { ok: false, error: 'Finish or cancel the move in progress first.', code: 'ILLEGAL' };
+      }
+      if (state.shooting !== null) {
+        return { ok: false, error: 'Finish resolving the current shooting first.', code: 'ILLEGAL' };
+      }
       return { ok: true, state: advanceStep(state, env) };
-
-    case 'concede': {
-      const winner: PlayerIndex = action.player === 0 ? 1 : 0;
-      return {
-        ok: true,
-        state: appendLog(
-          { ...state, result: { winner, concededBy: action.player }, phase: ENDED_PHASE },
-          { kind: 'concede', player: action.player, message: `Player ${action.player + 1} concedes.` },
-        ),
-      };
-    }
 
     default:
       return { ok: false, error: 'Unknown action.', code: 'UNKNOWN_ACTION' };
@@ -77,7 +99,7 @@ function findPosition(state: GameState, edition: EditionDef): Position | null {
  * next round -> end of battle, firing expiry sweeps at each boundary.
  */
 export function advanceStep(state: GameState, env: ReducerEnv): GameState {
-  const { edition } = env;
+  const edition = env.content.edition;
 
   // Leaving setup: enter the first phase of round 1 for the first player.
   if (state.phase === SETUP_PHASE) {

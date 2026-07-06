@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "astra-militarum/basilisk",
+  "name": "Basilisk",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Vehicle",
+    "Smoke",
+    "Artillery"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Basilisk",
+      "move": 10,
+      "toughness": 10,
+      "save": 3,
+      "wounds": 11,
+      "leadership": 7,
+      "objectiveControl": 3,
+      "baseSizeMm": 100,
+      "heightInches": 3.5
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 200
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "earthshaker-cannon",
+      "name": "Earthshaker cannon",
+      "kind": "ranged",
+      "range": 240,
+      "attacks": "D6",
+      "skill": 4,
+      "strength": 9,
+      "ap": -2,
+      "damage": "3",
+      "abilities": [
+        {
+          "id": "blast"
+        },
+        {
+          "id": "heavy"
+        },
+        {
+          "id": "indirect-fire"
+        }
+      ]
+    },
+    {
+      "id": "heavy-bolter",
+      "name": "Heavy bolter",
+      "kind": "ranged",
+      "range": 36,
+      "attacks": "3",
+      "skill": 4,
+      "strength": 5,
+      "ap": -1,
+      "damage": "2",
+      "abilities": [
+        {
+          "id": "sustained-hits",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "armoured-tracks",
+      "name": "Armoured tracks",
+      "kind": "melee",
+      "range": null,
+      "attacks": "3",
+      "skill": 4,
+      "strength": 6,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.deadly-demise"
+    }
+  ],
+  "abilities": [],
+  "wargearNotes": "TODO m4: Deadly Demise D6 (non-numeric value)"
+}

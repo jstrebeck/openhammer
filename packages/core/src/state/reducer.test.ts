@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EditionDef } from '../types/content.js';
 import type { GameState } from '../types/state.js';
-import { makeState, makeUnit, testParams } from '../test-helpers.js';
+import { makeEnv, makeState, makeUnit, testParams } from '../test-helpers.js';
 import { ENDED_PHASE, SETUP_PHASE, advanceStep, reduce } from './reducer.js';
 
 const edition: EditionDef = {
@@ -27,7 +27,7 @@ const edition: EditionDef = {
   parameters: testParams,
 };
 
-const env = { edition };
+const env = makeEnv({ edition });
 
 function setupState(partial: Partial<GameState> = {}): GameState {
   return makeState({ phase: SETUP_PHASE, step: null, round: 0, ...partial });

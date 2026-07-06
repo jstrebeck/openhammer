@@ -2,11 +2,14 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
+  Datasheet,
   DeploymentMapDef,
   EditionDef,
   EffectDef,
+  FactionPack,
   MissionDef,
   StratagemDef,
+  TerrainLayoutDef,
   WeaponAbilityDef,
   WeaponAbilityRef,
 } from '@openhammer/core';
@@ -60,6 +63,7 @@ export interface LoadedEditionContent {
   coreStratagems: StratagemDef[];
   deploymentMaps: DeploymentMapDef[];
   missions: MissionDef[];
+  terrainLayouts: TerrainLayoutDef[];
   /**
    * Deterministic content-pack declaration order for every EffectDef id,
    * assigned in load order. Ties on a hook are broken with this.
@@ -90,12 +94,14 @@ export function loadEditionContent(
 
   const deploymentMaps: DeploymentMapDef[] = [];
   const missions: MissionDef[] = [];
+  const terrainLayouts: TerrainLayoutDef[] = [];
   const missionsDir = join(dir, 'missions');
   if (existsSync(missionsDir)) {
     for (const packName of readdirSync(missionsDir)) {
       const packDir = join(missionsDir, packName);
       const mapsFile = join(packDir, 'deployment-maps.json');
       const missionsFile = join(packDir, 'missions.json');
+      const terrainFile = join(packDir, 'terrain-layouts.json');
       if (existsSync(mapsFile)) {
         const parsed = loadJson(mapsFile, 'deployment-maps') as { maps: DeploymentMapDef[] };
         deploymentMaps.push(...parsed.maps);
@@ -103,6 +109,12 @@ export function loadEditionContent(
       if (existsSync(missionsFile)) {
         const parsed = loadJson(missionsFile, 'missions') as { missions: MissionDef[] };
         missions.push(...parsed.missions);
+      }
+      if (existsSync(terrainFile)) {
+        const parsed = loadJson(terrainFile, 'terrain-layouts') as {
+          layouts: TerrainLayoutDef[];
+        };
+        terrainLayouts.push(...parsed.layouts);
       }
     }
   }
@@ -126,6 +138,7 @@ export function loadEditionContent(
     coreStratagems: stratagemsFile.stratagems,
     deploymentMaps,
     missions,
+    terrainLayouts,
     effectOrder,
     versions: {
       edition: edition.version,
@@ -134,6 +147,37 @@ export function loadEditionContent(
       'core-stratagems': stratagemsFile.version,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Faction packs
+// ---------------------------------------------------------------------------
+
+export interface LoadedFactionPack {
+  pack: FactionPack;
+  datasheets: Datasheet[];
+}
+
+/**
+ * Load one faction pack (faction.json + datasheets/*.json) from
+ * content/factions/<editionId>/<factionId>/, validating every file.
+ */
+export function loadFactionPack(
+  editionId: string,
+  factionId: string,
+  contentRoot: string = DEFAULT_CONTENT_ROOT,
+): LoadedFactionPack {
+  const dir = join(contentRoot, 'factions', editionId, factionId);
+  const pack = loadJson(join(dir, 'faction.json'), 'faction') as FactionPack;
+  const datasheets: Datasheet[] = [];
+  const sheetsDir = join(dir, 'datasheets');
+  if (existsSync(sheetsDir)) {
+    for (const file of readdirSync(sheetsDir).sort()) {
+      if (!file.endsWith('.json')) continue;
+      datasheets.push(loadJson(join(sheetsDir, file), 'datasheet') as Datasheet);
+    }
+  }
+  return { pack, datasheets };
 }
 
 // ---------------------------------------------------------------------------

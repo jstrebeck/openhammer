@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/terrain-layouts",
+  "type": "object",
+  "required": ["schemaVersion", "version", "layouts"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "layouts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "boardSize", "pieces"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "boardSize": {
+            "type": "object",
+            "required": ["width", "height"],
+            "additionalProperties": false,
+            "properties": {
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            }
+          },
+          "pieces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "traits", "height", "footprint"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "traits": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["areaTerrain", "obstacle", "hill", "woods", "ruins", "craters", "barricade"]
+                  }
+                },
+                "height": { "type": "number" },
+                "footprint": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": {
+                    "type": "object",
+                    "required": ["x", "y"],
+                    "additionalProperties": false,
+                    "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

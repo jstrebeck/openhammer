@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "astra-militarum",
+  "name": "Astra Militarum",
+  "editionId": "wh40k-10e",
+  "armyRule": {
+    "name": "Voice of Command",
+    "paraphrase": "Officers issue battlefield orders that temporarily bolster nearby regiment units.",
+    "effects": []
+  }
+}

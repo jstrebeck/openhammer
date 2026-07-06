@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "astra-militarum/cadian-shock-troops",
+  "name": "Cadian Shock Troops",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Infantry",
+    "Battleline",
+    "Regiment",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Cadian Shock Trooper",
+      "move": 6,
+      "toughness": 3,
+      "save": 5,
+      "wounds": 1,
+      "leadership": 7,
+      "objectiveControl": 2,
+      "baseSizeMm": 28,
+      "heightInches": 1.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 10,
+        "points": 115
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "laspistol",
+      "name": "Laspistol",
+      "kind": "ranged",
+      "range": 12,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "pistol"
+        }
+      ]
+    },
+    {
+      "id": "lasgun",
+      "name": "Lasgun",
+      "kind": "ranged",
+      "range": 24,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "rapid-fire",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "frag-grenade",
+      "name": "Frag grenade",
+      "kind": "ranged",
+      "range": 12,
+      "attacks": "D6",
+      "skill": 4,
+      "strength": 4,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "blast"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "bayonet",
+      "name": "Bayonet",
+      "kind": "melee",
+      "range": null,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [],
+  "abilities": []
+}

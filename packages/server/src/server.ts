@@ -1,8 +1,8 @@
 import type { Server } from 'node:http';
 import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { loadEditionContent } from '@openhammer/content';
 import type { ClientMessage, ServerMessage } from './protocol.js';
+import { buildServerContent } from './content.js';
 import { RoomManager } from './rooms.js';
 import { loadRooms, saveRoom } from './persistence.js';
 
@@ -26,8 +26,8 @@ export async function startServer(options: {
   editionId?: string;
 }): Promise<OpenHammerServer> {
   const editionId = options.editionId ?? 'wh40k-10e';
-  const content = loadEditionContent(editionId);
-  const rooms = new RoomManager(content.edition, content.versions);
+  const content = buildServerContent(editionId);
+  const rooms = new RoomManager(content);
   if (options.dataDir) {
     const restored = loadRooms(options.dataDir, rooms);
     if (restored > 0) console.log(`restored ${restored} room(s) from ${options.dataDir}`);
@@ -67,6 +67,11 @@ export async function startServer(options: {
     if (serialized) saveRoom(options.dataDir, serialized);
   };
 
+  const contentMessage = (): ServerMessage => ({
+    type: 'content',
+    datasheets: Object.fromEntries(content.allDatasheets().map((d) => [d.id, d])),
+  });
+
   wss.on('connection', (ws) => {
     const conn: Connection = { ws, roomId: null, token: null, name: '', spectator: false };
     connections.set(ws, conn);
@@ -87,6 +92,7 @@ export async function startServer(options: {
           conn.token = token;
           conn.name = message.name;
           send(ws, { type: 'created', roomId: room.id, token, playerIndex: 0 });
+          send(ws, contentMessage());
           send(ws, { type: 'state', state: room.state });
           persist(room.id);
           break;
@@ -101,6 +107,7 @@ export async function startServer(options: {
           conn.token = result.token;
           conn.name = message.name;
           send(ws, { type: 'joined', roomId: result.room.id, token: result.token, playerIndex: 1 });
+          send(ws, contentMessage());
           broadcastRoom(result.room.id, { type: 'state', state: result.room.state });
           broadcastPresence(result.room.id);
           persist(result.room.id);
@@ -116,6 +123,7 @@ export async function startServer(options: {
           conn.spectator = true;
           conn.name = message.name;
           send(ws, { type: 'spectating', roomId: room.id });
+          send(ws, contentMessage());
           send(ws, { type: 'state', state: room.state });
           broadcastPresence(room.id);
           break;
@@ -135,6 +143,7 @@ export async function startServer(options: {
             conn.name = room.seats[seat]!.name;
           }
           send(ws, { type: 'reconnected', roomId: room.id, playerIndex: seat });
+          send(ws, contentMessage());
           send(ws, { type: 'state', state: room.state });
           broadcastPresence(room.id);
           break;
@@ -150,6 +159,26 @@ export async function startServer(options: {
             return;
           }
           broadcastRoom(conn.roomId, { type: 'state', state: outcome.room.state });
+          persist(conn.roomId);
+          break;
+        }
+        case 'uploadRoster': {
+          if (!conn.roomId || !conn.token) {
+            send(ws, { type: 'rejected', error: 'not seated in a game', code: 'NOT_SEATED' });
+            return;
+          }
+          const result = rooms.importRoster(conn.roomId, conn.token, message.roster);
+          if (!result.ok) {
+            send(ws, { type: 'rejected', error: result.error, code: result.code });
+            return;
+          }
+          send(ws, {
+            type: 'imported',
+            playerIndex: result.playerIndex,
+            issues: result.issues,
+            unitCount: result.unitCount,
+          });
+          broadcastRoom(conn.roomId, { type: 'state', state: result.room.state });
           persist(conn.roomId);
           break;
         }

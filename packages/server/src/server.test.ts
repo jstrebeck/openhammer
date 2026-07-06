@@ -89,13 +89,34 @@ describe('WebSocket server', () => {
     const rejected = await bob.nextOfType('rejected');
     expect(rejected.code).toBe('OUT_OF_TURN');
 
-    // Alice advances out of setup; both clients get the new state.
-    alice.send({ type: 'action', action: { type: 'advanceStep', player: 0 } });
-    const aliceState = await alice.nextOfType('state');
-    const bobState = await bob.nextOfType('state');
-    expect((aliceState.state as GameState).round).toBe(1);
-    expect((bobState.state as GameState).round).toBe(1);
-    expect((bobState.state as GameState).phase).toBe('command');
+    // Drive the whole setup flow over the wire; every accepted action is
+    // broadcast to both clients.
+    const both = async (): Promise<GameState> => {
+      const [a] = await Promise.all([alice.nextOfType('state'), bob.nextOfType('state')]);
+      return a.state as GameState;
+    };
+    const clientFor = (index: number) => (index === 0 ? alice : bob);
+
+    alice.send({ type: 'action', action: { type: 'loadRoster', player: 0, units: [] } });
+    await both();
+    bob.send({ type: 'action', action: { type: 'loadRoster', player: 1, units: [] } });
+    await both();
+    alice.send({ type: 'action', action: { type: 'performRollOff', player: 0 } });
+    let state = await both();
+    const winner = state.setup!.rollOff!.winner;
+    clientFor(winner).send({
+      type: 'action',
+      action: { type: 'chooseRole', player: winner, role: 'attacker' },
+    });
+    await both();
+    alice.send({ type: 'action', action: { type: 'performRollOff', player: 0 } });
+    state = await both();
+    const first = state.firstPlayer;
+    expect(state.setup?.readyToStart).toBe(true);
+    clientFor(first).send({ type: 'action', action: { type: 'advanceStep', player: first } });
+    state = await both();
+    expect(state.round).toBe(1);
+    expect(state.phase).toBe('command');
 
     // Chat reaches both.
     bob.send({ type: 'chat', text: 'glhf' });
@@ -111,6 +132,7 @@ describe('WebSocket server', () => {
     expect(reconnected.playerIndex).toBe(0);
     const resyncState = await reconnector.nextOfType('state');
     expect((resyncState.state as GameState).round).toBe(1);
+    expect((resyncState.state as GameState).phase).toBe('command');
 
     // Spectators are read-only.
     const spec = new TestClient(server.port);
@@ -134,7 +156,7 @@ describe('WebSocket server', () => {
     alice.send({ type: 'create', name: 'Alice' });
     const created = await alice.nextOfType('created');
     await alice.nextOfType('state');
-    alice.send({ type: 'action', action: { type: 'advanceStep', player: 0 } });
+    alice.send({ type: 'action', action: { type: 'loadRoster', player: 0, units: [] } });
     await alice.nextOfType('state');
     alice.close();
 
@@ -142,11 +164,12 @@ describe('WebSocket server', () => {
     try {
       const room = server2.rooms.getRoom(created.roomId);
       expect(room).toBeDefined();
-      expect(room!.state.round).toBe(1);
+      expect(room!.state.setup?.rostersLoaded).toEqual([true, false]);
       // The original session token still works after restart.
       const outcome = server2.rooms.applyAction(created.roomId, created.token, {
-        type: 'advanceStep',
+        type: 'loadRoster',
         player: 0,
+        units: [],
       });
       expect(outcome.ok).toBe(true);
     } finally {

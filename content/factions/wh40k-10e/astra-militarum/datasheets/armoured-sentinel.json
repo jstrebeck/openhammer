@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "astra-militarum/armoured-sentinel",
+  "name": "Armoured Sentinel",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Vehicle",
+    "Walker",
+    "Smoke",
+    "Regiment"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Armoured Sentinel",
+      "move": 8,
+      "toughness": 7,
+      "save": 3,
+      "wounds": 7,
+      "leadership": 7,
+      "objectiveControl": 2,
+      "baseSizeMm": 100,
+      "heightInches": 3.5
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 100
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "plasma-cannon",
+      "name": "Plasma cannon",
+      "kind": "ranged",
+      "range": 36,
+      "attacks": "D3",
+      "skill": 4,
+      "strength": 8,
+      "ap": -3,
+      "damage": "2",
+      "abilities": [
+        {
+          "id": "blast"
+        },
+        {
+          "id": "hazardous"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "sentinel-chainsaw",
+      "name": "Sentinel chainsaw",
+      "kind": "melee",
+      "range": null,
+      "attacks": "2",
+      "skill": 4,
+      "strength": 6,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.deadly-demise",
+      "value": 1
+    }
+  ],
+  "abilities": []
+}

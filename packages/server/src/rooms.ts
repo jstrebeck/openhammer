@@ -3,11 +3,13 @@ import {
   createInitialGameState,
   reduce,
   type ActionResult,
-  type EditionDef,
   type GameAction,
   type GameState,
   type PlayerIndex,
 } from '@openhammer/core';
+import { matchRoster, parseRoster } from '@openhammer/content';
+import type { ServerContent } from './content.js';
+import { materializeRoster } from './materialize.js';
 
 /**
  * Room management, decoupled from the transport so it is unit-testable.
@@ -47,17 +49,29 @@ export type ApplyOutcome =
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
-  constructor(private readonly edition: EditionDef, private readonly contentVersions: Record<string, string>) {}
+  constructor(private readonly content: ServerContent) {}
 
-  createRoom(hostName: string): { room: Room; token: string } {
+  createRoom(hostName: string, deploymentMapId = 'dawn-of-war'): { room: Room; token: string } {
     const id = randomBytes(4).toString('hex');
     const token = randomBytes(16).toString('hex');
+    const map =
+      this.content.deploymentMaps.find((m) => m.id === deploymentMapId) ??
+      this.content.deploymentMaps[0];
+    const mission = this.content.missions[0];
     const state = createInitialGameState({
-      editionId: this.edition.id,
-      missionId: 'take-and-hold',
-      deploymentMapId: 'dawn-of-war',
-      contentVersions: this.contentVersions,
-      board: { width: 60, height: 44, terrain: [], objectives: [], deploymentZones: [] },
+      editionId: this.content.rules.edition.id,
+      missionId: mission?.id ?? 'take-and-hold',
+      deploymentMapId: map?.id ?? deploymentMapId,
+      contentVersions: this.content.versions,
+      board: map
+        ? {
+            width: map.boardSize.width,
+            height: map.boardSize.height,
+            terrain: terrainFromLayout(this.content, map.boardSize),
+            objectives: map.objectives.map((o) => ({ id: o.id, position: { x: o.x, y: o.y } })),
+            deploymentZones: map.zones.map((z) => ({ player: z.player, polygon: z.polygon })),
+          }
+        : { width: 60, height: 44, terrain: [], objectives: [], deploymentZones: [] },
       players: [
         { name: hostName, factionId: '', detachmentId: '' },
         { name: 'Awaiting opponent', factionId: '', detachmentId: '' },
@@ -119,7 +133,9 @@ export class RoomManager {
       return { ok: false, error: 'not seated in this game (spectators are read-only)', code: 'NOT_SEATED' };
     }
     const authoritative: GameAction = { ...action, player: seat };
-    const result: ActionResult = reduce(room.state, authoritative, { edition: this.edition });
+    const result: ActionResult = reduce(room.state, authoritative, {
+      content: this.content.rules,
+    });
     if (!result.ok) return { ok: false, error: result.error, code: result.code };
     room.state = { ...result.state, actionSeq: room.state.actionSeq + 1 };
     room.actionLog.push(authoritative);
@@ -139,6 +155,45 @@ export class RoomManager {
     };
   }
 
+  get rulesContent() {
+    return this.content.rules;
+  }
+
+  /**
+   * Parse + match an uploaded roster, materialize units, and load them
+   * into the game via a validated loadRoster action. Unmatched units are
+   * reported but never block (stat-only tokens).
+   */
+  importRoster(
+    roomId: string,
+    token: string,
+    rosterJson: unknown,
+  ):
+    | { ok: true; room: Room; issues: string[]; unitCount: number; playerIndex: PlayerIndex }
+    | { ok: false; error: string; code: string } {
+    const seat = this.seatForToken(roomId, token);
+    if (seat === null) {
+      return { ok: false, error: 'not seated in this game', code: 'NOT_SEATED' };
+    }
+    let parsed;
+    try {
+      parsed = parseRoster(rosterJson);
+    } catch (e) {
+      return { ok: false, error: `could not parse roster: ${(e as Error).message}`, code: 'BAD_ROSTER' };
+    }
+    const result = matchRoster(parsed, this.content.allDatasheets());
+    const units = materializeRoster(parsed, result, (id) =>
+      this.content.rules.getDatasheet(id),
+    );
+    const outcome = this.applyAction(roomId, token, {
+      type: 'loadRoster',
+      player: seat,
+      units,
+    });
+    if (!outcome.ok) return outcome;
+    return { ok: true, room: outcome.room, issues: result.issues, unitCount: units.length, playerIndex: seat };
+  }
+
   restore(serialized: SerializedRoom): Room {
     const room: Room = {
       ...serialized,
@@ -150,4 +205,23 @@ export class RoomManager {
     this.rooms.set(room.id, room);
     return room;
   }
+}
+
+/** Pick the first terrain layout from content matching the board size. */
+function terrainFromLayout(
+  content: ServerContent,
+  boardSize: { width: number; height: number },
+) {
+  const layout =
+    content.loaded.terrainLayouts.find(
+      (l) => l.boardSize.width === boardSize.width && l.boardSize.height === boardSize.height,
+    ) ?? content.loaded.terrainLayouts[0];
+  if (!layout) return [];
+  return layout.pieces.map((p) => ({
+    id: p.id,
+    name: p.name,
+    footprint: p.footprint.map((v) => ({ x: v.x, y: v.y })),
+    height: p.height,
+    traits: p.traits as import('@openhammer/core').TerrainTrait[],
+  }));
 }
