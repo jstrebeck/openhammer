@@ -12,6 +12,7 @@ import {
   rollSave,
   rollWounds,
 } from '../attack/pipeline.js';
+import { rollD6 } from '../dice/index.js';
 import type { GameAction, ActionResult } from './actions.js';
 import { reject } from './actions.js';
 import type { ReducerEnv } from './env.js';
@@ -22,14 +23,33 @@ import type {
   UnitState,
 } from '../types/state.js';
 import { appendLog } from './reducer.js';
-import { aliveModels, isInEngagementRange, unitDistance, unitVisible } from './validation.js';
+import { phaseStepKind } from './kinds.js';
+import { enqueueWindows, processWindowQueue, type FollowUpResolvers } from './windows.js';
+import { applyBattleShock } from './battleShock.js';
+import {
+  aliveModels,
+  enemyOf,
+  isInEngagementRange,
+  unitDistance,
+  unitVisible,
+} from './validation.js';
 
 /**
- * Shooting phase, milestone-2 scope: whole-unit weapon→target assignments,
- * hits and wounds rolled by the server through the effect interpreter,
- * then a reactive save prompt for the defender per weapon batch. Big Guns
- * Never Tire, Pistols, Hazardous, One Shot and per-model splits: milestone 3+.
+ * The shared attack sequence. Shooting declares targets, opens the
+ * reactive "targets selected" window (Smokescreen / Go to Ground), then
+ * resolves weapon by weapon with a defender save prompt per batch. Melee
+ * activations from the Fight phase enter via beginMeleeSequence and end
+ * by handing back to the fight sequencer (consolidate stage).
  */
+
+// Local resolvers to avoid an import cycle with windowReducer.
+function localResolvers(): FollowUpResolvers {
+  return {
+    resolveShooting: (s, e) => continueShooting(s, e),
+    applyBattleShock: (s, e, unitId, roll) => applyBattleShock(s, e, unitId, roll),
+  };
+}
+
 export function reduceShooting(
   state: GameState,
   action: GameAction,
@@ -37,7 +57,7 @@ export function reduceShooting(
 ): ActionResult | null {
   switch (action.type) {
     case 'declareShoot': {
-      if (state.phase !== 'shooting') {
+      if (phaseStepKind(env, state).phase !== 'shooting') {
         return reject('Shooting actions are only legal in the Shooting phase.');
       }
       if (action.player !== state.activePlayer) {
@@ -50,12 +70,12 @@ export function reduceShooting(
       if (unit.turnFlags.moveKind === 'fallBack') {
         return reject('A unit that Fell Back cannot shoot this turn.');
       }
-      if (isInEngagementRange(state, env.content, unit.id)) {
-        return reject('Units in Engagement Range cannot shoot (Pistols/Big Guns: later).');
-      }
       if (action.assignments.length === 0) return reject('Declare at least one target.');
 
+      const inER = isInEngagementRange(state, env.content, unit.id);
       const advanced = unit.turnFlags.moveKind === 'advance';
+      const er = env.content.edition.parameters.engagementRangeHorizontal;
+
       for (const a of action.assignments) {
         const weapon = unit.weapons[a.weaponId];
         if (!weapon) return reject(`Unknown weapon: ${a.weaponId}`);
@@ -63,18 +83,37 @@ export function reduceShooting(
         if (modelsWithWeapon(unit, a.weaponId).length === 0) {
           return reject(`No models in ${unit.name} carry ${weapon.name}.`);
         }
-        if (advanced && !weaponHasFlagOrAbility(env, unit, a.weaponId, 'assault')) {
+        const flags = weaponFlags(env, weapon.abilities);
+        if (advanced && !weapon.abilities.some((x) => x.id === 'assault')) {
           return reject(`${unit.name} Advanced — only Assault weapons may shoot.`);
+        }
+        if (flags.includes('oneShot') && unit.oneShotFired.includes(weapon.id)) {
+          return reject(`${weapon.name} has already been fired this battle (One Shot).`);
         }
         const target = state.units[a.targetUnitId];
         if (!target || target.owner === unit.owner) return reject('Invalid target.');
         if (aliveModels(target).length === 0) return reject(`${target.name} is already destroyed.`);
-        if (isInEngagementRange(state, env.content, target.id)) {
-          return reject(
-            `${target.name} is within Engagement Range of your units and cannot be targeted.`,
-          );
+        if (target.attachedTo !== null) {
+          return reject(`${target.name} is attached to a bodyguard unit — target the unit instead.`);
         }
         const dist = unitDistance(env.content, unit, target);
+        if (inER) {
+          // Pistols only, at a unit within Engagement Range.
+          if (!flags.includes('pistol')) {
+            return reject(
+              'Units in Engagement Range can only fire Pistols (Big Guns Never Tire: later).',
+            );
+          }
+          if (dist === null || dist > er) {
+            return reject('Pistols fired from combat must target a unit within Engagement Range.');
+          }
+        } else {
+          if (isInEngagementRange(state, env.content, target.id)) {
+            return reject(
+              `${target.name} is within Engagement Range of your units and cannot be targeted.`,
+            );
+          }
+        }
         if (dist === null || (weapon.range !== null && dist > weapon.range)) {
           return reject(`${target.name} is out of range of ${weapon.name}.`);
         }
@@ -85,14 +124,31 @@ export function reduceShooting(
 
       let next: GameState = {
         ...state,
-        shooting: { attackerUnitId: unit.id, remaining: [...action.assignments], current: null },
+        shooting: {
+          attackerUnitId: unit.id,
+          remaining: [...action.assignments],
+          current: null,
+          usedWeaponIds: [],
+        },
       };
       next = appendLog(next, {
         kind: 'shoot',
         player: action.player,
         message: `${unit.name} opens fire (${action.assignments.length} weapon assignment(s)).`,
       });
-      return resolveNextAssignment(next, env);
+      // Reactive window BEFORE any dice: Smokescreen / Go to Ground apply
+      // to the incoming attack. Candidates: the units being targeted.
+      const targetIds = [...new Set(action.assignments.map((a) => a.targetUnitId))];
+      next = enqueueWindows(next, [
+        {
+          hook: 'shooting.targetsSelected',
+          player: enemyOf(action.player),
+          followUp: { type: 'resolveShooting' },
+          context: { attackerUnitId: unit.id, candidateUnitIds: targetIds },
+        },
+      ]);
+      next = processWindowQueue(next, env, localResolvers());
+      return { ok: true, state: next };
     }
 
     case 'resolveSaves': {
@@ -103,7 +159,7 @@ export function reduceShooting(
       if (action.player !== decision.player) {
         return reject('Only the defending player rolls these saves.', 'OUT_OF_TURN');
       }
-      return resolveSaves(state, env);
+      return { ok: true, state: resolveSaves(state, env) };
     }
 
     default:
@@ -111,30 +167,57 @@ export function reduceShooting(
   }
 }
 
+/** Entry point for fight-phase melee attacks (validated by fightReducer). */
+export function beginMeleeSequence(
+  state: GameState,
+  env: ReducerEnv,
+  unitId: string,
+  assignments: ShootingAssignment[],
+): ActionResult {
+  const unit = state.units[unitId]!;
+  let next: GameState = {
+    ...state,
+    shooting: {
+      attackerUnitId: unitId,
+      melee: true,
+      remaining: [...assignments],
+      current: null,
+      usedWeaponIds: [],
+    },
+  };
+  next = appendLog(next, {
+    kind: 'fight',
+    player: unit.owner,
+    message: `${unit.name} makes its melee attacks.`,
+  });
+  next = continueShooting(next, env);
+  return { ok: true, state: next };
+}
+
 // ---------------------------------------------------------------------------
-// Assignment resolution: hits and wounds now, saves after the defender acts
+// Batch resolution
 // ---------------------------------------------------------------------------
 
-function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult {
+/** Resolve batches until a save decision opens or the sequence finishes. */
+export function continueShooting(state: GameState, env: ReducerEnv): GameState {
   const seq = state.shooting;
-  if (!seq) return { ok: true, state };
+  if (!seq) return state;
   const attacker = state.units[seq.attackerUnitId]!;
 
   const [assignment, ...rest] = seq.remaining;
   if (!assignment) {
-    return finishShooting(state);
+    return finishSequence(state, env);
   }
 
   const target = state.units[assignment.targetUnitId];
   if (!target || aliveModels(target).length === 0) {
-    // Target already destroyed by an earlier weapon: skip this batch.
     let next: GameState = { ...state, shooting: { ...seq, remaining: rest, current: null } };
     next = appendLog(next, {
-      kind: 'shoot',
+      kind: 'attack',
       player: attacker.owner,
       message: `Target already destroyed — remaining attacks are wasted.`,
     });
-    return resolveNextAssignment(next, env);
+    return continueShooting(next, env);
   }
 
   const weapon = attacker.weapons[assignment.weaponId]!;
@@ -144,7 +227,7 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
 
   const comp = newAttackComputation({
     attacksExpr: String(weapon.attacks),
-    hitSkill: weapon.skill,
+    hitSkill: seq.onlySixesHit ? 7 : weapon.skill,
     strength: weapon.strength,
     toughness: targetProfile.toughness,
     ap: weapon.ap,
@@ -169,11 +252,16 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
     'attack.attacksCount',
     'attack.beforeHitRoll',
     'attack.beforeWoundRoll',
+    'attack.allocate',
     'attack.beforeSaveRoll',
     'attack.damage',
     'attack.feelNoPain',
   ] as const) {
     fireAttackHook(hook, candidates, ctx, comp);
+  }
+  if (seq.onlySixesHit) {
+    comp.autoHit = false;
+    comp.hitSkill = 7;
   }
 
   let rng = state.rng;
@@ -184,7 +272,15 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
   const wounds = rollWounds(comp, hits.hits, hits.autoWounds, params, rng);
   rng = wounds.rng;
 
-  let next: GameState = { ...state, rng };
+  let next: GameState = {
+    ...state,
+    rng,
+    shooting: {
+      ...seq,
+      usedWeaponIds: [...(seq.usedWeaponIds ?? []), weapon.id],
+    },
+  };
+  next = markOneShot(next, env, attacker.id, weapon.id);
   next = appendLog(next, {
     kind: 'attack',
     player: attacker.owner,
@@ -207,13 +303,13 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
   });
 
   if (wounds.wounds === 0 && wounds.devastatingWounds === 0) {
-    next = { ...next, shooting: { ...seq, remaining: rest, current: null } };
+    next = { ...next, shooting: { ...next.shooting!, remaining: rest, current: null } };
     next = appendLog(next, {
       kind: 'attack',
       player: attacker.owner,
       message: 'No wounds inflicted.',
     });
-    return resolveNextAssignment(next, env);
+    return continueShooting(next, env);
   }
 
   const save: SaveComputation = {
@@ -230,7 +326,7 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
   next = {
     ...next,
     shooting: {
-      attackerUnitId: attacker.id,
+      ...next.shooting!,
       remaining: rest,
       current: {
         weaponId: weapon.id,
@@ -239,6 +335,7 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
         woundsPending: wounds.wounds,
         mortalWounds: wounds.devastatingWounds,
         save,
+        precision: comp.precision || undefined,
       },
     },
     pendingDecision: {
@@ -258,18 +355,17 @@ function resolveNextAssignment(state: GameState, env: ReducerEnv): ActionResult 
       canPass: false,
     },
   };
-  return { ok: true, state: next };
+  return next;
 }
 
-function resolveSaves(state: GameState, env: ReducerEnv): ActionResult {
+function resolveSaves(state: GameState, env: ReducerEnv): GameState {
   const seq = state.shooting;
   const current = seq?.current;
-  if (!seq || !current) return reject('No shooting sequence in progress.');
+  if (!seq || !current) return state;
   const params = env.content.edition.parameters;
   const target = state.units[current.targetUnitId]!;
   const save = current.save;
 
-  // Rebuild the save/damage half of the computation from the snapshot.
   const comp: AttackComputation = {
     ...newAttackComputation({
       attacksExpr: '1',
@@ -289,24 +385,54 @@ function resolveSaves(state: GameState, env: ReducerEnv): ActionResult {
   };
 
   let rng = state.rng;
-  let models = target.models.map((m) => ({ ...m }));
+  // Precision against an attached unit may bleed into the leader's models.
+  const leaderUnit =
+    current.precision && target.leaderOf ? state.units[target.leaderOf] : undefined;
+  let targetModels = target.models.map((m) => ({ ...m }));
+  let leaderModels = leaderUnit ? leaderUnit.models.map((m) => ({ ...m })) : null;
   const ds = env.content.getDatasheet(target.datasheetId);
+  const leaderDs = leaderUnit ? env.content.getDatasheet(leaderUnit.datasheetId) : undefined;
   const lines: string[] = [];
   let destroyedCount = 0;
 
-  const allocate = () => {
-    const wounded = models.find((m) => !m.destroyed && m.hasTakenWoundsThisPhase);
-    return wounded ?? models.find((m) => !m.destroyed) ?? null;
+  const allocate = (): { model: (typeof targetModels)[0]; leader: boolean } | null => {
+    // Precision: the attacker may put wounds on the visible leader.
+    if (leaderModels) {
+      const leaderAlive = leaderModels.find((m) => !m.destroyed);
+      if (leaderAlive) return { model: leaderAlive, leader: true };
+    }
+    const wounded = targetModels.find((m) => !m.destroyed && m.hasTakenWoundsThisPhase);
+    if (wounded) return { model: wounded, leader: false };
+    const first = targetModels.find((m) => !m.destroyed);
+    return first ? { model: first, leader: false } : null;
   };
-  const profileOf = (profileId: string) =>
-    ds?.models.find((p) => p.id === profileId) ?? ds?.models[0];
+  const profileOf = (m: { profileId: string }, leader: boolean) => {
+    const sheet = leader ? leaderDs : ds;
+    return sheet?.models.find((p) => p.id === m.profileId) ?? sheet?.models[0];
+  };
 
-  // Normal wounds: save, then damage, then Feel No Pain.
+  const applyDamage = (model: (typeof targetModels)[0], amount: number) => {
+    model.hasTakenWoundsThisPhase = true;
+    model.woundsRemaining -= amount;
+    if (model.woundsRemaining <= 0) {
+      model.woundsRemaining = 0;
+      model.destroyed = true;
+      model.position = null;
+      destroyedCount++;
+    }
+  };
+
   for (let i = 0; i < current.woundsPending; i++) {
-    const model = allocate();
-    if (!model) break;
-    const profile = profileOf(model.profileId);
-    const saveResult = rollSave(comp, profile?.save ?? 7, profile?.invulnerableSave ?? null, params, rng);
+    const alloc = allocate();
+    if (!alloc) break;
+    const profile = profileOf(alloc.model, alloc.leader);
+    const saveResult = rollSave(
+      comp,
+      profile?.save ?? 7,
+      profile?.invulnerableSave ?? null,
+      params,
+      rng,
+    );
     rng = saveResult.rng;
     if (saveResult.saved) {
       lines.push(
@@ -323,28 +449,20 @@ function resolveSaves(state: GameState, env: ReducerEnv): ActionResult {
       taken = fnp.taken;
       if (fnp.prevented > 0) lines.push(`feel no pain prevents ${fnp.prevented}`);
     }
-    model.hasTakenWoundsThisPhase = true;
-    model.woundsRemaining -= taken;
+    applyDamage(alloc.model, taken);
     lines.push(
-      `save ${saveResult.die} vs ${saveResult.needed}+ — failed, ${taken} damage`,
+      `save ${saveResult.die} vs ${saveResult.needed}+ — failed, ${taken} damage${alloc.leader ? ' (Precision: leader)' : ''}`,
     );
-    if (model.woundsRemaining <= 0) {
-      model.woundsRemaining = 0;
-      model.destroyed = true;
-      model.position = null;
-      destroyedCount++;
-    }
   }
 
-  // Devastating Wounds: mortal wounds equal to the damage roll, no saves.
   for (let i = 0; i < current.mortalWounds; i++) {
     const dmg = rollDamage(comp, rng);
     rng = dmg.rng;
     let remaining = dmg.amount;
     lines.push(`devastating: ${remaining} mortal wound(s)`);
     while (remaining > 0) {
-      const model = allocate();
-      if (!model) break;
+      const alloc = allocate();
+      if (!alloc) break;
       let point = 1;
       if (save.feelNoPain !== null) {
         const fnp = rollFeelNoPain(save.feelNoPain, 1, rng);
@@ -353,22 +471,21 @@ function resolveSaves(state: GameState, env: ReducerEnv): ActionResult {
       }
       remaining -= 1;
       if (point === 0) continue;
-      model.hasTakenWoundsThisPhase = true;
-      model.woundsRemaining -= 1;
-      if (model.woundsRemaining <= 0) {
-        model.woundsRemaining = 0;
-        model.destroyed = true;
-        model.position = null;
-        destroyedCount++;
-      }
+      applyDamage(alloc.model, 1);
     }
   }
 
-  const unitDestroyed = models.every((m) => m.destroyed);
+  const unitDestroyed = targetModels.every((m) => m.destroyed);
   let next: GameState = {
     ...state,
     rng,
-    units: { ...state.units, [target.id]: { ...target, models } },
+    units: {
+      ...state.units,
+      [target.id]: { ...target, models: targetModels },
+      ...(leaderUnit && leaderModels
+        ? { [leaderUnit.id]: { ...leaderUnit, models: leaderModels } }
+        : {}),
+    },
     pendingDecision: null,
     shooting: { ...seq, current: null },
   };
@@ -386,32 +503,121 @@ function resolveSaves(state: GameState, env: ReducerEnv): ActionResult {
       player: target.owner,
       message: `${target.name} is destroyed!`,
     });
+    next = detachOnDestruction(next, target.id);
   }
-  return resolveNextAssignment(next, env);
+  return continueShooting(next, env);
 }
 
-function finishShooting(state: GameState): ActionResult {
+function finishSequence(state: GameState, env: ReducerEnv): GameState {
   const seq = state.shooting!;
   const attacker = state.units[seq.attackerUnitId]!;
-  let next: GameState = {
-    ...state,
+
+  // Hazardous: test per model that used a Hazardous weapon this sequence.
+  let next: GameState = state;
+  let rng = state.rng;
+  const hazardousWeaponIds = (seq.usedWeaponIds ?? []).filter((id) => {
+    const weapon = attacker.weapons[id];
+    return weapon && weaponFlags(env, weapon.abilities).includes('hazardous');
+  });
+  if (hazardousWeaponIds.length > 0) {
+    const models = attacker.models.map((m) => ({ ...m }));
+    const bearers = models.filter(
+      (m) => !m.destroyed && hazardousWeaponIds.some((w) => (attacker.loadout[m.id] ?? []).includes(w)),
+    );
+    const lines: string[] = [];
+    const keywords = env.content.getUnitKeywords(state, attacker.id).map((k) => k.toLowerCase());
+    const bigModel = ['character', 'monster', 'vehicle'].some((k) => keywords.includes(k));
+    for (const model of bearers) {
+      const draw = rollD6(rng, 1);
+      rng = draw.rng;
+      const die = draw.rolls[0] ?? 6;
+      if (die === 1) {
+        if (bigModel) {
+          model.woundsRemaining = Math.max(0, model.woundsRemaining - 3);
+          if (model.woundsRemaining === 0) {
+            model.destroyed = true;
+            model.position = null;
+          }
+          lines.push(`rolled 1 — 3 mortal wounds`);
+        } else {
+          model.destroyed = true;
+          model.woundsRemaining = 0;
+          model.position = null;
+          lines.push(`rolled 1 — model destroyed`);
+        }
+      } else {
+        lines.push(`rolled ${die} — safe`);
+      }
+    }
+    if (bearers.length > 0) {
+      next = {
+        ...next,
+        rng,
+        units: { ...next.units, [attacker.id]: { ...attacker, models } },
+      };
+      next = appendLog(next, {
+        kind: 'hazardous',
+        player: attacker.owner,
+        message: `${attacker.name} Hazardous tests: ${lines.join('; ')}.`,
+      });
+    }
+  }
+
+  const finalAttacker = next.units[seq.attackerUnitId]!;
+  if (seq.melee) {
+    next = {
+      ...next,
+      shooting: null,
+      fight: next.fight ? { ...next.fight, stage: 'consolidate' } : next.fight,
+    };
+    next = appendLog(next, {
+      kind: 'fight',
+      player: finalAttacker.owner,
+      message: `${finalAttacker.name} finishes its attacks — consolidate up to 3".`,
+    });
+    return next;
+  }
+
+  next = {
+    ...next,
     shooting: null,
-    units: {
-      ...state.units,
-      [attacker.id]: { ...attacker, turnFlags: { ...attacker.turnFlags, hasShot: true } },
-    },
+    units: seq.outOfPhase
+      ? next.units
+      : {
+          ...next.units,
+          [finalAttacker.id]: {
+            ...finalAttacker,
+            turnFlags: { ...finalAttacker.turnFlags, hasShot: true },
+          },
+        },
   };
   next = appendLog(next, {
     kind: 'shoot',
-    player: attacker.owner,
-    message: `${attacker.name} finishes shooting.`,
+    player: finalAttacker.owner,
+    message: `${finalAttacker.name} finishes shooting.`,
   });
-  return { ok: true, state: next };
+  return next;
+}
+
+/** When an attached unit dies, its leader (or bodyguard) becomes its own unit. */
+function detachOnDestruction(state: GameState, destroyedUnitId: string): GameState {
+  const units = { ...state.units };
+  let changed = false;
+  for (const [id, unit] of Object.entries(units)) {
+    if (unit.attachedTo === destroyedUnitId) {
+      units[id] = { ...unit, attachedTo: null };
+      changed = true;
+    }
+    if (unit.leaderOf === destroyedUnitId) {
+      units[id] = { ...units[id]!, leaderOf: null };
+      changed = true;
+    }
+  }
+  return changed ? { ...state, units } : state;
 }
 
 // ---------------------------------------------------------------------------
-// Candidate collection: weapon abilities + both units' core abilities +
-// board-level active effects
+// Candidate collection
 // ---------------------------------------------------------------------------
 
 function collectCandidates(
@@ -438,17 +644,23 @@ function collectCandidates(
     }
   }
 
-  for (const [unit, role] of [
+  const contributors: [UnitState, string][] = [
     [attacker, 'attacker'],
     [target, 'defender'],
-  ] as const) {
+  ];
+  // An attached leader's abilities protect/serve the bodyguard unit too.
+  if (target.leaderOf && state.units[target.leaderOf]) {
+    contributors.push([state.units[target.leaderOf]!, 'defender-leader']);
+  }
+  for (const [unit, role] of contributors) {
     const ds = env.content.getDatasheet(unit.datasheetId);
     for (const ref of ds?.coreAbilities ?? []) {
       const { effects } = env.content.getCoreAbility(ref);
       for (const def of effects) {
         out.push({
           def,
-          bearerUnitId: unit.id,
+          // Leader abilities apply as if borne by the bodyguard unit.
+          bearerUnitId: role === 'defender-leader' ? target.id : unit.id,
           player: unit.owner,
           declOrder: order(def.id.split('#')[0] ?? def.id),
           sourceId: `${role}-ability:${ref.id}`,
@@ -458,7 +670,7 @@ function collectCandidates(
     for (const def of ds?.abilities ?? []) {
       out.push({
         def,
-        bearerUnitId: unit.id,
+        bearerUnitId: role === 'defender-leader' ? target.id : unit.id,
         player: unit.owner,
         declOrder: order(def.id),
         sourceId: `datasheet:${unit.datasheetId}`,
@@ -467,7 +679,10 @@ function collectCandidates(
   }
 
   for (const active of state.activeEffects) {
-    if (active.boundUnits.length > 0 && !active.boundUnits.some((u) => u === attacker.id || u === target.id)) {
+    if (
+      active.boundUnits.length > 0 &&
+      !active.boundUnits.some((u) => u === attacker.id || u === target.id)
+    ) {
       continue;
     }
     out.push({
@@ -486,17 +701,31 @@ function collectCandidates(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function modelsWithWeapon(unit: UnitState, weaponId: string) {
-  return aliveModels(unit).filter((m) => (unit.loadout[m.id] ?? []).includes(weaponId));
+function weaponFlags(env: ReducerEnv, refs: UnitState['weapons'][string]['abilities']): string[] {
+  return refs.flatMap((ref) => env.content.getWeaponAbility(ref).flags);
 }
 
-function weaponHasFlagOrAbility(
+function markOneShot(
+  state: GameState,
   env: ReducerEnv,
-  unit: UnitState,
+  unitId: string,
   weaponId: string,
-  abilityId: string,
-): boolean {
-  return (unit.weapons[weaponId]?.abilities ?? []).some((a) => a.id === abilityId);
+): GameState {
+  const unit = state.units[unitId]!;
+  const weapon = unit.weapons[weaponId];
+  if (!weapon || !weaponFlags(env, weapon.abilities).includes('oneShot')) return state;
+  if (unit.oneShotFired.includes(weaponId)) return state;
+  return {
+    ...state,
+    units: {
+      ...state.units,
+      [unitId]: { ...unit, oneShotFired: [...unit.oneShotFired, weaponId] },
+    },
+  };
+}
+
+function modelsWithWeapon(unit: UnitState, weaponId: string) {
+  return aliveModels(unit).filter((m) => (unit.loadout[m.id] ?? []).includes(weaponId));
 }
 
 function firstAliveProfile(env: ReducerEnv, unit: UnitState) {

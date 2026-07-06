@@ -6,6 +6,12 @@ import type { ReducerEnv } from './env.js';
 import { reduceSetup } from './setupReducer.js';
 import { reduceMovement } from './movementReducer.js';
 import { reduceShooting } from './shootingReducer.js';
+import { reduceCharge } from './chargeReducer.js';
+import { reduceFight, computeSelector } from './fightReducer.js';
+import { reduceWindow, getResolvers } from './windowReducer.js';
+import { clearOwnBattleShock, runOneBattleShockTest, unitsToTest } from './battleShock.js';
+import { enqueueWindows, processWindowQueue } from './windows.js';
+import { phaseStepKind } from './kinds.js';
 
 /**
  * The pure, server-authoritative reducer. Phase order comes from the
@@ -32,8 +38,9 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
     };
   }
 
-  // While a reactive decision is open, only the action resolving it may pass.
-  if (state.pendingDecision !== null && action.type !== 'resolveSaves') {
+  // While a reactive decision is open, only the actions resolving it pass.
+  const decisionResolvers: GameAction['type'][] = ['resolveSaves', 'useStratagem', 'passWindow'];
+  if (state.pendingDecision !== null && !decisionResolvers.includes(action.type)) {
     return {
       ok: false,
       error: `Waiting on ${state.players[state.pendingDecision.player].name} (${state.pendingDecision.kind}).`,
@@ -41,12 +48,30 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
     };
   }
 
-  const setupResult = reduceSetup(state, action, env);
-  if (setupResult) return setupResult;
-  const movementResult = reduceMovement(state, action, env);
-  if (movementResult) return movementResult;
-  const shootingResult = reduceShooting(state, action, env);
-  if (shootingResult) return shootingResult;
+  // Any accepted action may leave queued windows behind (e.g. saves
+  // resolved mid-overwatch with a Tank Shock window still queued) — drain
+  // them before handing the state back.
+  const drain = (result: ActionResult): ActionResult => {
+    if (!result.ok) return result;
+    let s = result.state;
+    if (s.pendingDecision === null && (s.windowQueue ?? []).length > 0) {
+      s = processWindowQueue(s, env, getResolvers());
+    }
+    return { ok: true, state: s };
+  };
+
+  const subReducers = [
+    reduceWindow,
+    reduceSetup,
+    reduceMovement,
+    reduceShooting,
+    reduceCharge,
+    reduceFight,
+  ] as const;
+  for (const sub of subReducers) {
+    const result = sub(state, action, env);
+    if (result) return drain(result);
+  }
 
   switch (action.type) {
     case 'advanceStep':
@@ -69,6 +94,22 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
       }
       if (state.shooting !== null) {
         return { ok: false, error: 'Finish resolving the current shooting first.', code: 'ILLEGAL' };
+      }
+      if (state.charge !== null) {
+        return { ok: false, error: 'Finish resolving the charge in progress first.', code: 'ILLEGAL' };
+      }
+      if ((state.windowQueue ?? []).length > 0) {
+        return { ok: false, error: 'Reactive windows are still resolving.', code: 'ILLEGAL' };
+      }
+      if (state.fight && state.fight.stage !== 'select') {
+        return { ok: false, error: 'Finish the current fight activation first.', code: 'ILLEGAL' };
+      }
+      if (state.fight && state.fight.selector !== null) {
+        return {
+          ok: false,
+          error: `${state.players[state.fight.selector].name} must select a unit to fight.`,
+          code: 'ILLEGAL',
+        };
       }
       return { ok: true, state: advanceStep(state, env) };
 
@@ -96,9 +137,69 @@ function findPosition(state: GameState, edition: EditionDef): Position | null {
 
 /**
  * Advance one step; rolling over steps -> next phase -> next turn ->
- * next round -> end of battle, firing expiry sweeps at each boundary.
+ * next round -> end of battle, firing expiry sweeps at each boundary,
+ * then running the entered step's protocol (battle-shock tests, fight
+ * sequencing) per the edition-declared step kind.
  */
 export function advanceStep(state: GameState, env: ReducerEnv): GameState {
+  return onEnterStep(advanceStepCore(state, env), env);
+}
+
+function onEnterStep(state: GameState, env: ReducerEnv): GameState {
+  if (state.phase === ENDED_PHASE || state.phase === SETUP_PHASE) return state;
+  const { phase, step } = phaseStepKind(env, state);
+  let next = state;
+
+  // Leaving the fight phase clears its sequence.
+  if (phase !== 'fight' && next.fight !== null) {
+    next = { ...next, fight: null };
+  }
+
+  if (phase === 'command' && step === 'command') {
+    // "Until the start of your next Command phase" — shocks clear now.
+    next = clearOwnBattleShock(next);
+  }
+
+  if (step === 'battleShock') {
+    const toTest = unitsToTest(next, env);
+    const failureWindows = [];
+    for (const unitId of toTest) {
+      const result = runOneBattleShockTest(next, env, unitId);
+      next = result.state;
+      if (result.failedWindow) failureWindows.push(result.failedWindow);
+    }
+    if (toTest.length === 0) {
+      next = appendLog(next, {
+        kind: 'battleShock',
+        player: next.activePlayer,
+        message: 'No units are Below Half-strength — no Battle-shock tests needed.',
+      });
+    }
+    next = enqueueWindows(next, failureWindows);
+    next = processWindowQueue(next, env, getResolvers());
+  }
+
+  if (phase === 'fight' && (step === 'fightsFirst' || step === 'remainingCombats')) {
+    const fought = step === 'fightsFirst' ? [] : (next.fight?.fought ?? []);
+    next = {
+      ...next,
+      fight: { selector: null, activeUnitId: null, stage: 'select', fought },
+    };
+    const selector = computeSelector(next, env, null);
+    next = { ...next, fight: { ...next.fight!, selector } };
+    if (selector !== null) {
+      next = appendLog(next, {
+        kind: 'fight',
+        player: selector,
+        message: `${next.players[selector].name} selects the first unit to fight this step.`,
+      });
+    }
+  }
+
+  return next;
+}
+
+function advanceStepCore(state: GameState, env: ReducerEnv): GameState {
   const edition = env.content.edition;
 
   // Leaving setup: enter the first phase of round 1 for the first player.
@@ -190,6 +291,10 @@ function endPhase(state: GameState): GameState {
   next = {
     ...next,
     activeEffects: sweepExpiredEffects(next.activeEffects, 'phase'),
+    players: [
+      { ...next.players[0], autoPassThisPhase: [] },
+      { ...next.players[1], autoPassThisPhase: [] },
+    ],
     units: mapUnits(next.units, (u) => ({
       ...u,
       models: u.models.map((m) =>
@@ -212,6 +317,7 @@ function endTurn(state: GameState): GameState {
         advanceRoll: null,
         chargeRoll: null,
         chargeTargets: [],
+        chargeDeclared: false,
         hasShot: false,
         hasFought: false,
         fightsFirst: false,
@@ -244,6 +350,28 @@ function endRound(state: GameState): GameState {
 }
 
 function endBattle(state: GameState): GameState {
+  // Reserves that never arrived count as destroyed.
+  let swept = state;
+  for (const unit of Object.values(state.units)) {
+    if (unit.reserves !== 'none' && unit.models.every((m) => m.position === null)) {
+      swept = {
+        ...swept,
+        units: {
+          ...swept.units,
+          [unit.id]: {
+            ...unit,
+            models: unit.models.map((m) => ({ ...m, destroyed: true, woundsRemaining: 0 })),
+          },
+        },
+      };
+      swept = appendLog(swept, {
+        kind: 'destroyed',
+        player: unit.owner,
+        message: `${unit.name} never arrived from Reserves and counts as destroyed.`,
+      });
+    }
+  }
+  state = swept;
   const [p0, p1] = state.players;
   const winner: PlayerIndex | 'draw' = p0.vp > p1.vp ? 0 : p1.vp > p0.vp ? 1 : 'draw';
   const next: GameState = {

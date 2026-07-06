@@ -77,6 +77,7 @@ export function materializeRoster(
       leaderOf: null,
       enhancementId: imported.enhancementName ? slug(imported.enhancementName) : null,
       isWarlord: false,
+      points: imported.points,
       oneShotFired: [],
       turnFlags: {
         moveKind: null,

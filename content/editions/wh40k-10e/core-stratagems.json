@@ -94,7 +94,7 @@
       "phase": ["command"],
       "window": "command.battleShockFailed",
       "paraphrase": "Treat a just-failed Battle-shock test as passed.",
-      "target": { "who": "friendly" },
+      "target": { "who": "friendly", "allowBattleShocked": true },
       "effects": [
         {
           "id": "core.insane-bravery.effect",

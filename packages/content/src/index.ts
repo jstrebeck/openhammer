@@ -28,3 +28,4 @@ export {
   type ValidationIssue,
   type ValidationResult,
 } from './validate.js';
+export { WH40K_10E_SCRIPTS } from './scripts/wh40k-10e.js';

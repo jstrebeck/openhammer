@@ -1,23 +1,33 @@
 import { rollD6 } from '../dice/index.js';
-import { distance } from '../measurement/index.js';
+import { distance, edgeToEdgeDistance, pointToSegmentDistance } from '../measurement/index.js';
+import { pointInPolygon } from '../los/index.js';
 import type { GameAction, ActionResult } from './actions.js';
 import { reject } from './actions.js';
 import type { ReducerEnv } from './env.js';
-import type { GameState } from '../types/state.js';
+import type { GameState, UnitState } from '../types/state.js';
 import { appendLog } from './reducer.js';
+import { phaseStepKind } from './kinds.js';
+import { enqueueWindows, processWindowQueue } from './windows.js';
+import { getResolvers } from './windowReducer.js';
 import {
   aliveModels,
   checkCoherency,
+  enemyOf,
   isInEngagementRange,
+  modelBase,
   positionsInEngagementRange,
   positionsOnBoard,
   positionsOverlap,
+  unitBases,
+  unitDistance,
+  unitIsOnBattlefield,
 } from './validation.js';
 
 /**
- * Movement phase, milestone-2 scope: Remain Stationary / Normal / Advance /
- * Fall Back with straight-line distance validation. Desperate Escape,
- * terrain climbing, transports and FLY come in milestone 3.
+ * Movement phase: Remain Stationary / Normal / Advance / Fall Back with
+ * straight-line distance validation, Desperate Escape tests, and
+ * Reinforcements (Deep Strike / Strategic Reserves). Terrain climbing,
+ * transports and FLY come later.
  */
 export function reduceMovement(
   state: GameState,
@@ -26,7 +36,7 @@ export function reduceMovement(
 ): ActionResult | null {
   switch (action.type) {
     case 'startMove': {
-      const gate = movementGate(state, action.player);
+      const gate = movementGate(state, env, action.player);
       if (gate) return gate;
       const unit = state.units[action.unitId];
       if (!unit || unit.owner !== action.player) return reject('Not your unit.');
@@ -80,6 +90,16 @@ export function reduceMovement(
           message: `${unit.name} advances — rolled ${roll}" (move up to M+${roll}").`,
           data: { advanceRoll: roll },
         });
+        // Command Re-roll window on the advance roll.
+        next = enqueueWindows(next, [
+          {
+            hook: 'move.advanceRoll',
+            player: action.player,
+            followUp: { type: 'none' },
+            context: { kind: 'advance', unitId: unit.id },
+          },
+        ]);
+        next = processWindowQueue(next, env, getResolvers());
         return { ok: true, state: next };
       }
       return {
@@ -92,7 +112,7 @@ export function reduceMovement(
     }
 
     case 'commitMove': {
-      const gate = movementGate(state, action.player);
+      const gate = movementGate(state, env, action.player);
       if (gate) return gate;
       const pending = state.pendingMove;
       if (!pending || pending.unitId !== action.unitId) {
@@ -173,6 +193,118 @@ export function reduceMovement(
         player: action.player,
         message: `${unit.name} ${verb}.`,
       });
+
+      // Desperate Escape: battle-shocked units test EVERY model; otherwise
+      // only models whose path crossed an enemy base.
+      if (pending.kind === 'fallBack') {
+        const origins = new Map(
+          alive.filter((m) => m.position).map((m) => [m.id, m.position!] as const),
+        );
+        next = desperateEscape(next, env, unit.id, byId, origins);
+      }
+
+      // Fire Overwatch window for the reactive player.
+      next = enqueueWindows(next, [
+        {
+          hook: 'move.completed',
+          player: enemyOf(action.player),
+          followUp: { type: 'none' },
+          context: {
+            movedUnitId: unit.id,
+            candidateUnitIds: overwatchCandidates(next, env, unit.id),
+          },
+        },
+      ]);
+      next = processWindowQueue(next, env, getResolvers());
+      return { ok: true, state: next };
+    }
+
+    case 'deployReserves': {
+      const { step } = phaseStepKind(env, state);
+      if (step !== 'reinforcements') {
+        return reject('Reserves arrive in the Reinforcements step of the Movement phase.');
+      }
+      if (action.player !== state.activePlayer) {
+        return reject('You can only bring on reserves on your own turn.', 'OUT_OF_TURN');
+      }
+      const unit = state.units[action.unitId];
+      if (!unit || unit.owner !== action.player) return reject('Not your unit.');
+      if (unit.reserves === 'none' || unitIsOnBattlefield(unit)) {
+        return reject(`${unit.name} is not in Reserves.`);
+      }
+      if (state.round < 2) {
+        return reject('Reserves cannot arrive before battle round 2.');
+      }
+      const alive = aliveModels(unit);
+      const placed = new Set(action.positions.map((p) => p.modelId));
+      if (alive.length !== action.positions.length || !alive.every((m) => placed.has(m.id))) {
+        return reject('Every model in the unit must be placed exactly once.');
+      }
+      if (!positionsOnBoard(state, action.positions)) {
+        return reject('Models must arrive on the battlefield.');
+      }
+      // Always more than 9" from all enemy models.
+      const minDist = env.content.edition.parameters.deepStrikeDistance;
+      for (const p of action.positions) {
+        const model = unit.models.find((m) => m.id === p.modelId)!;
+        const base = modelBase(env.content, unit, model, { x: p.x, y: p.y })!;
+        for (const other of Object.values(state.units)) {
+          if (other.owner === unit.owner) continue;
+          for (const { base: enemy } of unitBases(env.content, other)) {
+            if (edgeToEdgeDistance(base, enemy) <= minDist) {
+              return reject(`Reserves must arrive more than ${minDist}" from all enemy models.`);
+            }
+          }
+        }
+      }
+      if (unit.reserves === 'strategic') {
+        const err = validateStrategicReserves(state, env, unit, action.positions);
+        if (err) return reject(err);
+      }
+      if (positionsOverlap(state, env.content, unit, action.positions)) {
+        return reject('Models cannot overlap other models.');
+      }
+      const coherent = checkCoherency(env.content, unit, action.positions);
+      if (!coherent && state.enforcement.coherency === 'enforce') {
+        return reject('The unit must arrive in unit coherency.');
+      }
+      const byId = new Map(action.positions.map((p) => [p.modelId, p]));
+      let next: GameState = {
+        ...state,
+        units: {
+          ...state.units,
+          [unit.id]: {
+            ...unit,
+            reserves: 'none',
+            models: unit.models.map((m) => {
+              const p = byId.get(m.id);
+              return p && !m.destroyed ? { ...m, position: { x: p.x, y: p.y } } : m;
+            }),
+            turnFlags: {
+              ...unit.turnFlags,
+              moveKind: 'normal', // reserves count as having made a Normal Move
+              arrivedFromReserves: true,
+            },
+          },
+        },
+      };
+      next = appendLog(next, {
+        kind: 'reserves',
+        player: action.player,
+        message: `${unit.name} arrives from ${unit.reserves === 'deepStrike' ? 'Deep Strike' : 'Strategic Reserves'}.`,
+      });
+      next = enqueueWindows(next, [
+        {
+          hook: 'reserves.arrived',
+          player: enemyOf(action.player),
+          followUp: { type: 'none' },
+          context: {
+            movedUnitId: unit.id,
+            candidateUnitIds: overwatchCandidates(next, env, unit.id),
+          },
+        },
+      ]);
+      next = processWindowQueue(next, env, getResolvers());
       return { ok: true, state: next };
     }
 
@@ -194,14 +326,138 @@ export function reduceMovement(
   }
 }
 
-function movementGate(state: GameState, player: number): ActionResult | null {
-  if (state.phase !== 'movement') {
+function movementGate(state: GameState, env: ReducerEnv, player: number): ActionResult | null {
+  if (phaseStepKind(env, state).phase !== 'movement') {
     return reject('Movement actions are only legal in the Movement phase.');
   }
   if (player !== state.activePlayer) {
     return reject('You can only move units on your own turn.', 'OUT_OF_TURN');
   }
   return null;
+}
+
+/**
+ * Desperate Escape: battle-shocked fall-backs test every model; otherwise
+ * each model whose straight-line path crossed an enemy base tests once.
+ * On a 1-2 a model is destroyed (auto-picked: first non-leader casualty).
+ */
+function desperateEscape(
+  state: GameState,
+  env: ReducerEnv,
+  unitId: string,
+  destinations: Map<string, { modelId: string; x: number; y: number }>,
+  origins?: Map<string, { x: number; y: number }>,
+): GameState {
+  const unit = state.units[unitId]!;
+  const testsFor: string[] = [];
+  if (unit.battleShocked) {
+    for (const m of aliveModels(unit)) testsFor.push(m.id);
+  } else {
+    for (const m of aliveModels(unit)) {
+      const from = origins?.get(m.id) ?? null;
+      const to = destinations.get(m.id);
+      if (!from || !to) continue;
+      // Path segment vs enemy bases (crossed over an enemy model).
+      for (const other of Object.values(state.units)) {
+        if (other.owner === unit.owner) continue;
+        const crossed = unitBases(env.content, other).some(({ base }) => {
+          const d = pointToSegmentDistance(base.center, from, { x: to.x, y: to.y });
+          return d <= base.radius;
+        });
+        if (crossed) {
+          testsFor.push(m.id);
+          break;
+        }
+      }
+    }
+  }
+  if (testsFor.length === 0) return state;
+  const { rolls, rng } = rollD6(state.rng, testsFor.length);
+  const failures = rolls.filter((r) => r <= env.content.edition.parameters.desperateEscapeFailOn).length;
+  let next: GameState = { ...state, rng };
+  if (failures > 0) {
+    const models = next.units[unitId]!.models.map((m) => ({ ...m }));
+    let toRemove = failures;
+    for (const m of models) {
+      if (toRemove === 0) break;
+      if (!m.destroyed) {
+        m.destroyed = true;
+        m.woundsRemaining = 0;
+        m.position = null;
+        toRemove--;
+      }
+    }
+    next = {
+      ...next,
+      units: { ...next.units, [unitId]: { ...next.units[unitId]!, models } },
+    };
+  }
+  next = appendLog(next, {
+    kind: 'desperateEscape',
+    player: unit.owner,
+    message: `${unit.name} Desperate Escape (${testsFor.length} test(s)): [${rolls.join(' ')}] — ${failures} model(s) lost.`,
+    data: { unitId, rolls, failures },
+  });
+  return next;
+}
+
+/** Reactive units able to Fire Overwatch at the moved unit (within 24"). */
+function overwatchCandidates(state: GameState, env: ReducerEnv, movedUnitId: string): string[] {
+  const moved = state.units[movedUnitId]!;
+  const reactive = enemyOf(moved.owner);
+  return Object.values(state.units)
+    .filter((u) => {
+      if (u.owner !== reactive || !unitIsOnBattlefield(u) || aliveModels(u).length === 0) {
+        return false;
+      }
+      if (u.battleShocked) return false;
+      if (isInEngagementRange(state, env.content, u.id)) return false;
+      const hasRanged = Object.values(u.weapons).some((w) => w.kind === 'ranged');
+      if (!hasRanged) return false;
+      const d = unitDistance(env.content, u, moved);
+      return d !== null && d <= 24;
+    })
+    .map((u) => u.id);
+}
+
+function validateStrategicReserves(
+  state: GameState,
+  env: ReducerEnv,
+  unit: UnitState,
+  positions: { modelId: string; x: number; y: number }[],
+): string | null {
+  const edgeMax = 6;
+  for (const p of positions) {
+    const model = unit.models.find((m) => m.id === p.modelId)!;
+    const base = modelBase(env.content, unit, model, { x: p.x, y: p.y })!;
+    const distToEdge = Math.min(
+      p.x - base.radius,
+      p.y - base.radius,
+      state.board.width - p.x - base.radius,
+      state.board.height - p.y - base.radius,
+    );
+    if (distToEdge > edgeMax) {
+      return `Strategic Reserves must arrive wholly within ${edgeMax}" of a battlefield edge.`;
+    }
+    if (state.round === 2) {
+      const enemyZone = state.board.deploymentZones.find(
+        (z) => z.player !== unit.owner,
+      );
+      if (enemyZone) {
+        const inEnemyZone = positions.some((pp) =>
+          pointInEnemyZone(pp, enemyZone.polygon),
+        );
+        if (inEnemyZone) {
+          return 'In battle round 2, Strategic Reserves cannot arrive in the enemy deployment zone.';
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function pointInEnemyZone(p: { x: number; y: number }, polygon: { x: number; y: number }[]): boolean {
+  return pointInPolygon({ x: p.x, y: p.y }, polygon);
 }
 
 function unitMaxMove(env: ReducerEnv, datasheetId: string): number {

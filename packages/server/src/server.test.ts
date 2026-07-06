@@ -150,6 +150,55 @@ describe('WebSocket server', () => {
     spec.close();
   });
 
+  it('runs the undo request/approve flow over the wire', async () => {
+    const alice = new TestClient(server.port);
+    const bob = new TestClient(server.port);
+    await alice.open();
+    await bob.open();
+
+    alice.send({ type: 'create', name: 'Alice' });
+    const created = await alice.nextOfType('created');
+    await alice.nextOfType('state');
+    bob.send({ type: 'join', roomId: created.roomId, name: 'Bob' });
+    await bob.nextOfType('joined');
+    await bob.nextOfType('state');
+    await alice.nextOfType('state');
+
+    const both = async (): Promise<GameState> => {
+      const [a] = await Promise.all([alice.nextOfType('state'), bob.nextOfType('state')]);
+      return a.state as GameState;
+    };
+
+    alice.send({ type: 'action', action: { type: 'loadRoster', player: 0, units: [] } });
+    await both();
+    bob.send({ type: 'action', action: { type: 'loadRoster', player: 1, units: [] } });
+    const preRoll = await both();
+    alice.send({ type: 'action', action: { type: 'performRollOff', player: 0 } });
+    const rolled = await both();
+    expect(rolled.rng.counter).toBeGreaterThan(preRoll.rng.counter);
+
+    // The roll-off consumed dice, so the undo needs Bob's approval.
+    alice.send({ type: 'requestUndo', count: 1 });
+    const prompt = await bob.nextOfType('undoRequested');
+    expect(prompt.by).toBe(0);
+    expect(prompt.count).toBe(1);
+    await alice.nextOfType('undoRequested'); // broadcast reaches the requester too
+
+    bob.send({ type: 'respondUndo', approve: true });
+    const [resolvedAtAlice, resolvedAtBob] = await Promise.all([
+      alice.nextOfType('undoResolved'),
+      bob.nextOfType('undoResolved'),
+    ]);
+    expect(resolvedAtAlice).toEqual({ type: 'undoResolved', performed: true, approved: true });
+    expect(resolvedAtBob).toEqual({ type: 'undoResolved', performed: true, approved: true });
+    const rewound = await both();
+    expect(rewound.rng.counter).toBe(preRoll.rng.counter);
+    expect(rewound.setup?.rollOff).toBeNull();
+
+    alice.close();
+    bob.close();
+  });
+
   it('persists rooms so a new server instance can restore them', async () => {
     const alice = new TestClient(server.port);
     await alice.open();

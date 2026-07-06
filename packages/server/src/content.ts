@@ -13,6 +13,7 @@ import {
   instantiateAbilityEffects,
   loadEditionContent,
   loadFactionPack,
+  WH40K_10E_SCRIPTS,
   type LoadedEditionContent,
 } from '@openhammer/content';
 
@@ -79,6 +80,9 @@ export function buildServerContent(editionId: string, contentRoot?: string): Ser
       };
     },
     effectOrder: loaded.effectOrder,
+    getStratagems: () => loaded.coreStratagems,
+    getScript: (scriptId) =>
+      editionId === 'wh40k-10e' ? WH40K_10E_SCRIPTS[scriptId] : undefined,
   };
 
   return {

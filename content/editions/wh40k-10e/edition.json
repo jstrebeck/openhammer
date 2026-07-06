@@ -8,35 +8,40 @@
     {
       "id": "command",
       "name": "Command Phase",
+      "kind": "command",
       "steps": [
-        { "id": "command", "name": "Command" },
-        { "id": "battleShock", "name": "Battle-shock" }
+        { "id": "command", "name": "Command", "kind": "command" },
+        { "id": "battleShock", "name": "Battle-shock", "kind": "battleShock" }
       ]
     },
     {
       "id": "movement",
       "name": "Movement Phase",
+      "kind": "movement",
       "steps": [
-        { "id": "moveUnits", "name": "Move Units" },
-        { "id": "reinforcements", "name": "Reinforcements" }
+        { "id": "moveUnits", "name": "Move Units", "kind": "moveUnits" },
+        { "id": "reinforcements", "name": "Reinforcements", "kind": "reinforcements" }
       ]
     },
     {
       "id": "shooting",
       "name": "Shooting Phase",
-      "steps": [{ "id": "shoot", "name": "Shoot" }]
+      "kind": "shooting",
+      "steps": [{ "id": "shoot", "name": "Shoot", "kind": "shoot" }]
     },
     {
       "id": "charge",
       "name": "Charge Phase",
-      "steps": [{ "id": "charge", "name": "Charge" }]
+      "kind": "charge",
+      "steps": [{ "id": "charge", "name": "Charge", "kind": "charge" }]
     },
     {
       "id": "fight",
       "name": "Fight Phase",
+      "kind": "fight",
       "steps": [
-        { "id": "fightsFirst", "name": "Fights First" },
-        { "id": "remainingCombats", "name": "Remaining Combats" }
+        { "id": "fightsFirst", "name": "Fights First", "kind": "fightsFirst" },
+        { "id": "remainingCombats", "name": "Remaining Combats", "kind": "remainingCombats" }
       ]
     }
   ],

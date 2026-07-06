@@ -172,6 +172,25 @@ describe('RoomManager', () => {
     }
   });
 
+  it('exposes core stratagems and the script registry through the rules env', () => {
+    const content = buildServerContent('wh40k-10e');
+    const stratagems = content.rules.getStratagems?.() ?? [];
+    expect(stratagems).toHaveLength(11);
+    // Implemented scripts resolve; deferred ones do not (their stratagems
+    // are then silently ineligible in windows rather than broken).
+    for (const id of [
+      'core.command-reroll',
+      'core.fire-overwatch',
+      'core.tank-shock',
+      'core.counter-offensive',
+    ]) {
+      expect(content.rules.getScript?.(id), id).toBeTypeOf('function');
+    }
+    for (const id of ['core.heroic-intervention', 'core.rapid-ingress', 'core.grenade']) {
+      expect(content.rules.getScript?.(id), id).toBeUndefined();
+    }
+  });
+
   it('serializes and restores a room with seats disconnected', () => {
     const m = manager();
     const { room, token } = m.createRoom('Alice');

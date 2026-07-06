@@ -182,6 +182,50 @@ export async function startServer(options: {
           persist(conn.roomId);
           break;
         }
+        case 'requestUndo': {
+          if (!conn.roomId || !conn.token) {
+            send(ws, { type: 'rejected', error: 'not seated in a game', code: 'NOT_SEATED' });
+            return;
+          }
+          const result = rooms.requestUndo(conn.roomId, conn.token, message.count);
+          if (!result.ok) {
+            send(ws, { type: 'rejected', error: result.error, code: result.code });
+            return;
+          }
+          if (result.performed) {
+            broadcastRoom(conn.roomId, { type: 'undoResolved', performed: true });
+            broadcastRoom(conn.roomId, { type: 'state', state: result.room.state });
+          } else {
+            broadcastRoom(conn.roomId, {
+              type: 'undoRequested',
+              by: result.requestedBy,
+              count: message.count,
+            });
+          }
+          persist(conn.roomId);
+          break;
+        }
+        case 'respondUndo': {
+          if (!conn.roomId || !conn.token) {
+            send(ws, { type: 'rejected', error: 'not seated in a game', code: 'NOT_SEATED' });
+            return;
+          }
+          const result = rooms.respondUndo(conn.roomId, conn.token, message.approve);
+          if (!result.ok) {
+            send(ws, { type: 'rejected', error: result.error, code: result.code });
+            return;
+          }
+          broadcastRoom(conn.roomId, {
+            type: 'undoResolved',
+            performed: result.approved,
+            approved: result.approved,
+          });
+          if (result.approved) {
+            broadcastRoom(conn.roomId, { type: 'state', state: result.room.state });
+          }
+          persist(conn.roomId);
+          break;
+        }
         case 'chat': {
           if (!conn.roomId) return;
           const room = rooms.getRoom(conn.roomId);

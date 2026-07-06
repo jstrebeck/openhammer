@@ -340,7 +340,13 @@ export interface StratagemDef {
   paraphrase?: string;
   condition?: Condition;
   /** Targeting requirements the UI uses to pick a unit. */
-  target?: { who: 'friendly' | 'enemy'; keyword?: string; condition?: Condition };
+  target?: {
+    who: 'friendly' | 'enemy';
+    keyword?: string;
+    condition?: Condition;
+    /** Battle-shocked units cannot be stratagem targets unless set. */
+    allowBattleShocked?: boolean;
+  };
   effects: EffectDef[];
 }
 
@@ -380,10 +386,28 @@ export interface FactionPack {
 // Edition pack
 // ---------------------------------------------------------------------------
 
+/**
+ * Which engine protocol a phase/step runs. The edition pack declares this;
+ * the reducer switches on kinds, never on phase ids — a future edition can
+ * reorder, rename or omit phases without engine changes.
+ */
+export type PhaseKind = 'command' | 'movement' | 'shooting' | 'charge' | 'fight' | 'custom';
+export type StepKind =
+  | 'command'
+  | 'battleShock'
+  | 'moveUnits'
+  | 'reinforcements'
+  | 'shoot'
+  | 'charge'
+  | 'fightsFirst'
+  | 'remainingCombats'
+  | 'custom';
+
 export interface PhaseDef {
   id: string;
   name: string;
-  steps: { id: string; name: string }[];
+  kind: PhaseKind;
+  steps: { id: string; name: string; kind: StepKind }[];
 }
 
 export interface EditionDef {

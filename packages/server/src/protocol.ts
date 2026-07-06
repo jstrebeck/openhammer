@@ -12,6 +12,8 @@ export type ClientMessage =
   | { type: 'reconnect'; roomId: string; token: string }
   | { type: 'action'; action: GameAction }
   | { type: 'uploadRoster'; roster: unknown }
+  | { type: 'requestUndo'; count: number }
+  | { type: 'respondUndo'; approve: boolean }
   | { type: 'chat'; text: string };
 
 export type ServerMessage =
@@ -22,6 +24,8 @@ export type ServerMessage =
   | { type: 'state'; state: GameState }
   | { type: 'rejected'; error: string; code: string }
   | { type: 'imported'; playerIndex: 0 | 1; issues: string[]; unitCount: number }
+  | { type: 'undoRequested'; by: 0 | 1; count: number }
+  | { type: 'undoResolved'; performed: boolean; approved?: boolean }
   | { type: 'content'; datasheets: Record<string, Datasheet> }
   | { type: 'chat'; from: string; text: string; at: number }
   | { type: 'presence'; seats: { name: string; connected: boolean }[]; spectators: number }

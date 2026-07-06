@@ -80,6 +80,7 @@ export interface UnitTurnFlags {
   advanceRoll: number | null;
   chargeRoll: number | null;
   chargeTargets: UnitId[];
+  chargeDeclared?: boolean;
   hasShot: boolean;
   hasFought: boolean;
   fightsFirst: boolean; // charge bonus or granted
@@ -106,6 +107,8 @@ export interface UnitState {
   leaderOf: UnitId | null;
   enhancementId: string | null;
   isWarlord: boolean;
+  /** Points cost from the roster (reserves 25% cap, VP later). */
+  points?: number;
   /** One Shot weapon ids already fired. */
   oneShotFired: string[];
   turnFlags: UnitTurnFlags;
@@ -151,6 +154,11 @@ export interface PlayerState {
   vpLog: { round: number; source: string; amount: number; detail: string }[];
   /** Stratagem ids used in the current phase (once-per-phase rule). */
   stratagemsUsedThisPhase: string[];
+  /**
+   * Standing pass preferences: window/stratagem keys the player asked not
+   * to be prompted about again this phase (cleared at phase end).
+   */
+  autoPassThisPhase?: string[];
   paintedArmy: boolean;
 }
 
@@ -221,9 +229,20 @@ export interface ShootingAssignment {
   targetUnitId: UnitId;
 }
 
-/** One unit's shooting, resolved weapon by weapon with defender saves between. */
+/**
+ * One unit's attacks (shooting or melee), resolved weapon by weapon with
+ * defender saves between batches.
+ */
 export interface ShootingSequence {
   attackerUnitId: UnitId;
+  /** True when this is a fight-phase melee activation. */
+  melee?: boolean;
+  /** Overwatch-style out-of-phase shooting: only unmodified 6s hit. */
+  onlySixesHit?: boolean;
+  /** Out-of-phase shooting does not consume the unit's normal activation. */
+  outOfPhase?: boolean;
+  /** Weapon ids fired this sequence (Hazardous tests at the end). */
+  usedWeaponIds?: string[];
   remaining: ShootingAssignment[];
   current: {
     weaponId: string;
@@ -232,8 +251,45 @@ export interface ShootingSequence {
     woundsPending: number;
     mortalWounds: number;
     save: SaveComputation;
+    /** Precision was live for this batch (leader allocation allowed). */
+    precision?: boolean;
   } | null;
 }
+
+/** Charge in progress: declared and rolled, awaiting the move (or a fail). */
+export interface ChargeSequence {
+  unitId: UnitId;
+  targetIds: UnitId[];
+  roll: number;
+  rolls: [number, number];
+}
+
+/** Fight-phase alternation. The reactive player selects first in each step. */
+export interface FightSequence {
+  /** Which fight step we are in mirrors state.step (fightsFirst/remaining). */
+  selector: PlayerIndex | null;
+  activeUnitId: UnitId | null;
+  stage: 'select' | 'pileIn' | 'attacks' | 'consolidate';
+  fought: UnitId[];
+}
+
+/**
+ * Queued reactive/stratagem windows. Processed one at a time; a window
+ * with zero eligible options is skipped silently (never shown).
+ */
+export interface QueuedWindow {
+  hook: string; // HookName
+  player: PlayerIndex;
+  /** What happens when the window closes (pass or after a stratagem). */
+  followUp: WindowFollowUp;
+  /** Context for eligibility + scripts (e.g. the unit that just moved). */
+  context: Record<string, unknown>;
+}
+
+export type WindowFollowUp =
+  | { type: 'none' }
+  | { type: 'battleShockFailed'; unitId: UnitId; roll: number }
+  | { type: 'resolveShooting' };
 
 // ---------------------------------------------------------------------------
 // Game log
@@ -290,6 +346,9 @@ export interface GameState {
   setup: SetupState | null;
   pendingMove: PendingMove | null;
   shooting: ShootingSequence | null;
+  charge: ChargeSequence | null;
+  fight: FightSequence | null;
+  windowQueue: QueuedWindow[];
   pendingDecision: PendingDecision | null;
 
   rng: RngState;

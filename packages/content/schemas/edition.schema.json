@@ -15,21 +15,29 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "steps"],
+        "required": ["id", "name", "kind", "steps"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["command", "movement", "shooting", "charge", "fight", "custom"]
+          },
           "steps": {
             "type": "array",
             "minItems": 1,
             "items": {
               "type": "object",
-              "required": ["id", "name"],
+              "required": ["id", "name", "kind"],
               "additionalProperties": false,
               "properties": {
                 "id": { "type": "string" },
-                "name": { "type": "string" }
+                "name": { "type": "string" },
+                "kind": {
+                  "type": "string",
+                  "enum": ["command", "battleShock", "moveUnits", "reinforcements", "shoot", "charge", "fightsFirst", "remainingCombats", "custom"]
+                }
               }
             }
           }

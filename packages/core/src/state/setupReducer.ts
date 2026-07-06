@@ -1,4 +1,5 @@
 import { rollD6 } from '../dice/index.js';
+import { distance, edgeToEdgeDistance } from '../measurement/index.js';
 import type { GameAction, ActionResult } from './actions.js';
 import { reject } from './actions.js';
 import type { ReducerEnv } from './env.js';
@@ -7,9 +8,11 @@ import { appendLog, SETUP_PHASE } from './reducer.js';
 import {
   aliveModels,
   checkCoherency,
+  modelBase,
   positionsInZone,
   positionsOnBoard,
   positionsOverlap,
+  unitBases,
 } from './validation.js';
 
 /**
@@ -27,7 +30,10 @@ export function reduceSetup(
       action.type === 'loadRoster' ||
       action.type === 'performRollOff' ||
       action.type === 'chooseRole' ||
-      action.type === 'deployUnit'
+      action.type === 'deployUnit' ||
+      action.type === 'setReserves' ||
+      action.type === 'attachLeader' ||
+      action.type === 'scoutMove'
     ) {
       return reject('Setup actions are only legal before the battle begins.');
     }
@@ -68,6 +74,169 @@ export function reduceSetup(
         kind: 'roster',
         player: action.player,
         message: `${state.players[action.player].name} loaded a roster of ${action.units.length} unit(s).`,
+      });
+      return { ok: true, state: next };
+    }
+
+    case 'setReserves': {
+      if (setup.attacker !== null) {
+        return reject('Reserves are declared before the roll-off.');
+      }
+      const unit = state.units[action.unitId];
+      if (!unit || unit.owner !== action.player) return reject('Not your unit.');
+      if (action.kind === 'deepStrike') {
+        const ds = _env.content.getDatasheet(unit.datasheetId);
+        const canDeepStrike = (ds?.coreAbilities ?? []).some(
+          (ref) => _env.content.getCoreAbility(ref).structural === 'deepStrike',
+        );
+        if (!canDeepStrike) return reject(`${unit.name} does not have Deep Strike.`);
+      }
+      if (action.kind === 'strategic') {
+        const myUnits = Object.values(state.units).filter((u) => u.owner === action.player);
+        const totalPoints = myUnits.reduce((a, u) => a + (u.points ?? 0), 0);
+        const reservedPoints = myUnits
+          .filter((u) => u.reserves === 'strategic' && u.id !== unit.id)
+          .reduce((a, u) => a + (u.points ?? 0), 0);
+        const cap = totalPoints * _env.content.edition.parameters.reservesMaxPointsFraction;
+        if (totalPoints > 0 && reservedPoints + (unit.points ?? 0) > cap) {
+          return reject(
+            `Strategic Reserves cannot exceed ${Math.round(cap)} pts (25% of your army).`,
+          );
+        }
+      }
+      let next: GameState = {
+        ...state,
+        units: { ...state.units, [unit.id]: { ...unit, reserves: action.kind } },
+      };
+      next = appendLog(next, {
+        kind: 'reserves',
+        player: action.player,
+        message:
+          action.kind === 'none'
+            ? `${unit.name} will deploy normally.`
+            : `${unit.name} is placed in ${action.kind === 'deepStrike' ? 'Deep Strike' : 'Strategic Reserves'}.`,
+      });
+      return { ok: true, state: next };
+    }
+
+    case 'attachLeader': {
+      if (setup.attacker !== null) {
+        return reject('Leaders attach before the roll-off.');
+      }
+      const leader = state.units[action.leaderUnitId];
+      if (!leader || leader.owner !== action.player) return reject('Not your unit.');
+      const ds = _env.content.getDatasheet(leader.datasheetId);
+      const isLeader = (ds?.coreAbilities ?? []).some(
+        (ref) => _env.content.getCoreAbility(ref).structural === 'leader',
+      );
+      if (!isLeader) return reject(`${leader.name} does not have the Leader ability.`);
+
+      // Detach.
+      if (action.bodyguardUnitId === null) {
+        const old = leader.attachedTo;
+        if (!old) return reject(`${leader.name} is not attached.`);
+        const bodyguard = state.units[old];
+        let next: GameState = {
+          ...state,
+          units: {
+            ...state.units,
+            [leader.id]: { ...leader, attachedTo: null },
+            ...(bodyguard ? { [old]: { ...bodyguard, leaderOf: null } } : {}),
+          },
+        };
+        next = appendLog(next, {
+          kind: 'leader',
+          player: action.player,
+          message: `${leader.name} detaches.`,
+        });
+        return { ok: true, state: next };
+      }
+
+      const bodyguard = state.units[action.bodyguardUnitId];
+      if (!bodyguard || bodyguard.owner !== action.player) return reject('Not your unit.');
+      if (bodyguard.leaderOf !== null) {
+        return reject(`${bodyguard.name} already has a Leader attached.`);
+      }
+      if (bodyguard.attachedTo !== null || leader.leaderOf !== null) {
+        return reject('Leaders cannot attach to other Leaders.');
+      }
+      // canLead lists are empty in the sample-derived packs (milestone 4
+      // fills them from BSData); until then any non-Character unit is legal
+      // and we log the assumption.
+      const bodyguardKeywords = _env.content.getUnitKeywords(state, bodyguard.id);
+      if (bodyguardKeywords.some((k) => k.toLowerCase() === 'character')) {
+        return reject('A Leader must attach to a Bodyguard unit, not another Character.');
+      }
+      const canLead = ds?.leader?.canLead ?? [];
+      if (canLead.length > 0 && !canLead.includes(bodyguard.datasheetId) && !canLead.includes(bodyguard.name)) {
+        return reject(`${leader.name} cannot lead ${bodyguard.name}.`);
+      }
+      let next: GameState = {
+        ...state,
+        units: {
+          ...state.units,
+          [leader.id]: { ...leader, attachedTo: bodyguard.id },
+          [bodyguard.id]: { ...bodyguard, leaderOf: leader.id },
+        },
+      };
+      next = appendLog(next, {
+        kind: 'leader',
+        player: action.player,
+        message: `${leader.name} attaches to ${bodyguard.name}.`,
+      });
+      return { ok: true, state: next };
+    }
+
+    case 'scoutMove': {
+      if (!setup.readyToStart) {
+        return reject('Scout moves happen after the first turn is decided.');
+      }
+      const unit = state.units[action.unitId];
+      if (!unit || unit.owner !== action.player) return reject('Not your unit.');
+      const ds = _env.content.getDatasheet(unit.datasheetId);
+      const scoutRef = (ds?.coreAbilities ?? []).find(
+        (ref) => _env.content.getCoreAbility(ref).structural === 'scout',
+      );
+      if (!scoutRef) return reject(`${unit.name} does not have Scout.`);
+      const scoutDistance = scoutRef.value ?? 6;
+      const alive = aliveModels(unit);
+      const byId = new Map(action.positions.map((p) => [p.modelId, p]));
+      if (alive.some((m) => !byId.has(m.id))) {
+        return reject('Provide a destination for every model.');
+      }
+      for (const model of alive) {
+        const dest = byId.get(model.id)!;
+        if (!model.position) return reject(`${unit.name} must be deployed before it Scouts.`);
+        const moved = distance(model.position, { x: dest.x, y: dest.y });
+        if (moved > scoutDistance + 1e-6) {
+          return reject(`Scout ${scoutDistance}": a model moved ${moved.toFixed(1)}".`);
+        }
+        // End more than 9" from all enemy models.
+        const base = modelBase(_env.content, unit, model, { x: dest.x, y: dest.y })!;
+        for (const other of Object.values(state.units)) {
+          if (other.owner === unit.owner) continue;
+          for (const { base: enemy } of unitBases(_env.content, other)) {
+            if (edgeToEdgeDistance(base, enemy) <= 9) {
+              return reject('Scout moves must end more than 9" from all enemy models.');
+            }
+          }
+        }
+      }
+      if (!positionsOnBoard(state, action.positions)) {
+        return reject('Models cannot leave the battlefield.');
+      }
+      if (positionsOverlap(state, _env.content, unit, action.positions)) {
+        return reject('Models cannot end on top of other models.');
+      }
+      const coherent = checkCoherency(_env.content, unit, action.positions);
+      if (!coherent && state.enforcement.coherency === 'enforce') {
+        return reject('The unit must end its Scout move in coherency.');
+      }
+      let next = applyPositions(state, unit.id, action.positions);
+      next = appendLog(next, {
+        kind: 'scout',
+        player: action.player,
+        message: `${unit.name} makes a Scout move (up to ${scoutDistance}").`,
       });
       return { ok: true, state: next };
     }

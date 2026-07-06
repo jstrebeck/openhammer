@@ -14,15 +14,32 @@ const edition: EditionDef = {
     {
       id: 'command',
       name: 'Command Phase',
+      kind: 'command',
       steps: [
-        { id: 'command', name: 'Command' },
-        { id: 'battleShock', name: 'Battle-shock' },
+        { id: 'command', name: 'Command', kind: 'command' },
+        { id: 'battleShock', name: 'Battle-shock', kind: 'battleShock' },
       ],
     },
-    { id: 'movement', name: 'Movement Phase', steps: [{ id: 'move', name: 'Move Units' }, { id: 'reinforcements', name: 'Reinforcements' }] },
-    { id: 'shooting', name: 'Shooting Phase', steps: [{ id: 'shoot', name: 'Shoot' }] },
-    { id: 'charge', name: 'Charge Phase', steps: [{ id: 'charge', name: 'Charge' }] },
-    { id: 'fight', name: 'Fight Phase', steps: [{ id: 'fightsFirst', name: 'Fights First' }, { id: 'remaining', name: 'Remaining Combats' }] },
+    {
+      id: 'movement',
+      name: 'Movement Phase',
+      kind: 'movement',
+      steps: [
+        { id: 'move', name: 'Move Units', kind: 'moveUnits' },
+        { id: 'reinforcements', name: 'Reinforcements', kind: 'reinforcements' },
+      ],
+    },
+    { id: 'shooting', name: 'Shooting Phase', kind: 'shooting', steps: [{ id: 'shoot', name: 'Shoot', kind: 'shoot' }] },
+    { id: 'charge', name: 'Charge Phase', kind: 'charge', steps: [{ id: 'charge', name: 'Charge', kind: 'charge' }] },
+    {
+      id: 'fight',
+      name: 'Fight Phase',
+      kind: 'fight',
+      steps: [
+        { id: 'fightsFirst', name: 'Fights First', kind: 'fightsFirst' },
+        { id: 'remaining', name: 'Remaining Combats', kind: 'remainingCombats' },
+      ],
+    },
   ],
   parameters: testParams,
 };

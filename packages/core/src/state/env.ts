@@ -3,9 +3,25 @@ import type {
   EditionDef,
   EffectDef,
   EngineFlag,
+  StratagemDef,
   WeaponAbilityRef,
 } from '../types/content.js';
-import type { GameState, UnitId } from '../types/state.js';
+import type { GameState, PlayerIndex, UnitId } from '../types/state.js';
+
+/**
+ * The escape hatch: a TS function registered by a content pack for rules
+ * too weird for the effect schema. Scripts are pure state transitions.
+ */
+export type ScriptFn = (
+  state: GameState,
+  env: ReducerEnv,
+  args: {
+    /** The player who invoked the stratagem/effect. */
+    player: PlayerIndex;
+    targetUnitId?: UnitId;
+    context: Record<string, unknown>;
+  },
+) => GameState;
 
 /**
  * Everything the reducer needs from loaded content packs. Core defines the
@@ -29,6 +45,10 @@ export interface RulesContent {
   };
   /** Content-pack declaration order for deterministic tie-breaks. */
   effectOrder: Record<string, number>;
+  /** All stratagems in play (core + detachment once factions land). */
+  getStratagems?(): StratagemDef[];
+  /** Script registry lookup (undefined = script unavailable). */
+  getScript?(scriptId: string): ScriptFn | undefined;
 }
 
 export interface ReducerEnv {

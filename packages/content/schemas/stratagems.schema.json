@@ -34,7 +34,8 @@
             "properties": {
               "who": { "type": "string", "enum": ["friendly", "enemy"] },
               "keyword": { "type": "string" },
-              "condition": { "$ref": "openhammer://schemas/common#/$defs/condition" }
+              "condition": { "$ref": "openhammer://schemas/common#/$defs/condition" },
+              "allowBattleShocked": { "type": "boolean" }
             }
           },
           "effects": {

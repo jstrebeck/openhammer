@@ -20,6 +20,9 @@ export type GameAction =
   | { type: 'performRollOff'; player: PlayerIndex }
   | { type: 'chooseRole'; player: PlayerIndex; role: 'attacker' | 'defender' }
   | { type: 'deployUnit'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
+  | { type: 'setReserves'; player: PlayerIndex; unitId: string; kind: 'none' | 'strategic' | 'deepStrike' }
+  | { type: 'attachLeader'; player: PlayerIndex; leaderUnitId: string; bodyguardUnitId: string | null }
+  | { type: 'scoutMove'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
   // --- movement ---
   | {
       type: 'startMove';
@@ -29,6 +32,7 @@ export type GameAction =
     }
   | { type: 'commitMove'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
   | { type: 'cancelMove'; player: PlayerIndex; unitId: string }
+  | { type: 'deployReserves'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
   // --- shooting ---
   | {
       type: 'declareShoot';
@@ -36,7 +40,28 @@ export type GameAction =
       unitId: string;
       assignments: ShootingAssignment[];
     }
-  | { type: 'resolveSaves'; player: PlayerIndex };
+  | { type: 'resolveSaves'; player: PlayerIndex }
+  // --- charge ---
+  | { type: 'declareCharge'; player: PlayerIndex; unitId: string; targetIds: string[] }
+  | { type: 'commitCharge'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
+  | { type: 'failCharge'; player: PlayerIndex; unitId: string }
+  // --- fight ---
+  | { type: 'selectFighter'; player: PlayerIndex; unitId: string }
+  | { type: 'pileIn'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
+  | {
+      type: 'declareMelee';
+      player: PlayerIndex;
+      unitId: string;
+      assignments: ShootingAssignment[];
+    }
+  | { type: 'consolidate'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
+  // --- stratagem windows ---
+  | { type: 'useStratagem'; player: PlayerIndex; stratagemId: string; targetUnitId?: string }
+  | {
+      type: 'passWindow';
+      player: PlayerIndex;
+      dontAskAgainThisPhase?: boolean;
+    };
 
 export type ActionResult =
   | { ok: true; state: import('../types/state.js').GameState }
