@@ -1,0 +1,456 @@
+/* OpenHammer client — single dark-theme stylesheet. */
+
+:root {
+  --bg: #14181a;
+  --bg-panel: #1d2327;
+  --bg-panel-2: #232b30;
+  --border: #313b42;
+  --text: #d7dee3;
+  --text-muted: #8a969e;
+  --accent: #d4af37;
+  --p0: #3b82f6;
+  --p1: #ef4444;
+  --ok: #4ade80;
+  --error: #f87171;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+button {
+  background: var(--bg-panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+input,
+select {
+  background: var(--bg-panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--error);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+/* --- Lobby ------------------------------------------------------------- */
+
+.lobby {
+  max-width: 32rem;
+  margin: 8vh auto;
+  padding: 2rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.lobby-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.lobby-forms label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.lobby-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lobby-row input {
+  flex: 1;
+}
+
+.room-code {
+  background: var(--bg-panel-2);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 1.05em;
+}
+
+.import-issues {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.8rem;
+  margin-top: 0.5rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+/* --- Game layout -------------------------------------------------------- */
+
+.game-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.4rem 0.9rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.menu {
+  margin-left: auto;
+  position: relative;
+}
+
+.menu summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.menu-body {
+  position: absolute;
+  right: 0;
+  top: 2.2rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem;
+  z-index: 30;
+}
+
+.game-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.board-wrap {
+  flex: 1;
+  min-width: 0;
+  background: #0d1112;
+}
+
+.side-panels {
+  width: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+}
+
+/* --- Phase tracker ------------------------------------------------------ */
+
+.phase-line {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.turn-line {
+  margin: 0.25rem 0 0.5rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.players-line {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.player-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  gap: 0.1rem;
+}
+
+.player-chip.p0 .name {
+  color: var(--p0);
+}
+
+.player-chip.p1 .name {
+  color: var(--p1);
+}
+
+.player-chip.active {
+  border-color: var(--accent);
+}
+
+/* --- Unit panel ---------------------------------------------------------- */
+
+.owner-tag {
+  font-size: 0.75em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  text-transform: none;
+}
+
+.owner-tag.p0 {
+  color: var(--p0);
+}
+
+.owner-tag.p1 {
+  color: var(--p1);
+}
+
+table.statline,
+table.weapons {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.3rem 0 0.5rem;
+}
+
+table.statline th,
+table.weapons th {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 0.15rem 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+
+table.statline td,
+table.weapons td {
+  padding: 0.15rem 0.3rem;
+}
+
+.model-list {
+  margin: 0.2rem 0;
+  padding-left: 1.1rem;
+  max-height: 8rem;
+  overflow-y: auto;
+}
+
+.model-list .destroyed {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* --- Action panel --------------------------------------------------------- */
+
+.weapon-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.weapon-row select {
+  max-width: 55%;
+}
+
+.end-phase {
+  margin-top: 0.6rem;
+  width: 100%;
+  border-color: var(--accent);
+}
+
+/* --- Log ------------------------------------------------------------------ */
+
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 14rem;
+}
+
+.log-scroll {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-right: 0.3rem;
+}
+
+.log-entry {
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.log-entry.chat {
+  color: #93c5fd;
+}
+
+.log-entry.kind-warning {
+  color: var(--accent);
+}
+
+.log-entry.kind-destroyed {
+  color: var(--error);
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.chat-input input {
+  flex: 1;
+}
+
+/* --- Overlays --------------------------------------------------------------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 1.4rem 1.8rem;
+  max-width: 26rem;
+  text-align: center;
+}
+
+.banner {
+  padding: 0.2rem 0.7rem;
+  border-radius: 5px;
+  font-size: 0.85rem;
+}
+
+.spectator-banner {
+  background: #43391a;
+  color: var(--accent);
+}
+
+.conn-banner {
+  background: #431a1a;
+  color: var(--error);
+}
+
+.waiting-banner {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  z-index: 40;
+}
+
+.toast {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: #431a1a;
+  color: var(--text);
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  z-index: 60;
+  max-width: 24rem;
+}
+
+.distance-readout {
+  background: rgba(20, 24, 26, 0.9);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.distance-readout.over {
+  border-color: var(--error);
+  color: var(--error);
+}
