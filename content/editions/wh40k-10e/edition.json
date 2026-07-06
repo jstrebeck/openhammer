@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "wh40k-10e",
+  "name": "Warhammer 40,000 — 10th Edition",
+  "battleRounds": 5,
+  "phases": [
+    {
+      "id": "command",
+      "name": "Command Phase",
+      "steps": [
+        { "id": "command", "name": "Command" },
+        { "id": "battleShock", "name": "Battle-shock" }
+      ]
+    },
+    {
+      "id": "movement",
+      "name": "Movement Phase",
+      "steps": [
+        { "id": "moveUnits", "name": "Move Units" },
+        { "id": "reinforcements", "name": "Reinforcements" }
+      ]
+    },
+    {
+      "id": "shooting",
+      "name": "Shooting Phase",
+      "steps": [{ "id": "shoot", "name": "Shoot" }]
+    },
+    {
+      "id": "charge",
+      "name": "Charge Phase",
+      "steps": [{ "id": "charge", "name": "Charge" }]
+    },
+    {
+      "id": "fight",
+      "name": "Fight Phase",
+      "steps": [
+        { "id": "fightsFirst", "name": "Fights First" },
+        { "id": "remainingCombats", "name": "Remaining Combats" }
+      ]
+    }
+  ],
+  "parameters": {
+    "engagementRangeHorizontal": 1,
+    "engagementRangeVertical": 5,
+    "coherencyDistanceHorizontal": 2,
+    "coherencyDistanceVertical": 5,
+    "coherencyTwoNeighboursAt": 7,
+    "objectiveControlRangeHorizontal": 3,
+    "objectiveControlRangeVertical": 5,
+    "chargeRange": 12,
+    "pileInDistance": 3,
+    "consolidateDistance": 3,
+    "modifierCaps": { "hit": 1, "wound": 1, "saveImprovement": 1 },
+    "coverIneligibleSaveAtOrBelow": 3,
+    "cpPerCommandPhase": 1,
+    "maxExtraCpPerRound": 1,
+    "battleShockDice": "2D6",
+    "desperateEscapeFailOn": 2,
+    "deepStrikeDistance": 9,
+    "reservesMaxPointsFraction": 0.25,
+    "defaultCriticalHitOn": 6,
+    "defaultCriticalWoundOn": 6
+  }
+}

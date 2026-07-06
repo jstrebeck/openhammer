@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/core-rules",
+  "type": "object",
+  "required": ["schemaVersion", "version", "abilities"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "abilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "effects"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "parameterized": { "type": "boolean" },
+          "takesKeyword": { "type": "boolean" },
+          "paraphrase": { "type": "string" },
+          "structural": {
+            "type": "string",
+            "enum": ["deepStrike", "infiltrators", "scout", "leader", "deadlyDemise", "firingDeck", "fightsFirst"],
+            "description": "Deployment/sequencing rules the engine implements as protocols rather than stat effects; the id tells it which."
+          },
+          "effects": {
+            "type": "array",
+            "items": { "$ref": "openhammer://schemas/common#/$defs/effectDef" }
+          }
+        }
+      }
+    }
+  }
+}

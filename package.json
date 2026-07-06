@@ -1,0 +1,21 @@
+{
+  "name": "openhammer-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b packages/core packages/content packages/server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate-content": "npm run validate-content -w packages/content",
+    "typecheck": "tsc -b packages/core packages/content packages/server --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

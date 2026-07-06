@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/missions",
+  "type": "object",
+  "required": ["schemaVersion", "version", "missions"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "missions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "pointsLimit", "deploymentMapIds", "primaryScoring", "firstTurn"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "pointsLimit": { "type": "integer" },
+          "deploymentMapIds": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "firstTurn": { "type": "string", "enum": ["attacker", "rollOff"] },
+          "objectiveControlNote": { "type": "string" },
+          "primaryScoring": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "cadence", "scoring"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "cadence": {
+                  "type": "object",
+                  "required": ["hook"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "hook": { "$ref": "openhammer://schemas/common#/$defs/hookName" },
+                    "fromRound": { "type": "integer" },
+                    "untilRound": { "type": "integer" },
+                    "player": { "type": "string", "enum": ["active", "either"] }
+                  }
+                },
+                "scoring": {
+                  "type": "object",
+                  "required": ["perObjectiveHeld", "maxPerScore"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "perObjectiveHeld": { "type": "number" },
+                    "maxPerScore": { "type": "number" },
+                    "requireMinimumHeld": { "type": "integer" }
+                  }
+                },
+                "maxTotal": { "type": "number" }
+              }
+            }
+          },
+          "bonusVP": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "value"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "value": { "type": "number" },
+                "auto": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

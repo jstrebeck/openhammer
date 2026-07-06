@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/weapon-abilities",
+  "type": "object",
+  "required": ["schemaVersion", "version", "abilities"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "abilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "effects"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "parameterized": { "type": "boolean" },
+          "takesKeyword": { "type": "boolean" },
+          "paraphrase": { "type": "string" },
+          "engineFlags": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["oneShot", "pistol", "extraAttacks", "hazardous"] }
+          },
+          "effects": {
+            "type": "array",
+            "items": { "$ref": "openhammer://schemas/common#/$defs/effectDef" }
+          }
+        }
+      }
+    }
+  }
+}

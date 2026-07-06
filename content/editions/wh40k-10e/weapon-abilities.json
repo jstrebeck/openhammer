@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "abilities": [
+    {
+      "id": "assault",
+      "name": "Assault",
+      "paraphrase": "Can be shot even if the bearer's unit Advanced.",
+      "effects": [
+        {
+          "id": "assault.permission",
+          "trigger": "eligibility.shoot",
+          "condition": { "bearerAdvanced": true },
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterAdvance" }]
+        }
+      ]
+    },
+    {
+      "id": "blast",
+      "name": "Blast",
+      "paraphrase": "+1 attack per 5 models in the target unit; never against targets in Engagement Range.",
+      "effects": [
+        {
+          "id": "blast.scaling",
+          "trigger": "attack.attacksCount",
+          "effects": [{ "type": "addAttacksPerTargetModels", "per": 5, "value": 1 }]
+        },
+        {
+          "id": "blast.no-melee-targets",
+          "trigger": "eligibility.target",
+          "condition": { "script": "core.target-in-engagement-of-friendly" },
+          "effects": [{ "type": "forbid", "what": "target", "reason": "Blast weapons cannot target units within Engagement Range of your units." }],
+          "scriptId": "core.target-in-engagement-of-friendly"
+        }
+      ]
+    },
+    {
+      "id": "conversion",
+      "name": "Conversion",
+      "parameterized": true,
+      "paraphrase": "Unmodified 4+ to hit scores a Critical Hit against targets more than X\" away.",
+      "effects": [
+        {
+          "id": "conversion.crit",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "targetFurtherThan": "$X" },
+          "effects": [{ "type": "setCriticalHitOn", "value": 4 }]
+        }
+      ]
+    },
+    {
+      "id": "devastating-wounds",
+      "name": "Devastating Wounds",
+      "paraphrase": "Critical Wounds inflict mortal wounds instead of normal damage.",
+      "effects": [
+        {
+          "id": "devastating-wounds.convert",
+          "trigger": "attack.beforeWoundRoll",
+          "effects": [{ "type": "criticalWoundsBecomeMortal" }]
+        }
+      ]
+    },
+    {
+      "id": "extra-attacks",
+      "name": "Extra Attacks",
+      "engineFlags": ["extraAttacks"],
+      "paraphrase": "Made in addition to the bearer's chosen weapon; attack count cannot be modified.",
+      "effects": []
+    },
+    {
+      "id": "hazardous",
+      "name": "Hazardous",
+      "engineFlags": ["hazardous"],
+      "paraphrase": "After the unit attacks, test per Hazardous weapon used; a 1 destroys the bearer (Characters, Monsters and Vehicles suffer 3 mortal wounds instead).",
+      "effects": []
+    },
+    {
+      "id": "heavy",
+      "name": "Heavy",
+      "paraphrase": "+1 to Hit if the bearer's unit Remained Stationary.",
+      "effects": [
+        {
+          "id": "heavy.bonus",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "bearerRemainedStationary": true },
+          "effects": [{ "type": "modifyRoll", "roll": "hit", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "ignores-cover",
+      "name": "Ignores Cover",
+      "paraphrase": "The target cannot have the Benefit of Cover.",
+      "effects": [
+        {
+          "id": "ignores-cover.apply",
+          "trigger": "attack.beforeSaveRoll",
+          "effects": [{ "type": "ignoreCover" }]
+        }
+      ]
+    },
+    {
+      "id": "indirect-fire",
+      "name": "Indirect Fire",
+      "paraphrase": "Can target non-visible units at -1 to Hit, and the target has cover.",
+      "effects": [
+        {
+          "id": "indirect-fire.permission",
+          "trigger": "eligibility.target",
+          "effects": [{ "type": "grantPermission", "permission": "targetNonVisible" }]
+        },
+        {
+          "id": "indirect-fire.penalty",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "targetNotVisible": true },
+          "effects": [{ "type": "modifyRoll", "roll": "hit", "value": -1 }]
+        },
+        {
+          "id": "indirect-fire.cover",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "targetNotVisible": true },
+          "effects": [{ "type": "grantCover" }]
+        }
+      ]
+    },
+    {
+      "id": "lance",
+      "name": "Lance",
+      "paraphrase": "+1 to Wound if the bearer's unit charged this turn.",
+      "effects": [
+        {
+          "id": "lance.bonus",
+          "trigger": "attack.beforeWoundRoll",
+          "condition": { "bearerCharged": true },
+          "effects": [{ "type": "modifyRoll", "roll": "wound", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "lethal-hits",
+      "name": "Lethal Hits",
+      "paraphrase": "Critical Hits automatically wound.",
+      "effects": [
+        {
+          "id": "lethal-hits.apply",
+          "trigger": "attack.beforeHitRoll",
+          "effects": [{ "type": "criticalHitsAutoWound" }]
+        }
+      ]
+    },
+    {
+      "id": "melta",
+      "name": "Melta",
+      "parameterized": true,
+      "paraphrase": "+X Damage at half range or less.",
+      "effects": [
+        {
+          "id": "melta.bonus",
+          "trigger": "attack.damage",
+          "condition": { "targetWithinHalfRange": true },
+          "effects": [{ "type": "addDamage", "value": "$X" }]
+        }
+      ]
+    },
+    {
+      "id": "one-shot",
+      "name": "One Shot",
+      "engineFlags": ["oneShot"],
+      "paraphrase": "Can only be fired once per battle.",
+      "effects": []
+    },
+    {
+      "id": "pistol",
+      "name": "Pistol",
+      "engineFlags": ["pistol"],
+      "paraphrase": "Can be fired within Engagement Range at a unit within Engagement Range; not alongside other weapon types unless the bearer is a Monster or Vehicle.",
+      "effects": [
+        {
+          "id": "pistol.permission",
+          "trigger": "eligibility.shoot",
+          "effects": [{ "type": "grantPermission", "permission": "shootInEngagement" }]
+        }
+      ]
+    },
+    {
+      "id": "precision",
+      "name": "Precision",
+      "paraphrase": "Against an Attached unit, wounds can be allocated to a visible Character.",
+      "effects": [
+        {
+          "id": "precision.allocate",
+          "trigger": "attack.allocate",
+          "condition": { "targetIsAttachedUnit": true },
+          "effects": [{ "type": "allocatePrecision" }]
+        }
+      ]
+    },
+    {
+      "id": "rapid-fire",
+      "name": "Rapid Fire",
+      "parameterized": true,
+      "paraphrase": "+X attacks against targets at half range or less.",
+      "effects": [
+        {
+          "id": "rapid-fire.bonus",
+          "trigger": "attack.attacksCount",
+          "condition": { "targetWithinHalfRange": true },
+          "effects": [{ "type": "addAttacks", "value": "$X" }]
+        }
+      ]
+    },
+    {
+      "id": "sustained-hits",
+      "name": "Sustained Hits",
+      "parameterized": true,
+      "paraphrase": "Critical Hits score X extra hits.",
+      "effects": [
+        {
+          "id": "sustained-hits.apply",
+          "trigger": "attack.beforeHitRoll",
+          "effects": [{ "type": "extraHitsOnCritical", "value": "$X" }]
+        }
+      ]
+    },
+    {
+      "id": "torrent",
+      "name": "Torrent",
+      "paraphrase": "Automatically hits its target.",
+      "effects": [
+        {
+          "id": "torrent.apply",
+          "trigger": "attack.beforeHitRoll",
+          "effects": [{ "type": "autoHit" }]
+        }
+      ]
+    },
+    {
+      "id": "twin-linked",
+      "name": "Twin-linked",
+      "paraphrase": "Re-roll the Wound roll.",
+      "effects": [
+        {
+          "id": "twin-linked.apply",
+          "trigger": "attack.beforeWoundRoll",
+          "effects": [{ "type": "reroll", "roll": "wound", "dice": "failed" }]
+        }
+      ]
+    },
+    {
+      "id": "anti",
+      "name": "Anti",
+      "parameterized": true,
+      "takesKeyword": true,
+      "paraphrase": "Wound rolls of X+ are Critical Wounds against targets with the listed keyword.",
+      "effects": [
+        {
+          "id": "anti.crit",
+          "trigger": "attack.beforeWoundRoll",
+          "condition": { "targetHasKeyword": "$KEYWORD" },
+          "effects": [{ "type": "setCriticalWoundOn", "value": "$X" }]
+        }
+      ]
+    }
+  ]
+}

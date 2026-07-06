@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "abilities": [
+    {
+      "id": "core.stealth",
+      "name": "Stealth",
+      "paraphrase": "Ranged attacks targeting this unit are at -1 to Hit.",
+      "effects": [
+        {
+          "id": "core.stealth.penalty",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "defender" }, { "weaponType": "ranged" }] },
+          "effects": [{ "type": "modifyRoll", "roll": "hit", "value": -1 }]
+        }
+      ]
+    },
+    {
+      "id": "core.feel-no-pain",
+      "name": "Feel No Pain",
+      "parameterized": true,
+      "paraphrase": "Each time a model would lose a wound, it is not lost on a roll of X+.",
+      "effects": [
+        {
+          "id": "core.feel-no-pain.apply",
+          "trigger": "attack.feelNoPain",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "feelNoPain", "value": "$X" }]
+        }
+      ]
+    },
+    {
+      "id": "core.fights-first",
+      "name": "Fights First",
+      "structural": "fightsFirst",
+      "paraphrase": "Fights in the Fights First step if every model has this ability.",
+      "effects": []
+    },
+    {
+      "id": "core.deep-strike",
+      "name": "Deep Strike",
+      "structural": "deepStrike",
+      "paraphrase": "Can be set up in Reserves and arrive more than 9\" from all enemy models.",
+      "effects": []
+    },
+    {
+      "id": "core.infiltrators",
+      "name": "Infiltrators",
+      "structural": "infiltrators",
+      "paraphrase": "Deploys anywhere more than 9\" from the enemy deployment zone and all enemy models.",
+      "effects": []
+    },
+    {
+      "id": "core.scout",
+      "name": "Scout",
+      "parameterized": true,
+      "structural": "scout",
+      "paraphrase": "Pre-game move of up to X\", ending more than 9\" from all enemy models.",
+      "effects": []
+    },
+    {
+      "id": "core.leader",
+      "name": "Leader",
+      "structural": "leader",
+      "paraphrase": "Can attach to a Bodyguard unit; attacks cannot be allocated to this Character without Precision.",
+      "effects": []
+    },
+    {
+      "id": "core.deadly-demise",
+      "name": "Deadly Demise",
+      "parameterized": true,
+      "structural": "deadlyDemise",
+      "paraphrase": "When destroyed, on a D6 roll of 6 each unit within 6\" suffers X mortal wounds.",
+      "effects": []
+    },
+    {
+      "id": "core.firing-deck",
+      "name": "Firing Deck",
+      "parameterized": true,
+      "structural": "firingDeck",
+      "paraphrase": "X embarked models can shoot through this Transport.",
+      "effects": []
+    }
+  ]
+}
