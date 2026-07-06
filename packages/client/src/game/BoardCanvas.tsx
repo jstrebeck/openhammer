@@ -120,13 +120,29 @@ function BoardPlane({ game }: { game: GameState }) {
       return;
     }
     const seat = s.playerIndex;
-    // Deploy: place the ghost formation.
-    if (s.interaction.mode === 'deploying') {
+    // Deploy / bring on reserves: place the ghost formation.
+    if (s.interaction.mode === 'deploying' || s.interaction.mode === 'placingReserves') {
+      const fromReserves = s.interaction.mode === 'placingReserves';
       const unit = g.units[s.interaction.unitId];
       if (unit) {
         const positions = deployFormation(unit, s.datasheets[unit.datasheetId], point);
-        s.dispatch({ type: 'deployUnit', player: seat, unitId: unit.id, positions });
+        s.dispatch({
+          type: fromReserves ? 'deployReserves' : 'deployUnit',
+          player: seat,
+          unitId: unit.id,
+          positions,
+        });
       }
+      return;
+    }
+    // Scout move: one-shot commit at the cursor (server validates distance).
+    if (s.interaction.mode === 'scouting') {
+      const unit = g.units[s.interaction.unitId];
+      if (unit) {
+        const positions = moveFormation(unit, point);
+        s.dispatch({ type: 'scoutMove', player: seat, unitId: unit.id, positions });
+      }
+      s.setInteraction({ mode: 'idle' });
       return;
     }
     // Move in progress for one of my units: commit at the cursor.
@@ -136,6 +152,32 @@ function BoardPlane({ game }: { game: GameState }) {
       if (unit && unit.owner === seat) {
         const positions = moveFormation(unit, point);
         s.dispatch({ type: 'commitMove', player: seat, unitId: unit.id, positions });
+        return;
+      }
+    }
+    // Charge move: stage positions; the panel's Commit button dispatches.
+    if (g.charge) {
+      const unit = g.units[g.charge.unitId];
+      if (unit && unit.owner === seat) {
+        s.setInteraction({
+          mode: 'charging',
+          unitId: unit.id,
+          staged: moveFormation(unit, point),
+        });
+        return;
+      }
+    }
+    // Pile in / consolidate: stage positions for the Confirm button.
+    const fight = g.fight;
+    if (fight?.activeUnitId && (fight.stage === 'pileIn' || fight.stage === 'consolidate')) {
+      const unit = g.units[fight.activeUnitId];
+      if (unit && unit.owner === seat) {
+        s.setInteraction({
+          mode: 'engagement',
+          unitId: unit.id,
+          stage: fight.stage,
+          staged: moveFormation(unit, point),
+        });
         return;
       }
     }
@@ -309,8 +351,52 @@ function InteractionLayer({ game }: { game: GameState }) {
 
   const elements: ReactElement[] = [];
 
-  // Deploy ghost.
-  if (interaction.mode === 'deploying' && cursor) {
+  /** Budget ring + ghost formation + live distance readout for a move-like
+   * preview. `positions` fall back to a cursor-following formation. */
+  const pushMovePreview = (
+    key: string,
+    unit: UnitState,
+    budget: number,
+    staged: { modelId: string; x: number; y: number }[] | null,
+    color: string,
+  ) => {
+    const centroid = unitCentroid(unit);
+    const ds = datasheets[unit.datasheetId];
+    if (centroid) {
+      elements.push(
+        <mesh
+          key={`${key}-ring`}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[centroid.x, 0.04, centroid.y]}
+        >
+          <ringGeometry args={[Math.max(0.01, budget - 0.06), budget, 64]} />
+          <meshBasicMaterial color={color} transparent opacity={0.7} depthWrite={false} />
+        </mesh>,
+      );
+    }
+    const positions = staged ?? (cursor ? moveFormation(unit, cursor) : null);
+    if (positions && positions.length > 0) {
+      const dist = maxMoveDistance(unit, positions);
+      const over = dist > budget + 1e-6;
+      const anchor = staged ? positions[0]! : { x: cursor!.x, y: cursor!.y };
+      elements.push(
+        <GhostFormation
+          key={`${key}-ghost`}
+          positions={positions}
+          radius={baseDiameterInches(ds, aliveModels(unit)[0]!) / 2}
+          color={over ? '#f87171' : color}
+        />,
+        <Html key={`${key}-dist`} position={[anchor.x + 1, 1.5, anchor.y + 1]}>
+          <div className={`distance-readout ${over ? 'over' : ''}`}>
+            {dist.toFixed(1)}" / {budget}"
+          </div>
+        </Html>,
+      );
+    }
+  };
+
+  // Deploy / reserves-arrival ghost.
+  if ((interaction.mode === 'deploying' || interaction.mode === 'placingReserves') && cursor) {
     const unit = game.units[interaction.unitId];
     if (unit) {
       const ds = datasheets[unit.datasheetId];
@@ -326,44 +412,48 @@ function InteractionLayer({ game }: { game: GameState }) {
     }
   }
 
+  // Scout move preview.
+  if (interaction.mode === 'scouting') {
+    const unit = game.units[interaction.unitId];
+    if (unit) pushMovePreview('scout', unit, interaction.budget, null, '#facc15');
+  }
+
   // Move preview: budget ring around the unit + ghost at the cursor +
   // live distance readout.
   const pending = game.pendingMove;
   if (pending && seat !== null) {
     const unit = game.units[pending.unitId];
     if (unit && unit.owner === seat) {
-      const centroid = unitCentroid(unit);
-      const ds = datasheets[unit.datasheetId];
-      if (centroid) {
-        elements.push(
-          <mesh
-            key="move-ring"
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[centroid.x, 0.04, centroid.y]}
-          >
-            <ringGeometry args={[Math.max(0.01, pending.budget - 0.06), pending.budget, 64]} />
-            <meshBasicMaterial color="#facc15" transparent opacity={0.7} depthWrite={false} />
-          </mesh>,
-        );
-      }
-      if (cursor) {
-        const positions = moveFormation(unit, cursor);
-        const dist = maxMoveDistance(unit, positions);
-        const over = dist > pending.budget + 1e-6;
-        elements.push(
-          <GhostFormation
-            key="move-ghost"
-            positions={positions}
-            radius={baseDiameterInches(ds, aliveModels(unit)[0]!) / 2}
-            color={over ? '#f87171' : '#facc15'}
-          />,
-          <Html key="move-dist" position={[cursor.x + 1, 1.5, cursor.y + 1]}>
-            <div className={`distance-readout ${over ? 'over' : ''}`}>
-              {dist.toFixed(1)}" / {pending.budget}"
-            </div>
-          </Html>,
-        );
-      }
+      pushMovePreview('move', unit, pending.budget, null, '#facc15');
+    }
+  }
+
+  // Charge move preview: ring = the 2D6 roll; clicked positions stay staged.
+  if (game.charge && seat !== null) {
+    const unit = game.units[game.charge.unitId];
+    if (unit && unit.owner === seat) {
+      const staged =
+        interaction.mode === 'charging' && interaction.unitId === unit.id
+          ? interaction.staged
+          : null;
+      pushMovePreview('charge', unit, game.charge.roll, staged, '#fb923c');
+    }
+  }
+
+  // Pile in / consolidate preview: 3" budget, staged by clicking.
+  const fight = game.fight;
+  if (
+    fight?.activeUnitId &&
+    (fight.stage === 'pileIn' || fight.stage === 'consolidate') &&
+    seat !== null
+  ) {
+    const unit = game.units[fight.activeUnitId];
+    if (unit && unit.owner === seat) {
+      const staged =
+        interaction.mode === 'engagement' && interaction.unitId === unit.id
+          ? interaction.staged
+          : null;
+      pushMovePreview('engagement', unit, 3, staged, '#fb923c');
     }
   }
 

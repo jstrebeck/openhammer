@@ -30,6 +30,19 @@ export interface Presence {
   spectators: number;
 }
 
+/** An opponent-approval undo request relayed by the server. */
+export interface UndoPromptState {
+  by: PlayerIndex;
+  count: number;
+}
+
+/** Outcome of the last undo request (for a transient toast). */
+export interface UndoResult {
+  performed: boolean;
+  approved?: boolean;
+  at: number;
+}
+
 /** Injected credential persistence (localStorage in the browser). */
 export interface CredStorage {
   load(): { roomId: string; token: string } | null;
@@ -63,6 +76,9 @@ export interface GameStore {
   importedUnitCount: number | null;
   serverError: string | null;
 
+  undoPrompt: UndoPromptState | null;
+  undoResult: UndoResult | null;
+
   interaction: Interaction;
   selectedUnitId: string | null;
 
@@ -74,6 +90,8 @@ export interface GameStore {
   uploadRoster(roster: unknown): void;
   dispatch(action: GameAction): void;
   sendChat(text: string): void;
+  requestUndo(count: number): void;
+  respondUndo(approve: boolean): void;
   setInteraction(interaction: Interaction): void;
   selectUnit(unitId: string | null): void;
 }
@@ -151,8 +169,8 @@ export function createGameStore(
         case 'state':
           set((prev) => {
             let interaction = prev.interaction;
-            // Deploy done (or unit gone): fall back to idle.
-            if (interaction.mode === 'deploying') {
+            // Deploy/reserves placement done (or unit gone): fall back to idle.
+            if (interaction.mode === 'deploying' || interaction.mode === 'placingReserves') {
               const unit = message.state.units[interaction.unitId];
               if (!unit || unit.models.some((m) => m.position !== null)) interaction = IDLE;
             }
@@ -161,6 +179,28 @@ export function createGameStore(
               interaction.mode === 'moving' &&
               message.state.pendingMove?.unitId !== interaction.unitId
             ) {
+              interaction = IDLE;
+            }
+            // Charging is derived from state.charge; clear stale mode.
+            if (
+              interaction.mode === 'charging' &&
+              message.state.charge?.unitId !== interaction.unitId
+            ) {
+              interaction = IDLE;
+            }
+            // Pile-in/consolidate staging follows the fight sequence.
+            if (interaction.mode === 'engagement') {
+              const fight = message.state.fight;
+              if (
+                !fight ||
+                fight.activeUnitId !== interaction.unitId ||
+                fight.stage !== interaction.stage
+              ) {
+                interaction = IDLE;
+              }
+            }
+            // Scout moves only exist during setup.
+            if (interaction.mode === 'scouting' && message.state.phase !== 'setup') {
               interaction = IDLE;
             }
             return { game: message.state, interaction };
@@ -194,6 +234,19 @@ export function createGameStore(
           break;
         case 'presence':
           set({ presence: { seats: message.seats, spectators: message.spectators } });
+          break;
+        case 'undoRequested':
+          set({ undoPrompt: { by: message.by, count: message.count } });
+          break;
+        case 'undoResolved':
+          set({
+            undoPrompt: null,
+            undoResult: {
+              performed: message.performed,
+              ...(message.approved !== undefined ? { approved: message.approved } : {}),
+              at: Date.now(),
+            },
+          });
           break;
         case 'error':
           set({ serverError: message.error });
@@ -256,6 +309,8 @@ export function createGameStore(
       importIssues: [],
       importedUnitCount: null,
       serverError: null,
+      undoPrompt: null,
+      undoResult: null,
       interaction: IDLE,
       selectedUnitId: null,
 
@@ -297,6 +352,13 @@ export function createGameStore(
       sendChat: (text) => {
         if (text.trim().length === 0) return;
         push({ type: 'chat', text });
+      },
+      requestUndo: (count) => {
+        push({ type: 'requestUndo', count });
+      },
+      respondUndo: (approve) => {
+        push({ type: 'respondUndo', approve });
+        set({ undoPrompt: null });
       },
       setInteraction: (interaction) => set({ interaction }),
       selectUnit: (unitId) => set({ selectedUnitId: unitId }),

@@ -5,7 +5,9 @@ import { ActionPanel } from './panels/ActionPanel';
 import { LogPanel } from './panels/LogPanel';
 import { PhaseTracker } from './panels/PhaseTracker';
 import { SavePrompt } from './panels/SavePrompt';
+import { StratagemPrompt } from './panels/StratagemPrompt';
 import { Toast } from './panels/Toast';
+import { UndoPrompt } from './panels/UndoPrompt';
 import { UnitPanel } from './panels/UnitPanel';
 
 export function GameView() {
@@ -43,6 +45,15 @@ export function GameView() {
         <span className="brand">OpenHammer</span>
         {spectator && <span className="banner spectator-banner">Spectating — read only</span>}
         {status !== 'connected' && <span className="banner conn-banner">Reconnecting…</span>}
+        {seat !== null && game.result === null && (
+          <button
+            className="undo-btn"
+            disabled={game.actionSeq === 0}
+            onClick={() => store.getState().requestUndo(1)}
+          >
+            Undo
+          </button>
+        )}
         <details className="menu">
           <summary>Menu</summary>
           <div className="menu-body">
@@ -68,6 +79,8 @@ export function GameView() {
         </aside>
       </main>
       <SavePrompt />
+      <StratagemPrompt />
+      <UndoPrompt />
       <Toast />
       {game.result !== null && <EndScreen />}
     </div>

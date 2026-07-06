@@ -29,6 +29,12 @@ const storage: CredStorage = {
 const store = createGameStore(browserSocketFactory, { url: defaultWsUrl(), storage });
 store.getState().connect();
 
+// Dev-only automation hook: browser-based verification drivers (and manual
+// debugging) can reach the real store; never present in production builds.
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__ohStore = store;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <StoreProvider store={store}>

@@ -454,3 +454,118 @@ table.weapons td {
   border-color: var(--error);
   color: var(--error);
 }
+
+.toast.info {
+  background: #16321f;
+  border-color: var(--ok);
+}
+
+/* --- Undo ------------------------------------------------------------------- */
+
+.undo-btn {
+  padding: 0.25rem 0.7rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
+/* --- Stratagem window --------------------------------------------------------- */
+
+.stratagem-modal {
+  text-align: left;
+  min-width: 22rem;
+}
+
+.strat-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.strat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.dont-ask {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+  color: var(--text-muted);
+}
+
+.pass-btn {
+  width: 100%;
+  border-color: var(--accent);
+}
+
+/* --- Charge & pre-game prep --------------------------------------------------- */
+
+.charge-target {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.prep-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.prep-name {
+  flex: 1 0 100%;
+  font-weight: 600;
+}
+
+.prep-row select {
+  flex: 1;
+  min-width: 8rem;
+}
+
+/* --- Unit status badges --------------------------------------------------------- */
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.3rem 0;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-2);
+}
+
+.badge.shocked {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.badge.fights-first {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge.charge-declared {
+  border-color: #fb923c;
+  color: #fb923c;
+}
+
+.badge.has-fought {
+  color: var(--text-muted);
+}

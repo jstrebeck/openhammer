@@ -24,9 +24,28 @@ export function UnitPanel() {
   const flagText: string[] = [];
   if (flags.moveKind) flagText.push(`moved: ${flags.moveKind}`);
   if (flags.hasShot) flagText.push('has shot');
-  if (flags.hasFought) flagText.push('has fought');
-  if (unit.battleShocked) flagText.push('battle-shocked');
   if (unit.unmatched) flagText.push('unmatched import');
+
+  const badges: { key: string; label: string; cls: string }[] = [];
+  if (unit.battleShocked) {
+    badges.push({ key: 'shocked', label: '⚡ Battle-shocked: OC 0', cls: 'shocked' });
+  }
+  if (flags.fightsFirst) badges.push({ key: 'ff', label: 'Fights First', cls: 'fights-first' });
+  if (flags.chargeDeclared) {
+    badges.push({ key: 'cd', label: 'Charge declared', cls: 'charge-declared' });
+  }
+  if (flags.hasFought) badges.push({ key: 'fought', label: 'Has fought', cls: 'has-fought' });
+  if (unit.attachedTo) {
+    const body = game.units[unit.attachedTo];
+    badges.push({ key: 'led', label: `Leading ${body?.name ?? unit.attachedTo}`, cls: 'leader' });
+  }
+  if (unit.reserves !== 'none' && unit.models.every((m) => m.position === null)) {
+    badges.push({
+      key: 'res',
+      label: unit.reserves === 'deepStrike' ? 'Deep Strike' : 'In Reserves',
+      cls: 'reserves',
+    });
+  }
 
   return (
     <section className="panel unit-panel">
@@ -61,6 +80,15 @@ export function UnitPanel() {
         </table>
       ) : (
         <p className="muted">No datasheet found ({unit.datasheetId}).</p>
+      )}
+      {badges.length > 0 && (
+        <div className="badges">
+          {badges.map((b) => (
+            <span key={b.key} className={`badge ${b.cls}`}>
+              {b.label}
+            </span>
+          ))}
+        </div>
       )}
       <p>
         Models: {alive.length}/{unit.startingStrength}

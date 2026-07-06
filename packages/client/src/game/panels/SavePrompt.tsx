@@ -1,7 +1,8 @@
 import { useGameStore } from '../../storeContext';
 
 /**
- * Reactive save window. Modal for the player who must roll; a passive
+ * Reactive save window (shooting and melee alike — the copy only relies
+ * on context.weaponName). Modal for the player who must roll; a passive
  * banner for everyone else.
  */
 export function SavePrompt() {
@@ -37,7 +38,7 @@ export function SavePrompt() {
   return (
     <div className="modal-overlay">
       <div className="modal" role="dialog" aria-label="Roll saves">
-        <h3>Incoming fire</h3>
+        <h3>Incoming attacks</h3>
         <p>
           {weaponName} hits {targetName}: {wounds} wound{wounds === 1 ? '' : 's'}
           {mortalWounds > 0 ? ` (+${mortalWounds} devastating)` : ''} incoming.

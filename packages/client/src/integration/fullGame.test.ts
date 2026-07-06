@@ -16,6 +16,7 @@ import type { Datasheet, GameAction, GameState, PlayerIndex, UnitState } from '@
 import { startServer, type OpenHammerServer } from '@openhammer/server';
 import { createGameStore, type GameStore } from '../store';
 import type { SocketFactory } from '../net/socket';
+import { canFightThisStep, currentPositions, unitEdgeDistance } from '../game/interaction';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..', '..');
@@ -71,6 +72,94 @@ function waitFor<T>(
 
 function other(seat: PlayerIndex): PlayerIndex {
   return seat === 0 ? 1 : 0;
+}
+
+// ---------------------------------------------------------------------------
+// Shared driver: auto-pass stratagem windows + rejection-safe dispatch
+// ---------------------------------------------------------------------------
+
+interface Driver {
+  game(seat: PlayerIndex): GameState;
+  act(
+    seat: PlayerIndex,
+    action: GameAction,
+    pred: (g: GameState) => boolean,
+    label: string,
+  ): Promise<GameState>;
+  stop(): void;
+}
+
+function makeDriver(stores: [Store, Store]): Driver {
+  const game = (seat: PlayerIndex): GameState => {
+    const g = stores[seat].getState().game;
+    if (!g) throw new Error('no game state yet');
+    return g;
+  };
+
+  /** Milestone 3 opens reactive stratagem windows (Overwatch, Smoke-
+   * screen...). This driver plays a stratagem-free game: whichever
+   * store owns an open window passes it, exercising passWindow over
+   * the wire. */
+  const passedWindows = new Set<string>();
+  const passOpenWindows = () => {
+    for (const seat of [0, 1] as const) {
+      const g = stores[seat].getState().game;
+      const d = g?.pendingDecision;
+      if (d && d.kind === 'stratagemWindow' && d.player === seat && !passedWindows.has(d.id)) {
+        passedWindows.add(d.id);
+        stores[seat].getState().dispatch({ type: 'passWindow', player: seat });
+      }
+    }
+  };
+  // Auto-pass reacts to EITHER store's updates — window ownership can
+  // land on the defender's store while only the attacker is awaited.
+  const unsubscribers = stores.map((s) => s.subscribe(passOpenWindows));
+
+  /** Dispatch from `seat`, fail fast on rejection, wait until BOTH
+   * stores see a state satisfying the predicate. */
+  const act = async (
+    seat: PlayerIndex,
+    action: GameAction,
+    pred: (g: GameState) => boolean,
+    label: string,
+  ): Promise<GameState> => {
+    const store = stores[seat];
+    const before = store.getState().rejections.length;
+    store.getState().dispatch(action);
+    const result = await waitFor(
+      store,
+      (s) => {
+        if (s.rejections.length > before) {
+          const r = s.rejections[s.rejections.length - 1]!;
+          throw new Error(`${label} rejected: [${r.code}] ${r.error}`);
+        }
+        passOpenWindows();
+        return s.game && pred(s.game) ? s.game : undefined;
+      },
+      label,
+    );
+    await waitFor(
+      stores[other(seat)],
+      (s) => {
+        passOpenWindows();
+        return s.game && pred(s.game) ? s.game : undefined;
+      },
+      `${label} (peer sync)`,
+    );
+    return result;
+  };
+
+  return { game, act, stop: () => unsubscribers.forEach((u) => u()) };
+}
+
+function unitsOf(g: GameState, seat: PlayerIndex): UnitState[] {
+  return Object.values(g.units).filter((u) => u.owner === seat);
+}
+
+function laneUnitIdOf(g: GameState, seat: PlayerIndex): string {
+  const lane = unitsOf(g, seat).find(isLaneUnit);
+  if (!lane) throw new Error(`no lane unit for seat ${seat}`);
+  return lane.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,41 +306,8 @@ describe('full game over the wire (client stores <-> real server)', () => {
       const [A, B] = stores;
       const expectedRejections: [number, number] = [0, 0];
 
-      const game = (seat: PlayerIndex): GameState => {
-        const g = stores[seat].getState().game;
-        if (!g) throw new Error('no game state yet');
-        return g;
-      };
-
-      /** Dispatch from `seat`, fail fast on rejection, wait until BOTH
-       * stores see a state satisfying the predicate. */
-      const act = async (
-        seat: PlayerIndex,
-        action: GameAction,
-        pred: (g: GameState) => boolean,
-        label: string,
-      ): Promise<GameState> => {
-        const store = stores[seat];
-        const before = store.getState().rejections.length;
-        store.getState().dispatch(action);
-        const result = await waitFor(
-          store,
-          (s) => {
-            if (s.rejections.length > before) {
-              const r = s.rejections[s.rejections.length - 1]!;
-              throw new Error(`${label} rejected: [${r.code}] ${r.error}`);
-            }
-            return s.game && pred(s.game) ? s.game : undefined;
-          },
-          label,
-        );
-        await waitFor(
-          stores[other(seat)],
-          (s) => (s.game && pred(s.game) ? s.game : undefined),
-          `${label} (peer sync)`,
-        );
-        return result;
-      };
+      const driver = makeDriver(stores);
+      const { game, act } = driver;
 
       // --- connect, create, join ---------------------------------------
       A.getState().connect();
@@ -292,8 +348,6 @@ describe('full game over the wire (client stores <-> real server)', () => {
       );
       await waitFor(B, (s) => s.game?.setup?.rostersLoaded[0] === true, 'B sees tau roster');
 
-      const unitsOf = (g: GameState, seat: PlayerIndex) =>
-        Object.values(g.units).filter((u) => u.owner === seat);
       expect(A.getState().importedUnitCount).toBe(unitsOf(game(0), 0).length);
       expect(B.getState().importedUnitCount).toBe(unitsOf(game(1), 1).length);
       expect(unitsOf(game(0), 0).length).toBeGreaterThanOrEqual(6);
@@ -371,11 +425,6 @@ describe('full game over the wire (client stores <-> real server)', () => {
       expect(game(0).phase).toBe('command');
 
       // --- battle turns: move 3" forward, shoot, defender saves ---------
-      const laneUnitIdOf = (seat: PlayerIndex): string => {
-        const lane = unitsOf(game(seat), seat).find(isLaneUnit);
-        if (!lane) throw new Error(`no lane unit for seat ${seat}`);
-        return lane.id;
-      };
       const northSeat: PlayerIndex =
         Math.max(...game(0).board.deploymentZones.find((z) => z.player === 0)!.polygon.map((p) => p.y)) <=
         game(0).board.height / 2
@@ -401,7 +450,7 @@ describe('full game over the wire (client stores <-> real server)', () => {
         );
 
         // Normal move: whole unit 3" straight toward the enemy.
-        const moverId = laneUnitIdOf(active);
+        const moverId = laneUnitIdOf(game(active), active);
         const dy = active === northSeat ? 3 : -3;
         await act(
           active,
@@ -441,7 +490,7 @@ describe('full game over the wire (client stores <-> real server)', () => {
           (w) => w.kind === 'ranged' && /pulse rifle|lasgun/i.test(w.name),
         );
         if (!weapon) throw new Error(`no pulse rifle / lasgun on ${shooter.name}`);
-        const targetId = laneUnitIdOf(other(active));
+        const targetId = laneUnitIdOf(game(active), other(active));
         const woundsBefore = game(active)
           .units[targetId]!.models.reduce(
             (sum, m) => sum + (m.destroyed ? 0 : m.woundsRemaining),
@@ -456,7 +505,9 @@ describe('full game over the wire (client stores <-> real server)', () => {
             unitId: moverId,
             assignments: [{ weaponId: weapon.id, targetUnitId: targetId }],
           },
-          (g) => g.pendingDecision !== null || g.units[moverId]!.turnFlags.hasShot,
+          // The Smokescreen/Go-to-Ground window may open first; the driver
+          // passes it, so wait specifically for saves (or a no-wound volley).
+          (g) => g.pendingDecision?.kind === 'saves' || g.units[moverId]!.turnFlags.hasShot,
           `t${turn}: declareShoot ${weapon.id} -> ${targetId}`,
         );
 
@@ -522,11 +573,308 @@ describe('full game over the wire (client stores <-> real server)', () => {
         );
       }
       expect(savesResolved).toBe(true);
+      driver.stop();
 
       // --- every dispatch accepted except the deliberate one ------------
       expect(A.getState().rejections.length).toBe(expectedRejections[0]);
       expect(B.getState().rejections.length).toBe(expectedRejections[1]);
     },
     120_000,
+  );
+
+  it(
+    'drives a charge and the fight phase (milestone-3 leg, same game)',
+    async () => {
+      const driver = makeDriver(stores);
+      const { game, act } = driver;
+      const datasheets = stores[0].getState().datasheets;
+      const rejBase: [number, number] = [
+        stores[0].getState().rejections.length,
+        stores[1].getState().rejections.length,
+      ];
+
+      /** Wait until the acting store sees no open decision/window — the
+       * auto-pass driver resolves stratagem windows asynchronously. */
+      const quiet = (seat: PlayerIndex) =>
+        waitFor(
+          stores[seat],
+          (s) =>
+            s.game &&
+            s.game.pendingDecision === null &&
+            (s.game.windowQueue?.length ?? 0) === 0
+              ? s.game
+              : undefined,
+          `seat ${seat} quiet`,
+        );
+      const qact = async (
+        seat: PlayerIndex,
+        action: GameAction,
+        pred: (g: GameState) => boolean,
+        label: string,
+      ): Promise<GameState> => {
+        if (action.type !== 'resolveSaves') await quiet(seat);
+        return act(seat, action, pred, label);
+      };
+      const adv = (seat: PlayerIndex, pred: (g: GameState) => boolean, label: string) =>
+        qact(seat, { type: 'advanceStep', player: seat }, pred, label);
+
+      const centroidOf = (unit: UnitState): { x: number; y: number } => {
+        const placed = unit.models.filter((m) => !m.destroyed && m.position !== null);
+        return {
+          x: placed.reduce((a, m) => a + m.position!.x, 0) / placed.length,
+          y: placed.reduce((a, m) => a + m.position!.y, 0) / placed.length,
+        };
+      };
+      const towards = (fromU: UnitState, toU: UnitState): { x: number; y: number } => {
+        const a = centroidOf(fromU);
+        const b = centroidOf(toU);
+        const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        return { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+      };
+      const translated = (unit: UnitState, dx: number, dy: number) =>
+        unit.models
+          .filter((m) => !m.destroyed && m.position !== null)
+          .map((m) => ({ modelId: m.id, x: m.position!.x + dx, y: m.position!.y + dy }));
+
+      let chargeCommitted = false;
+      let chargeFailed = false;
+      let meleeSavesResolved = false;
+
+      /** Normal-move the active lane straight at the enemy lane, stopping
+       * 1.5" out (a Normal move may not end within Engagement Range). */
+      const moveLaneCloser = async (active: PlayerIndex): Promise<void> => {
+        const moverId = laneUnitIdOf(game(active), active);
+        const targetId = laneUnitIdOf(game(active), other(active));
+        let g = game(active);
+        if (g.units[moverId]!.turnFlags.moveKind !== null) return;
+        const gap = unitEdgeDistance(g.units[moverId]!, g.units[targetId]!, datasheets);
+        if (gap === null) return;
+        await qact(
+          active,
+          { type: 'startMove', player: active, unitId: moverId, kind: 'normal' },
+          (g2) => g2.pendingMove?.unitId === moverId,
+          'leg2: startMove',
+        );
+        g = game(active);
+        const step = Math.max(0, Math.min(g.pendingMove!.budget, gap - 1.5));
+        const dir = towards(g.units[moverId]!, g.units[targetId]!);
+        await qact(
+          active,
+          {
+            type: 'commitMove',
+            player: active,
+            unitId: moverId,
+            positions: translated(g.units[moverId]!, dir.x * step, dir.y * step),
+          },
+          (g2) => g2.pendingMove === null && g2.units[moverId]!.turnFlags.moveKind === 'normal',
+          'leg2: commitMove toward enemy',
+        );
+      };
+
+      /** Declare against the opposing lane when within 12", read the rolled
+       * 2D6 from state, then commit (step adjacent) or concede the fail. */
+      const attemptCharge = async (active: PlayerIndex): Promise<void> => {
+        const unitId = laneUnitIdOf(game(active), active);
+        const targetId = laneUnitIdOf(game(active), other(active));
+        const g = game(active);
+        const gap = unitEdgeDistance(g.units[unitId]!, g.units[targetId]!, datasheets);
+        if (
+          gap === null ||
+          gap > 11.5 ||
+          gap <= 1.1 ||
+          g.units[unitId]!.turnFlags.chargeDeclared
+        ) {
+          return;
+        }
+        await qact(
+          active,
+          { type: 'declareCharge', player: active, unitId, targetIds: [targetId] },
+          (g2) => g2.charge?.unitId === unitId,
+          'leg2: declareCharge',
+        );
+        const seq = game(active).charge!;
+        expect(seq.roll).toBe(seq.rolls[0] + seq.rolls[1]);
+        expect(seq.targetIds).toEqual([targetId]);
+        expect(game(active).units[unitId]!.turnFlags.chargeDeclared).toBe(true);
+
+        const needed = Math.max(0.6, gap - 0.5); // end ~0.5" out: inside ER
+        if (seq.roll + 1e-6 >= needed) {
+          const cur = game(active).units[unitId]!;
+          const dir = towards(cur, game(active).units[targetId]!);
+          await qact(
+            active,
+            {
+              type: 'commitCharge',
+              player: active,
+              unitId,
+              positions: translated(cur, dir.x * needed, dir.y * needed),
+            },
+            (g2) => g2.charge === null && g2.units[unitId]!.turnFlags.moveKind === 'charge',
+            'leg2: commitCharge',
+          );
+          chargeCommitted = true;
+          expect(game(active).units[unitId]!.turnFlags.fightsFirst).toBe(true);
+        } else {
+          await qact(
+            active,
+            { type: 'failCharge', player: active, unitId },
+            (g2) => g2.charge === null,
+            'leg2: failCharge',
+          );
+          chargeFailed = true;
+          expect(game(active).units[unitId]!.turnFlags.moveKind).not.toBe('charge');
+        }
+      };
+
+      /** Drive one fight step to completion, respecting fight.selector
+       * ownership: the selecting STORE acts, whoever it is. */
+      const runFightStep = async (): Promise<void> => {
+        for (let guard = 0; guard < 6; guard++) {
+          await quiet(0);
+          const g = game(0);
+          if (
+            g.phase !== 'fight' ||
+            !g.fight ||
+            g.fight.stage !== 'select' ||
+            g.fight.selector === null
+          ) {
+            return;
+          }
+          const sel = g.fight.selector;
+          const fighter = Object.values(g.units).find(
+            (u) => u.owner === sel && canFightThisStep(g, u, datasheets),
+          );
+          if (!fighter) throw new Error(`selector ${sel} set but no eligible fighter found`);
+          await qact(
+            sel,
+            { type: 'selectFighter', player: sel, unitId: fighter.id },
+            (g2) => g2.fight?.activeUnitId === fighter.id && g2.fight.stage === 'pileIn',
+            `leg2: selectFighter ${fighter.id}`,
+          );
+          await qact(
+            sel,
+            {
+              type: 'pileIn',
+              player: sel,
+              unitId: fighter.id,
+              positions: currentPositions(game(sel).units[fighter.id]!),
+            },
+            (g2) => g2.fight?.stage === 'attacks',
+            'leg2: pileIn (stay put)',
+          );
+          const unit = game(sel).units[fighter.id]!;
+          const melee = Object.values(unit.weapons).find((w) => w.kind === 'melee');
+          const enemy = Object.values(game(sel).units).find(
+            (u) => u.owner !== sel && (unitEdgeDistance(unit, u, datasheets) ?? Infinity) <= 1,
+          );
+          if (melee && enemy) {
+            await qact(
+              sel,
+              {
+                type: 'declareMelee',
+                player: sel,
+                unitId: fighter.id,
+                assignments: [{ weaponId: melee.id, targetUnitId: enemy.id }],
+              },
+              (g2) => g2.pendingDecision?.kind === 'saves' || g2.fight?.stage === 'consolidate',
+              `leg2: declareMelee ${melee.id} -> ${enemy.id}`,
+            );
+            const decision = game(sel).pendingDecision;
+            if (decision && decision.kind === 'saves') {
+              const defender = decision.player;
+              expect(defender).toBe(other(sel));
+              await act(
+                defender,
+                { type: 'resolveSaves', player: defender },
+                (g2) => g2.fight?.stage === 'consolidate',
+                'leg2: melee resolveSaves by defender',
+              );
+              meleeSavesResolved = true;
+            }
+          } else {
+            await qact(
+              sel,
+              { type: 'declareMelee', player: sel, unitId: fighter.id, assignments: [] },
+              (g2) => g2.fight?.stage === 'consolidate',
+              'leg2: declareMelee (no attacks)',
+            );
+          }
+          await qact(
+            sel,
+            {
+              type: 'consolidate',
+              player: sel,
+              unitId: fighter.id,
+              positions: currentPositions(game(sel).units[fighter.id]!),
+            },
+            (g2) => (g2.fight?.fought ?? []).includes(fighter.id),
+            'leg2: consolidate (stay put)',
+          );
+          expect(game(sel).units[fighter.id]!.turnFlags.hasFought).toBe(true);
+        }
+      };
+
+      /** charge phase -> fight (both steps, with activations) -> next turn. */
+      const finishTurn = async (active: PlayerIndex): Promise<void> => {
+        await adv(active, (g) => g.phase === 'fight' && g.step === 'fightsFirst', 'leg2: -> fight');
+        await runFightStep();
+        await adv(active, (g) => g.step === 'remainingCombats', 'leg2: -> remainingCombats');
+        await runFightStep();
+        const round = game(active).round;
+        await adv(
+          active,
+          (g) =>
+            g.phase === 'ended' ||
+            (g.phase === 'command' && (g.activePlayer !== active || g.round > round)),
+          'leg2: -> next turn',
+        );
+      };
+
+      // --- finish the turn leg 1 left mid-shooting ----------------------
+      expect(game(0).phase).toBe('shooting');
+      {
+        const active = game(0).activePlayer;
+        await adv(active, (g) => g.phase === 'charge', 'leg2: -> charge');
+        await attemptCharge(active); // usually out of 12" this early
+        await finishTurn(active);
+      }
+
+      // --- close the gap turn by turn until a charge sticks --------------
+      for (let turn = 0; turn < 4 && !chargeCommitted && game(0).phase === 'command'; turn++) {
+        const active = game(0).activePlayer;
+        await adv(active, (g) => g.step === 'battleShock', `leg2 t${turn}: -> battleShock`);
+        await adv(active, (g) => g.phase === 'movement', `leg2 t${turn}: -> movement`);
+        await moveLaneCloser(active);
+        await adv(active, (g) => g.step === 'reinforcements', `leg2 t${turn}: -> reinforcements`);
+        await adv(active, (g) => g.phase === 'shooting', `leg2 t${turn}: -> shooting`);
+        await adv(active, (g) => g.phase === 'charge', `leg2 t${turn}: -> charge`);
+        await attemptCharge(active);
+        await finishTurn(active);
+      }
+
+      // A failed 2D6 is a legal outcome mid-run, but the closing strategy
+      // guarantees a committed charge within the retry budget (once the
+      // lanes sit 1.5" apart the required move is 1", i.e. any roll).
+      expect(chargeCommitted).toBe(true);
+      const log = game(0).log;
+      expect(log.some((l) => l.kind === 'charge' && /declares a charge/.test(l.message))).toBe(true);
+      expect(log.some((l) => l.kind === 'charge' && /charges into combat/.test(l.message))).toBe(true);
+      expect(log.some((l) => l.kind === 'fight' && /piles in/.test(l.message))).toBe(true);
+      expect(log.some((l) => l.kind === 'fight' && /consolidates/.test(l.message))).toBe(true);
+      if (chargeFailed) {
+        expect(log.some((l) => l.kind === 'charge' && /charge fails/i.test(l.message))).toBe(true);
+      }
+      // Surface which legs ran for the reporter.
+      // eslint-disable-next-line no-console
+      console.info(
+        `[fullGame leg 2] charge committed=${chargeCommitted} failedAttempts=${chargeFailed} meleeSaves=${meleeSavesResolved}`,
+      );
+
+      // --- no unexpected rejections in this leg --------------------------
+      expect(stores[0].getState().rejections.length).toBe(rejBase[0]);
+      expect(stores[1].getState().rejections.length).toBe(rejBase[1]);
+      driver.stop();
+    },
+    180_000,
   );
 });
