@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/commander-in-crisis-battlesuit",
   "name": "Commander in Crisis Battlesuit",
   "factionId": "tau-empire",
@@ -72,7 +72,58 @@
       "id": "core.leader"
     }
   ],
-  "abilities": [],
+  "abilities": [
+    {
+      "id": "tau.commander.crisis-commander",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "reroll",
+          "roll": "hit",
+          "dice": "ones"
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Crisis Commander",
+      "paraphrase": "The led unit re-rolls ranged hit rolls of 1."
+    },
+    {
+      "id": "tau.commander.shield-generator",
+      "trigger": "attack.beforeSaveRoll",
+      "effects": [
+        {
+          "type": "setInvulnerableSave",
+          "value": 4
+        }
+      ],
+      "condition": {
+        "bearerIs": "defender"
+      },
+      "name": "Shield Generator",
+      "paraphrase": "4+ invulnerable save."
+    },
+    {
+      "id": "tau.commander.support-system",
+      "trigger": "eligibility.shoot",
+      "effects": [
+        {
+          "type": "grantPermission",
+          "permission": "shootAfterFallBack"
+        }
+      ],
+      "name": "Battlesuit Support System",
+      "paraphrase": "May shoot after Falling Back."
+    }
+  ],
   "leader": {
     "canLead": []
   }

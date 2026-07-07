@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type {
   Datasheet,
   DeploymentMapDef,
+  DetachmentDef,
   EditionDef,
   EffectDef,
   FactionPack,
@@ -156,11 +157,15 @@ export function loadEditionContent(
 export interface LoadedFactionPack {
   pack: FactionPack;
   datasheets: Datasheet[];
+  detachments: DetachmentDef[];
+  /** Effect ids declared by this pack, in declaration order. */
+  effectIds: string[];
 }
 
 /**
- * Load one faction pack (faction.json + datasheets/*.json) from
- * content/factions/<editionId>/<factionId>/, validating every file.
+ * Load one faction pack (faction.json + datasheets/*.json +
+ * detachments/*.json) from content/factions/<editionId>/<factionId>/,
+ * validating every file.
  */
 export function loadFactionPack(
   editionId: string,
@@ -177,7 +182,29 @@ export function loadFactionPack(
       datasheets.push(loadJson(join(sheetsDir, file), 'datasheet') as Datasheet);
     }
   }
-  return { pack, datasheets };
+  const detachments: DetachmentDef[] = [];
+  const detachmentsDir = join(dir, 'detachments');
+  if (existsSync(detachmentsDir)) {
+    for (const file of readdirSync(detachmentsDir).sort()) {
+      if (!file.endsWith('.json')) continue;
+      detachments.push(loadJson(join(detachmentsDir, file), 'detachment') as DetachmentDef);
+    }
+  }
+
+  // Declaration order for deterministic effect resolution ties.
+  const effectIds: string[] = [];
+  const visit = (effects: { id: string }[]) => {
+    for (const e of effects) if (!effectIds.includes(e.id)) effectIds.push(e.id);
+  };
+  visit(pack.armyRule.effects);
+  for (const mechanic of pack.mechanics ?? []) visit(mechanic.effects);
+  for (const ds of datasheets) visit(ds.abilities);
+  for (const det of detachments) {
+    visit(det.rule.effects);
+    for (const e of det.enhancements) visit(e.effects);
+    for (const s of det.stratagems) visit(s.effects);
+  }
+  return { pack, datasheets, detachments, effectIds };
 }
 
 // ---------------------------------------------------------------------------

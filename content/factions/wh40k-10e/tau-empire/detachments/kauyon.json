@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau.kauyon",
+  "name": "Kauyon",
+  "rule": {
+    "name": "Patient Hunter",
+    "paraphrase": "From the third battle round, T'au Empire ranged weapons gain Sustained Hits 1, and Guided attacks against Spotted targets ignore hit-roll modifiers.",
+    "effects": [
+      {
+        "id": "tau.kauyon.sustained",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "T'au Empire" },
+            { "battleRoundAtLeast": 3 }
+          ]
+        },
+        "effects": [{ "type": "extraHitsOnCritical", "value": 1 }]
+      },
+      {
+        "id": "tau.kauyon.steady-aim",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "T'au Empire" },
+            { "battleRoundAtLeast": 3 },
+            { "targetHasToken": "spotted" },
+            { "not": { "bearerHasToken": "observer" } }
+          ]
+        },
+        "effects": [{ "type": "ignoreModifiers", "rolls": ["hit"] }]
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "tau.kauyon.exemplar",
+      "name": "Exemplar of the Kauyon",
+      "points": 20,
+      "eligibleKeywords": [],
+      "excludeKeywords": ["Kroot Shaper"],
+      "paraphrase": "The bearer's unit benefits from Patient Hunter one round early (from round 2).",
+      "effects": [
+        {
+          "id": "tau.kauyon.exemplar.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [
+              { "bearerIs": "attacker" },
+              { "weaponType": "ranged" },
+              { "battleRoundAtLeast": 2 },
+              { "not": { "battleRoundAtLeast": 3 } }
+            ]
+          },
+          "effects": [{ "type": "extraHitsOnCritical", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.precision-hunter",
+      "name": "Precision of the Patient Hunter",
+      "points": 15,
+      "eligibleKeywords": [],
+      "paraphrase": "+1 to the bearer's ranged hit rolls; from round 3, +1 to its wound rolls as well.",
+      "effects": [
+        {
+          "id": "tau.kauyon.precision-hunter.hit",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "ranged" }] },
+          "effects": [{ "type": "modifyRoll", "roll": "hit", "value": 1 }]
+        },
+        {
+          "id": "tau.kauyon.precision-hunter.wound",
+          "trigger": "attack.beforeWoundRoll",
+          "condition": {
+            "all": [
+              { "bearerIs": "attacker" },
+              { "weaponType": "ranged" },
+              { "battleRoundAtLeast": 3 }
+            ]
+          },
+          "effects": [{ "type": "modifyRoll", "roll": "wound", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.solid-image",
+      "name": "Solid-image Projection Unit",
+      "points": 30,
+      "eligibleKeywords": [],
+      "paraphrase": "After deployment, redeploy up to three T'au Empire units (Strategic Reserves allowed). Not yet automated.",
+      "effects": [
+        {
+          "id": "tau.kauyon.solid-image.effect",
+          "trigger": "deploy.setup",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kauyon.solid-image" }],
+          "scriptId": "todo.tau.kauyon.solid-image"
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.through-unity",
+      "name": "Through Unity, Devastation",
+      "points": 40,
+      "eligibleKeywords": [],
+      "excludeKeywords": ["Kroot Shaper"],
+      "paraphrase": "When the bearer's unit observes, Guided attacks on its Spotted target gain Lethal Hits. Not yet automated (cross-unit link).",
+      "effects": [
+        {
+          "id": "tau.kauyon.through-unity.effect",
+          "trigger": "attack.beforeHitRoll",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kauyon.through-unity" }],
+          "scriptId": "todo.tau.kauyon.through-unity"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "tau.kauyon.coordinate-to-engage",
+      "name": "Coordinate to Engage",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "An Observer unit's own attacks against its Spotted target gain BS +1 (and Ignores Cover with a Markerlight).",
+      "target": { "who": "friendly", "condition": { "bearerHasToken": "observer" } },
+      "effects": [
+        {
+          "id": "tau.kauyon.coordinate-to-engage.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [{ "bearerIs": "attacker" }, { "targetHasToken": "spotted" }]
+          },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "BS", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.point-blank-ambush",
+      "name": "Point-blank Ambush",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "From round 3: this unit's ranged attacks against enemies within 9\" get AP +1.",
+      "condition": { "battleRoundAtLeast": 3 },
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "tau.kauyon.point-blank-ambush.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "targetWithin": 9 }] },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.photon-grenades",
+      "name": "Photon Grenades",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["charge"],
+      "window": "charge.declared",
+      "paraphrase": "A charged Grenades unit dazzles the chargers: they take a Battle-shock test and suffer -2 to the charge roll.",
+      "target": { "who": "friendly", "keyword": "Grenades", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.kauyon.photon-grenades.shock",
+          "trigger": "charge.declared",
+          "effects": [{ "type": "forceBattleShockTest" }],
+          "duration": "instant"
+        },
+        {
+          "id": "tau.kauyon.photon-grenades.slow",
+          "trigger": "move.chargeRoll",
+          "effects": [{ "type": "modifyRoll", "roll": "charge", "value": -2 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.a-tempting-trap",
+      "name": "A Tempting Trap",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "paraphrase": "Wound bonus near your Trap objective. Not yet automated (persistent objective pick).",
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "tau.kauyon.a-tempting-trap.effect",
+          "trigger": "attack.beforeWoundRoll",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kauyon.a-tempting-trap" }],
+          "scriptId": "todo.tau.kauyon.a-tempting-trap"
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.wall-of-mirrors",
+      "name": "Wall of Mirrors",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["fight"],
+      "window": "lifecycle.phaseEnd",
+      "paraphrase": "A Stealth unit slips into Strategic Reserves. Not yet automated.",
+      "target": { "who": "friendly", "keyword": "Stealth" },
+      "effects": [
+        {
+          "id": "tau.kauyon.wall-of-mirrors.effect",
+          "trigger": "lifecycle.phaseEnd",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kauyon.wall-of-mirrors" }],
+          "scriptId": "todo.tau.kauyon.wall-of-mirrors"
+        }
+      ]
+    },
+    {
+      "id": "tau.kauyon.combat-embarkation",
+      "name": "Combat Embarkation",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["charge"],
+      "window": "charge.declared",
+      "paraphrase": "A charged Infantry unit embarks into a nearby Transport. Not yet automated (transports).",
+      "target": { "who": "friendly", "keyword": "Infantry", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.kauyon.combat-embarkation.effect",
+          "trigger": "charge.declared",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kauyon.combat-embarkation" }],
+          "scriptId": "todo.tau.kauyon.combat-embarkation"
+        }
+      ]
+    }
+  ]
+}

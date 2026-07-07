@@ -11,6 +11,7 @@ import { enqueueWindows, processWindowQueue } from './windows.js';
 import { getResolvers } from './windowReducer.js';
 import {
   aliveModels,
+  boundCharacteristicBonus,
   checkCoherency,
   enemyOf,
   isInEngagementRange,
@@ -70,7 +71,7 @@ export function reduceMovement(
       } else if (inER) {
         return reject('Units in Engagement Range can only Remain Stationary or Fall Back.');
       }
-      const maxMove = unitMaxMove(env, unit.datasheetId);
+      const maxMove = unitMaxMove(env, state, unit.id);
       if (action.kind === 'advance') {
         const draw = rollD6(state.rng, 1);
         const roll = draw.rolls[0] ?? 1;
@@ -130,7 +131,7 @@ export function reduceMovement(
         const dest = byId.get(model.id)!;
         const from = model.position;
         if (!from) return reject('Model has no current position.');
-        const budget = modelMove(env, unit.datasheetId, model.profileId) + (pending.advanceRoll ?? 0);
+        const budget = modelMove(env, state, unit.id, model.profileId) + (pending.advanceRoll ?? 0);
         const moved = distance(from, { x: dest.x, y: dest.y });
         if (moved > budget + 1e-6) {
           return reject(
@@ -460,13 +461,16 @@ function pointInEnemyZone(p: { x: number; y: number }, polygon: { x: number; y: 
   return pointInPolygon({ x: p.x, y: p.y }, polygon);
 }
 
-function unitMaxMove(env: ReducerEnv, datasheetId: string): number {
-  const ds = env.content.getDatasheet(datasheetId);
-  return Math.max(...(ds?.models.map((m) => m.move) ?? [6]));
+function unitMaxMove(env: ReducerEnv, state: GameState, unitId: string): number {
+  const unit = state.units[unitId]!;
+  const ds = env.content.getDatasheet(unit.datasheetId);
+  const base = Math.max(...(ds?.models.map((m) => m.move) ?? [6]));
+  return base + boundCharacteristicBonus(state, unitId, 'M', 'move.distance');
 }
 
-function modelMove(env: ReducerEnv, datasheetId: string, profileId: string): number {
-  const ds = env.content.getDatasheet(datasheetId);
+function modelMove(env: ReducerEnv, state: GameState, unitId: string, profileId: string): number {
+  const unit = state.units[unitId]!;
+  const ds = env.content.getDatasheet(unit.datasheetId);
   const profile = ds?.models.find((p) => p.id === profileId) ?? ds?.models[0];
-  return profile?.move ?? 6;
+  return (profile?.move ?? 6) + boundCharacteristicBonus(state, unitId, 'M', 'move.distance');
 }

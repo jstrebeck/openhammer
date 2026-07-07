@@ -1,12 +1,97 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire",
   "name": "T'au Empire",
+  "aliases": ["Tau Empire", "T'au"],
   "editionId": "wh40k-10e",
   "armyRule": {
     "name": "For the Greater Good",
-    "paraphrase": "Friendly units can spot for each other, sharpening the aim of guided ranged attacks.",
-    "effects": []
-  }
+    "paraphrase": "In your Shooting phase, units that have not shot may become Observers, each marking one visible enemy as Spotted for the phase. Other units are Guided against Spotted targets: their Ballistic Skill improves by 1, and if the Observer had a Markerlight, attacks also ignore cover.",
+    "effects": [
+      {
+        "id": "tau.ftgg.guided-bs",
+        "name": "Guided (BS +1)",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "T'au Empire" },
+            { "targetHasToken": "spotted" },
+            { "not": { "bearerHasToken": "observer" } }
+          ]
+        },
+        "effects": [{ "type": "modifyCharacteristic", "stat": "BS", "value": -1 }]
+      },
+      {
+        "id": "tau.ftgg.guided-markerlight",
+        "name": "Guided (Markerlight: Ignores Cover)",
+        "trigger": "attack.beforeSaveRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "T'au Empire" },
+            { "targetHasToken": "spotted-ml" },
+            { "not": { "bearerHasToken": "observer" } }
+          ]
+        },
+        "effects": [{ "type": "ignoreCover" }]
+      }
+    ]
+  },
+  "mechanics": [
+    {
+      "id": "tau.observe",
+      "name": "Spot a Target (For the Greater Good)",
+      "paraphrase": "This unit becomes an Observer and marks one visible enemy as Spotted until the end of the phase.",
+      "groupId": "tau.observe",
+      "timing": { "phase": ["shooting"], "player": "active" },
+      "user": {
+        "condition": {
+          "all": [{ "bearerHasKeyword": "T'au Empire" }, { "bearerHasNotShot": true }]
+        }
+      },
+      "target": {
+        "who": "enemy",
+        "condition": { "not": { "bearerHasToken": "spotted" } }
+      },
+      "limit": { "count": 1, "per": "phase", "scope": "unit" },
+      "applyTokens": [
+        { "to": "user", "token": "observer" },
+        { "to": "target", "token": "spotted" }
+      ],
+      "duration": "phase",
+      "effects": []
+    },
+    {
+      "id": "tau.observe-markerlight",
+      "name": "Spot with Markerlight (For the Greater Good)",
+      "paraphrase": "A Markerlight Observer marks a Spotted target; Guided attacks against it also ignore cover.",
+      "groupId": "tau.observe",
+      "timing": { "phase": ["shooting"], "player": "active" },
+      "user": {
+        "condition": {
+          "all": [
+            { "bearerHasKeyword": "T'au Empire" },
+            { "bearerHasKeyword": "Markerlight" },
+            { "bearerHasNotShot": true }
+          ]
+        }
+      },
+      "target": {
+        "who": "enemy",
+        "condition": { "not": { "bearerHasToken": "spotted" } }
+      },
+      "limit": { "count": 1, "per": "phase", "scope": "unit" },
+      "applyTokens": [
+        { "to": "user", "token": "observer" },
+        { "to": "target", "token": "spotted" },
+        { "to": "target", "token": "spotted-ml" }
+      ],
+      "duration": "phase",
+      "effects": []
+    }
+  ]
 }

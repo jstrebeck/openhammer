@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "astra-militarum/basilisk",
   "name": "Basilisk",
   "factionId": "astra-militarum",
@@ -95,5 +95,5 @@
     }
   ],
   "abilities": [],
-  "wargearNotes": "TODO m4: Deadly Demise D6 (non-numeric value)"
+  "wargearNotes": "TODO m4: Earthshaker Rounds (post-shot shake); Damaged profile (-1 hit at 1-4W)"
 }

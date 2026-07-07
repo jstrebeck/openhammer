@@ -327,7 +327,7 @@ describe('charge phase', () => {
     const declared = ok(
       reduce(state, { type: 'declareCharge', player: 0, unitId: 'chargers', targetIds: ['victims'] }, env),
     );
-    const roll = declared.charge!.roll;
+    const roll = declared.charge!.roll!;
     expect(roll).toBeGreaterThanOrEqual(2);
     expect(roll).toBeLessThanOrEqual(12);
     expect(declared.units['chargers']!.turnFlags.chargeDeclared).toBe(true);

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/strike-team",
   "name": "Strike Team",
   "factionId": "tau-empire",
@@ -86,5 +86,5 @@
   ],
   "coreAbilities": [],
   "abilities": [],
-  "wargearNotes": "TODO m4: Photon Grenades"
+  "wargearNotes": "TODO m4: Suppression Volley (post-shot hit debuff); DS8 Support Turret; Photon Grenades (charge-shock wargear)"
 }

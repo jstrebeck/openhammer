@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "am.hammer-of-the-emperor",
+  "name": "Hammer of the Emperor",
+  "rule": {
+    "name": "Iron Tread",
+    "paraphrase": "Squadron units advance a flat 6\" without rolling, grinding through the foe. (Advance-roll override not yet automated; the flat bonus applies via Move.)",
+    "effects": [
+      {
+        "id": "am.hammer.iron-tread",
+        "trigger": "move.advanceRoll",
+        "effects": [{ "type": "script", "scriptId": "todo.am.hammer.iron-tread" }],
+        "scriptId": "todo.am.hammer.iron-tread"
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "am.hammer.indomitable-steed",
+      "name": "Indomitable Steed",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer's unit gains Feel No Pain 6+.",
+      "effects": [
+        {
+          "id": "am.hammer.indomitable-steed.effect",
+          "trigger": "attack.feelNoPain",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "feelNoPain", "value": 6 }]
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.veteran-crew",
+      "name": "Veteran Crew",
+      "points": 20,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer's unit re-rolls ranged hit rolls of 1.",
+      "effects": [
+        {
+          "id": "am.hammer.veteran-crew.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "ranged" }] },
+          "effects": [{ "type": "reroll", "roll": "hit", "dice": "ones" }]
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.regimental-banner",
+      "name": "Regimental Banner",
+      "points": 20,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer stands +3 Objective Control taller.",
+      "effects": [
+        {
+          "id": "am.hammer.regimental-banner.effect",
+          "trigger": "scoring.objectiveControl",
+          "effects": [{ "type": "modifyCharacteristic", "stat": "OC", "value": 3 }]
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.calm-under-fire",
+      "name": "Calm Under Fire",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Once per turn, echo an Order to a second Squadron unit. Not yet automated.",
+      "effects": [
+        {
+          "id": "am.hammer.calm-under-fire.effect",
+          "trigger": "command.start",
+          "effects": [{ "type": "script", "scriptId": "todo.am.hammer.calm-under-fire" }],
+          "scriptId": "todo.am.hammer.calm-under-fire"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "am.hammer.furious-cannonade",
+      "name": "Furious Cannonade",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "A Squadron unit's attacks within 12\" gain AP +1 this phase.",
+      "target": { "who": "friendly", "keyword": "Squadron" },
+      "effects": [
+        {
+          "id": "am.hammer.furious-cannonade.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "targetWithin": 12 }] },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.blazing-advance",
+      "name": "Blazing Advance",
+      "cost": 1,
+      "player": "active",
+      "phase": ["movement"],
+      "window": "move.completed",
+      "activation": "proactive",
+      "paraphrase": "A Squadron unit that Advanced may still shoot this turn.",
+      "target": { "who": "friendly", "keyword": "Squadron" },
+      "effects": [
+        {
+          "id": "am.hammer.blazing-advance.effect",
+          "trigger": "eligibility.shoot",
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterAdvance" }],
+          "duration": "turn",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.tactical-withdrawal",
+      "name": "Tactical Withdrawal",
+      "cost": 1,
+      "player": "active",
+      "phase": ["movement"],
+      "window": "move.completed",
+      "activation": "proactive",
+      "paraphrase": "A Squadron unit that Fell Back may still shoot this turn.",
+      "target": { "who": "friendly", "keyword": "Squadron" },
+      "effects": [
+        {
+          "id": "am.hammer.tactical-withdrawal.effect",
+          "trigger": "eligibility.shoot",
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterFallBack" }],
+          "duration": "turn",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.final-hour",
+      "name": "Final Hour",
+      "cost": 1,
+      "player": "active",
+      "phase": ["command"],
+      "window": "lifecycle.phaseStart",
+      "activation": "proactive",
+      "paraphrase": "A crippled Squadron unit ignores hit modifiers until the round ends (Hazardous rider not yet automated).",
+      "target": {
+        "who": "friendly",
+        "keyword": "Squadron",
+        "condition": { "bearerBelowHalfStrength": true }
+      },
+      "effects": [
+        {
+          "id": "am.hammer.final-hour.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "bearerIs": "attacker" },
+          "effects": [{ "type": "ignoreModifiers", "rolls": ["hit"] }],
+          "duration": "round",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.ablative-plating",
+      "name": "Ablative Plating",
+      "cost": 2,
+      "player": "reactive",
+      "phase": ["shooting"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted Vehicle sheds damage: incoming attacks lose 1 Damage this phase.",
+      "target": { "who": "friendly", "keyword": "Vehicle", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "am.hammer.ablative-plating.effect",
+          "trigger": "attack.damage",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "modifyRoll", "roll": "damage", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.hammer.crash-through",
+      "name": "Crash Through",
+      "cost": 1,
+      "player": "active",
+      "phase": ["movement", "charge"],
+      "window": "move.completed",
+      "paraphrase": "A Vehicle drives through terrain as if it were not there. Not yet automated (terrain traversal).",
+      "target": { "who": "friendly", "keyword": "Vehicle" },
+      "effects": [
+        {
+          "id": "am.hammer.crash-through.effect",
+          "trigger": "move.distance",
+          "effects": [{ "type": "script", "scriptId": "todo.am.hammer.crash-through" }],
+          "scriptId": "todo.am.hammer.crash-through"
+        }
+      ]
+    }
+  ]
+}

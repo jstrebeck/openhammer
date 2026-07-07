@@ -10,8 +10,10 @@ import { enqueueWindows, processWindowQueue } from './windows.js';
 import { getResolvers } from './windowReducer.js';
 import {
   aliveModels,
+  boundRollModifier,
   checkCoherency,
   enemyOf,
+  hasActivePermission,
   positionsOnBoard,
   positionsOverlap,
   unitDistance,
@@ -42,10 +44,16 @@ export function reduceCharge(
       if (unit.turnFlags.chargeDeclared) {
         return reject(`${unit.name} has already attempted a charge this turn.`);
       }
-      if (unit.turnFlags.moveKind === 'advance') {
+      if (
+        unit.turnFlags.moveKind === 'advance' &&
+        !hasActivePermission(state, env.content, unit.id, 'chargeAfterAdvance')
+      ) {
         return reject('A unit that Advanced cannot charge.');
       }
-      if (unit.turnFlags.moveKind === 'fallBack') {
+      if (
+        unit.turnFlags.moveKind === 'fallBack' &&
+        !hasActivePermission(state, env.content, unit.id, 'chargeAfterFallBack')
+      ) {
         return reject('A unit that Fell Back cannot charge.');
       }
       if (isEngaged(state, env, unit.id)) {
@@ -63,15 +71,13 @@ export function reduceCharge(
         }
       }
 
-      const { total, rolls, rng } = roll2D6(state.rng);
       let next: GameState = {
         ...state,
-        rng,
         charge: {
           unitId: unit.id,
           targetIds: action.targetIds,
-          roll: total,
-          rolls: [rolls[0] ?? 1, rolls[1] ?? 1],
+          roll: null,
+          rolls: null,
         },
         units: {
           ...state.units,
@@ -86,16 +92,21 @@ export function reduceCharge(
         player: action.player,
         message: `${unit.name} declares a charge (${action.targetIds
           .map((t) => state.units[t]?.name)
-          .join(', ')}) — rolled ${rolls[0]}+${rolls[1]} = ${total}".`,
-        data: { unitId: unit.id, targetIds: action.targetIds, roll: total },
+          .join(', ')}).`,
+        data: { unitId: unit.id, targetIds: action.targetIds },
       });
-      // Command Re-roll window on the charge roll (the roller's own call).
+      // Reactive window BEFORE the dice (Photon Grenades and friends land
+      // their charge-roll penalties here), then the roll fires as follow-up.
       next = enqueueWindows(next, [
         {
-          hook: 'move.chargeRoll',
-          player: action.player,
-          followUp: { type: 'none' },
-          context: { kind: 'charge', unitId: unit.id },
+          hook: 'charge.declared',
+          player: enemyOf(action.player),
+          followUp: { type: 'rollCharge' },
+          context: {
+            chargingUnitId: unit.id,
+            targetIds: action.targetIds,
+            candidateUnitIds: action.targetIds,
+          },
         },
       ]);
       next = processWindowQueue(next, env, getResolvers());
@@ -107,6 +118,7 @@ export function reduceCharge(
       if (gate) return gate;
       const seq = state.charge;
       if (!seq || seq.unitId !== action.unitId) return reject('No charge to resolve for that unit.');
+      if (seq.roll === null) return reject('The charge roll has not happened yet.');
       const unit = state.units[action.unitId]!;
       if (unit.owner !== action.player) return reject('Not your unit.');
 
@@ -200,6 +212,7 @@ export function reduceCharge(
     case 'failCharge': {
       const seq = state.charge;
       if (!seq || seq.unitId !== action.unitId) return reject('No charge to fail for that unit.');
+      if (seq.roll === null) return reject('The charge roll has not happened yet.');
       const unit = state.units[action.unitId]!;
       if (unit.owner !== action.player) return reject('Not your unit.');
       let next: GameState = { ...state, charge: null };
@@ -235,6 +248,49 @@ function isEngaged(state: GameState, env: ReducerEnv, unitId: UnitId): boolean {
     if (d !== null && d <= er) return true;
   }
   return false;
+}
+
+/**
+ * The charge roll, fired as the follow-up of the charge.declared window:
+ * 2D6 plus any charge-roll modifiers bound to the charging unit, then a
+ * Command Re-roll window for the charger.
+ */
+export function rollChargeNow(state: GameState, env: ReducerEnv): GameState {
+  const seq = state.charge;
+  if (!seq || seq.roll !== null) return state;
+  const unit = state.units[seq.unitId];
+  if (!unit) return { ...state, charge: null };
+  const { total, rolls, rng } = roll2D6(state.rng);
+  const modifier = boundRollModifier(state, unit.id, 'charge');
+  const final = Math.max(0, total + modifier);
+  let next: GameState = {
+    ...state,
+    rng,
+    charge: {
+      ...seq,
+      roll: final,
+      rolls: [rolls[0] ?? 1, rolls[1] ?? 1],
+      ...(modifier !== 0 ? { modifier } : {}),
+    },
+  };
+  next = appendLog(next, {
+    kind: 'charge',
+    player: unit.owner,
+    message:
+      `${unit.name} rolls ${rolls[0]}+${rolls[1]}` +
+      (modifier !== 0 ? ` ${modifier > 0 ? '+' : ''}${modifier}` : '') +
+      ` = ${final}" for the charge.`,
+    data: { unitId: unit.id, roll: final, modifier },
+  });
+  next = enqueueWindows(next, [
+    {
+      hook: 'move.chargeRoll',
+      player: unit.owner,
+      followUp: { type: 'none' },
+      context: { kind: 'charge', unitId: unit.id },
+    },
+  ]);
+  return next;
 }
 
 /**

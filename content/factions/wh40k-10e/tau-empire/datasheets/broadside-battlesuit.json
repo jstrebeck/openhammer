@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/broadside-battlesuit",
   "name": "Broadside Battlesuit",
   "factionId": "tau-empire",
@@ -89,5 +89,31 @@
     }
   ],
   "coreAbilities": [],
-  "abilities": []
+  "abilities": [
+    {
+      "id": "tau.broadside.weapon-support",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "ignoreModifiers",
+          "rolls": [
+            "hit"
+          ]
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Weapon Support System",
+      "paraphrase": "Ignore hit-roll modifiers on ranged attacks."
+    }
+  ],
+  "wargearNotes": "TODO m4: Advanced Armour (FNP 4+ vs mortal wounds only)"
 }

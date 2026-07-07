@@ -103,6 +103,11 @@ export type Condition =
   | { bearerHasToken: string }
   | { attackerHasToken: string }
   | { targetHasToken: string }
+  | { bearerHasNotShot: true }
+  | { bearerArrivedFromReserves: true }
+  | { targetBelowStartingStrength: true }
+  | { targetBelowHalfStrength: true }
+  | { targetModelCountAtLeast: number }
   | { targetIsAttachedUnit: true }
   // Visibility (the LoS layer sets this on the context)
   | { targetNotVisible: true }
@@ -174,6 +179,7 @@ export type EffectPrimitive =
   | { type: 'setBattleShocked'; value: boolean }
   // --- battle-shock & morale ---
   | { type: 'autoPassBattleShock' }
+  | { type: 'forceBattleShockTest' }
   // --- escape hatch: a TS function in the pack's script registry ---
   | { type: 'script'; scriptId: string };
 
@@ -195,7 +201,18 @@ export type CharacteristicName =
 /** e.g. "D6", "2D6+1", "D3", "6" */
 export type DiceExpression = string;
 
-export type EffectDuration = 'instant' | 'phase' | 'turn' | 'round' | 'battle';
+/**
+ * untilOwnCommandPhase: expires when the SOURCE player's next command
+ * phase begins (the natural lifetime of Orders and similar buffs that
+ * must survive the opponent's turn).
+ */
+export type EffectDuration =
+  | 'instant'
+  | 'phase'
+  | 'turn'
+  | 'round'
+  | 'untilOwnCommandPhase'
+  | 'battle';
 
 export interface UsageLimit {
   count: number;
@@ -337,6 +354,11 @@ export interface StratagemDef {
   phase: string[]; // phase ids from edition.json; empty = any
   /** The reactive-window hook(s) this stratagem is offered in. */
   window: HookName | HookName[];
+  /**
+   * 'proactive' stratagems (own-turn buffs like "Your Shooting phase")
+   * are used directly from the UI rather than through a reactive window.
+   */
+  activation?: 'window' | 'proactive';
   paraphrase?: string;
   condition?: Condition;
   /** Targeting requirements the UI uses to pick a unit. */
@@ -346,6 +368,12 @@ export interface StratagemDef {
     condition?: Condition;
     /** Battle-shocked units cannot be stratagem targets unless set. */
     allowBattleShocked?: boolean;
+    /**
+     * Draw target candidates from the opening window's context (e.g.
+     * Overwatch: your units near the mover; Smokescreen: the units being
+     * shot). Without this, any legal unit on the board is a candidate.
+     */
+    fromWindowContext?: boolean;
   };
   effects: EffectDef[];
 }
@@ -370,6 +398,46 @@ export interface DetachmentDef {
   stratagems: StratagemDef[];
 }
 
+/**
+ * An activated faction mechanic (an order-style buff, a spotter/guided
+ * pairing): player-triggered via the useAbility action, validated and
+ * limited by the engine from this data.
+ */
+export interface MechanicDef {
+  id: string;
+  name: string;
+  paraphrase?: string;
+  /** Shared limiter group: mechanics with the same groupId share limits
+   * (an Officer issues ONE order per phase, whichever it is). */
+  groupId?: string;
+  timing: { phase: string[]; player: 'active' | 'either' };
+  /** Who activates it (the issuer/bearer unit). */
+  user: { keyword?: string; condition?: Condition };
+  /** Primary target (friendly unit receiving an Order, guided unit...). */
+  target?: {
+    who: 'friendly' | 'enemy';
+    keyword?: string;
+    condition?: Condition;
+    /** Max distance from the user unit, in inches. */
+    within?: number;
+  };
+  /** Optional second selection (e.g. the spotted enemy for FTGG). */
+  secondTarget?: { who: 'friendly' | 'enemy'; keyword?: string; within?: number };
+  /** Usage limit keyed by groupId (scope 'unit' = per user unit). */
+  limit?: UsageLimit;
+  /**
+   * A target can hold only one active mechanic of this group at a time
+   * (a new Order replaces the previous one).
+   */
+  exclusiveGroup?: string;
+  /** Tokens applied on use: to the target and/or second target. */
+  applyTokens?: { to: 'user' | 'target' | 'secondTarget'; token: string }[];
+  /** Duration of the applied tokens/effects. */
+  duration: EffectDuration;
+  /** Ongoing effects bound to the target while active. */
+  effects: EffectDef[];
+}
+
 export interface FactionPack {
   id: string;
   name: string;
@@ -378,8 +446,8 @@ export interface FactionPack {
   version: string;
   schemaVersion: number;
   armyRule: { name: string; paraphrase?: string; effects: EffectDef[] };
-  /** Faction mechanics (e.g. AM Orders) modeled as effect groups. */
-  mechanics?: { id: string; name: string; effects: EffectDef[] }[];
+  /** Faction mechanics (e.g. AM Orders) modeled as activated effects. */
+  mechanics?: MechanicDef[];
 }
 
 // ---------------------------------------------------------------------------

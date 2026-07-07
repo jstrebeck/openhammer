@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/cadre-fireblade",
   "name": "Cadre Fireblade",
   "factionId": "tau-empire",
@@ -69,8 +69,32 @@
       "id": "core.leader"
     }
   ],
-  "abilities": [],
+  "abilities": [
+    {
+      "id": "tau.fireblade.volley-fire",
+      "trigger": "attack.attacksCount",
+      "effects": [
+        {
+          "type": "addAttacks",
+          "value": 1
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Volley Fire",
+      "paraphrase": "+1 Attack on ranged weapons in the Fireblade-led unit."
+    }
+  ],
   "leader": {
     "canLead": []
-  }
+  },
+  "wargearNotes": "TODO m4: Crack Shot (AP -3 on critical wounds)"
 }

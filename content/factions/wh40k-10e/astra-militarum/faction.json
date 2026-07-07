@@ -1,12 +1,141 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "astra-militarum",
   "name": "Astra Militarum",
+  "aliases": ["Imperial Guard"],
   "editionId": "wh40k-10e",
   "armyRule": {
     "name": "Voice of Command",
-    "paraphrase": "Officers issue battlefield orders that temporarily bolster nearby regiment units.",
+    "paraphrase": "Officers issue one Order each in your Command phase to a Regiment unit within 6\". The Order lasts until the start of your next Command phase; a unit holds only one Order at a time and Battle-shocked units can neither give nor receive them.",
     "effects": []
-  }
+  },
+  "mechanics": [
+    {
+      "id": "am.order.move-move-move",
+      "name": "Move! Move! Move!",
+      "paraphrase": "Add 3\" to the Move characteristic of models in the ordered unit.",
+      "groupId": "am.orders",
+      "exclusiveGroup": "am.orders",
+      "timing": { "phase": ["command"], "player": "active" },
+      "user": { "keyword": "Officer" },
+      "target": { "who": "friendly", "keyword": "Regiment", "within": 6 },
+      "limit": { "count": 1, "per": "round", "scope": "unit" },
+      "applyTokens": [{ "to": "target", "token": "order:move-move-move" }],
+      "duration": "untilOwnCommandPhase",
+      "effects": [
+        {
+          "id": "am.order.move-move-move.effect",
+          "trigger": "move.distance",
+          "effects": [{ "type": "modifyCharacteristic", "stat": "M", "value": 3 }]
+        }
+      ]
+    },
+    {
+      "id": "am.order.fix-bayonets",
+      "name": "Fix Bayonets!",
+      "paraphrase": "Improve the Weapon Skill of the ordered unit's melee weapons by 1.",
+      "groupId": "am.orders",
+      "exclusiveGroup": "am.orders",
+      "timing": { "phase": ["command"], "player": "active" },
+      "user": { "keyword": "Officer" },
+      "target": { "who": "friendly", "keyword": "Regiment", "within": 6 },
+      "limit": { "count": 1, "per": "round", "scope": "unit" },
+      "applyTokens": [{ "to": "target", "token": "order:fix-bayonets" }],
+      "duration": "untilOwnCommandPhase",
+      "effects": [
+        {
+          "id": "am.order.fix-bayonets.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "melee" }] },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "WS", "value": -1 }]
+        }
+      ]
+    },
+    {
+      "id": "am.order.take-aim",
+      "name": "Take Aim!",
+      "paraphrase": "Improve the Ballistic Skill of the ordered unit's ranged weapons by 1.",
+      "groupId": "am.orders",
+      "exclusiveGroup": "am.orders",
+      "timing": { "phase": ["command"], "player": "active" },
+      "user": { "keyword": "Officer" },
+      "target": { "who": "friendly", "keyword": "Regiment", "within": 6 },
+      "limit": { "count": 1, "per": "round", "scope": "unit" },
+      "applyTokens": [{ "to": "target", "token": "order:take-aim" }],
+      "duration": "untilOwnCommandPhase",
+      "effects": [
+        {
+          "id": "am.order.take-aim.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "ranged" }] },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "BS", "value": -1 }]
+        }
+      ]
+    },
+    {
+      "id": "am.order.first-rank-fire",
+      "name": "First Rank, Fire! Second Rank, Fire!",
+      "paraphrase": "Rapid Fire weapons in the ordered unit gain +1 Attack.",
+      "groupId": "am.orders",
+      "exclusiveGroup": "am.orders",
+      "timing": { "phase": ["command"], "player": "active" },
+      "user": { "keyword": "Officer" },
+      "target": { "who": "friendly", "keyword": "Regiment", "within": 6 },
+      "limit": { "count": 1, "per": "round", "scope": "unit" },
+      "applyTokens": [{ "to": "target", "token": "order:first-rank-fire" }],
+      "duration": "untilOwnCommandPhase",
+      "effects": [
+        {
+          "id": "am.order.first-rank-fire.effect",
+          "trigger": "attack.attacksCount",
+          "condition": {
+            "all": [{ "bearerIs": "attacker" }, { "weaponHasAbility": "rapid-fire" }]
+          },
+          "effects": [{ "type": "addAttacks", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "am.order.take-cover",
+      "name": "Take Cover!",
+      "paraphrase": "Improve the Save characteristic of models in the ordered unit by 1 (never beyond 3+).",
+      "groupId": "am.orders",
+      "exclusiveGroup": "am.orders",
+      "timing": { "phase": ["command"], "player": "active" },
+      "user": { "keyword": "Officer" },
+      "target": { "who": "friendly", "keyword": "Regiment", "within": 6 },
+      "limit": { "count": 1, "per": "round", "scope": "unit" },
+      "applyTokens": [{ "to": "target", "token": "order:take-cover" }],
+      "duration": "untilOwnCommandPhase",
+      "effects": [
+        {
+          "id": "am.order.take-cover.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "modifyRoll", "roll": "save", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "am.order.duty-and-honour",
+      "name": "Duty and Honour!",
+      "paraphrase": "Improve the Leadership and Objective Control of models in the ordered unit by 1.",
+      "groupId": "am.orders",
+      "exclusiveGroup": "am.orders",
+      "timing": { "phase": ["command"], "player": "active" },
+      "user": { "keyword": "Officer" },
+      "target": { "who": "friendly", "keyword": "Regiment", "within": 6 },
+      "limit": { "count": 1, "per": "round", "scope": "unit" },
+      "applyTokens": [{ "to": "target", "token": "order:duty-and-honour" }],
+      "duration": "untilOwnCommandPhase",
+      "effects": [
+        {
+          "id": "am.order.duty-and-honour.effect",
+          "trigger": "scoring.objectiveControl",
+          "effects": [{ "type": "modifyCharacteristic", "stat": "OC", "value": 1 }]
+        }
+      ]
+    }
+  ]
 }

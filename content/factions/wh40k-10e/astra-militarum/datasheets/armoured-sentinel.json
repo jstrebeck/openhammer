@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "astra-militarum/armoured-sentinel",
   "name": "Armoured Sentinel",
   "factionId": "astra-militarum",
@@ -76,5 +76,36 @@
       "value": 1
     }
   ],
-  "abilities": []
+  "abilities": [
+    {
+      "id": "am.sentinel.hunter-killers",
+      "trigger": "attack.beforeWoundRoll",
+      "effects": [
+        {
+          "type": "reroll",
+          "roll": "wound",
+          "dice": "failed"
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "any": [
+              {
+                "targetHasKeyword": "Monster"
+              },
+              {
+                "targetHasKeyword": "Vehicle"
+              }
+            ]
+          }
+        ]
+      },
+      "name": "Mobile Hunter-killers",
+      "paraphrase": "Re-roll wounds against Monsters and Vehicles."
+    }
+  ]
 }

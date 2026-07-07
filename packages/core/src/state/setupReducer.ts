@@ -33,7 +33,9 @@ export function reduceSetup(
       action.type === 'deployUnit' ||
       action.type === 'setReserves' ||
       action.type === 'attachLeader' ||
-      action.type === 'scoutMove'
+      action.type === 'scoutMove' ||
+      action.type === 'chooseDetachment' ||
+      action.type === 'assignEnhancement'
     ) {
       return reject('Setup actions are only legal before the battle begins.');
     }
@@ -65,15 +67,108 @@ export function reduceSetup(
       }
       const rostersLoaded: [boolean, boolean] = [...setup.rostersLoaded];
       rostersLoaded[action.player] = true;
+      // Infer the player's faction from the first matched datasheet.
+      let factionId = state.players[action.player].factionId;
+      for (const unit of action.units) {
+        const ds = _env.content.getDatasheet(unit.datasheetId);
+        if (ds?.factionId) {
+          factionId = ds.factionId;
+          break;
+        }
+      }
+      const players: GameState['players'] = [state.players[0], state.players[1]];
+      players[action.player] = { ...players[action.player], factionId };
       let next: GameState = {
         ...state,
         units,
+        players,
         setup: { ...setup, rostersLoaded },
       };
       next = appendLog(next, {
         kind: 'roster',
         player: action.player,
         message: `${state.players[action.player].name} loaded a roster of ${action.units.length} unit(s).`,
+      });
+      return { ok: true, state: next };
+    }
+
+    case 'chooseDetachment': {
+      if (setup.attacker !== null) {
+        return reject('Detachments are locked once the roll-off is resolved.');
+      }
+      const player = state.players[action.player];
+      const options = _env.content.getDetachmentsFor?.(player.factionId) ?? [];
+      const detachment = options.find((d) => d.id === action.detachmentId);
+      if (!detachment) {
+        return reject(`${action.detachmentId} is not a detachment of your faction.`);
+      }
+      const players: GameState['players'] = [state.players[0], state.players[1]];
+      players[action.player] = { ...player, detachmentId: detachment.id };
+      let next: GameState = { ...state, players };
+      next = appendLog(next, {
+        kind: 'detachment',
+        player: action.player,
+        message: `${player.name} fields the ${detachment.name} detachment.`,
+      });
+      return { ok: true, state: next };
+    }
+
+    case 'assignEnhancement': {
+      if (setup.attacker !== null) {
+        return reject('Enhancements are locked once the roll-off is resolved.');
+      }
+      const unit = state.units[action.unitId];
+      if (!unit || unit.owner !== action.player) return reject('Not your unit.');
+      // Clearing an assignment is always fine.
+      if (action.enhancementId === null) {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            units: { ...state.units, [unit.id]: { ...unit, enhancementId: null } },
+          },
+        };
+      }
+      const player = state.players[action.player];
+      const detachment = _env.content.getDetachment?.(player.detachmentId);
+      const enhancement = detachment?.enhancements.find((e) => e.id === action.enhancementId);
+      if (!enhancement) {
+        return reject(`${action.enhancementId} is not an enhancement of your detachment.`);
+      }
+      const keywords = _env.content
+        .getUnitKeywords(state, unit.id)
+        .map((k) => k.toLowerCase());
+      if (!keywords.includes('character')) {
+        return reject('Enhancements can only be assigned to Character units.');
+      }
+      const ds = _env.content.getDatasheet(unit.datasheetId);
+      if (ds?.isEpicHero) return reject('Epic Heroes cannot take enhancements.');
+      if (
+        enhancement.eligibleKeywords.length > 0 &&
+        !enhancement.eligibleKeywords.some((k) => keywords.includes(k.toLowerCase()))
+      ) {
+        return reject(`${unit.name} is not eligible for ${enhancement.name}.`);
+      }
+      if (enhancement.excludeKeywords?.some((k) => keywords.includes(k.toLowerCase()))) {
+        return reject(`${unit.name} cannot take ${enhancement.name}.`);
+      }
+      const alreadyOn = Object.values(state.units).find(
+        (u) => u.owner === action.player && u.enhancementId === enhancement.id && u.id !== unit.id,
+      );
+      if (alreadyOn) {
+        return reject(`${enhancement.name} is already assigned to ${alreadyOn.name}.`);
+      }
+      if (unit.enhancementId && unit.enhancementId !== enhancement.id) {
+        return reject(`${unit.name} already has an enhancement (clear it first).`);
+      }
+      let next: GameState = {
+        ...state,
+        units: { ...state.units, [unit.id]: { ...unit, enhancementId: enhancement.id } },
+      };
+      next = appendLog(next, {
+        kind: 'enhancement',
+        player: action.player,
+        message: `${unit.name} takes ${enhancement.name} (+${enhancement.points} pts).`,
       });
       return { ok: true, state: next };
     }

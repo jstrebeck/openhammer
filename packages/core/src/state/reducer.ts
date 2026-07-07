@@ -1,6 +1,10 @@
 import type { EditionDef } from '../types/content.js';
-import type { GameState, LogEntry, PlayerIndex, UnitState } from '../types/state.js';
-import { sweepExpiredEffects, sweepUsageCounters } from '../effects/engine.js';
+import type { ActiveEffect, GameState, LogEntry, PlayerIndex, UnitState } from '../types/state.js';
+import {
+  sweepExpiredEffects,
+  sweepOwnCommandPhaseEffects,
+  sweepUsageCounters,
+} from '../effects/engine.js';
 import type { ActionResult, GameAction } from './actions.js';
 import type { ReducerEnv } from './env.js';
 import { reduceSetup } from './setupReducer.js';
@@ -8,6 +12,7 @@ import { reduceMovement } from './movementReducer.js';
 import { reduceShooting } from './shootingReducer.js';
 import { reduceCharge } from './chargeReducer.js';
 import { reduceFight, computeSelector } from './fightReducer.js';
+import { reduceAbility } from './abilityReducer.js';
 import { reduceWindow, getResolvers } from './windowReducer.js';
 import { clearOwnBattleShock, runOneBattleShockTest, unitsToTest } from './battleShock.js';
 import { enqueueWindows, processWindowQueue } from './windows.js';
@@ -67,6 +72,7 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
     reduceShooting,
     reduceCharge,
     reduceFight,
+    reduceAbility,
   ] as const;
   for (const sub of subReducers) {
     const result = sub(state, action, env);
@@ -156,8 +162,12 @@ function onEnterStep(state: GameState, env: ReducerEnv): GameState {
   }
 
   if (phase === 'command' && step === 'command') {
-    // "Until the start of your next Command phase" — shocks clear now.
+    // "Until the start of your next Command phase" — shocks and the
+    // active player's untilOwnCommandPhase effects (Orders etc.) clear now.
     next = clearOwnBattleShock(next);
+    const before = next.activeEffects;
+    const after = sweepOwnCommandPhaseEffects(before, next.activePlayer);
+    next = stripExpiredTokens({ ...next, activeEffects: after }, before, after);
   }
 
   if (step === 'battleShock') {
@@ -202,9 +212,11 @@ function onEnterStep(state: GameState, env: ReducerEnv): GameState {
 function advanceStepCore(state: GameState, env: ReducerEnv): GameState {
   const edition = env.content.edition;
 
-  // Leaving setup: enter the first phase of round 1 for the first player.
+  // Leaving setup: materialize battle-long army/detachment/enhancement
+  // effects, then enter the first phase of round 1 for the first player.
   if (state.phase === SETUP_PHASE) {
-    const next = { ...state, round: 1, activePlayer: state.firstPlayer };
+    let next = materializeArmyEffects(state, env);
+    next = { ...next, round: 1, activePlayer: next.firstPlayer };
     return enterPhase(next, edition, 0);
   }
 
@@ -288,6 +300,11 @@ function enterPhase(state: GameState, edition: EditionDef, phaseIndex: number): 
 
 function endPhase(state: GameState): GameState {
   let next = sweepUsageCounters(state, 'phase');
+  next = stripExpiredTokens(
+    next,
+    next.activeEffects,
+    sweepExpiredEffects(next.activeEffects, 'phase'),
+  );
   next = {
     ...next,
     activeEffects: sweepExpiredEffects(next.activeEffects, 'phase'),
@@ -307,6 +324,11 @@ function endPhase(state: GameState): GameState {
 
 function endTurn(state: GameState): GameState {
   let next = sweepUsageCounters(state, 'turn');
+  next = stripExpiredTokens(
+    next,
+    next.activeEffects,
+    sweepExpiredEffects(next.activeEffects, 'turn'),
+  );
   next = {
     ...next,
     activeEffects: sweepExpiredEffects(next.activeEffects, 'turn'),
@@ -334,6 +356,11 @@ function endTurn(state: GameState): GameState {
 
 function endRound(state: GameState): GameState {
   let next = sweepUsageCounters(state, 'round');
+  next = stripExpiredTokens(
+    next,
+    next.activeEffects,
+    sweepExpiredEffects(next.activeEffects, 'round'),
+  );
   next = {
     ...next,
     activeEffects: sweepExpiredEffects(next.activeEffects, 'round'),
@@ -402,6 +429,94 @@ function mapUnits(
   const out: Record<string, UnitState> = {};
   for (const [id, unit] of Object.entries(units)) out[id] = fn(unit);
   return out;
+}
+
+/**
+ * Tokens are removed together with the effect that planted them — unless
+ * another still-active effect grants the same token to the same unit.
+ */
+function stripExpiredTokens(
+  state: GameState,
+  before: ActiveEffect[],
+  after: ActiveEffect[],
+): GameState {
+  const kept = new Set(after.map((e) => e.instanceId));
+  const removed = before.filter((e) => !kept.has(e.instanceId) && (e.tokens?.length ?? 0) > 0);
+  if (removed.length === 0) return state;
+  const stillGranted = new Set(
+    after.flatMap((e) => (e.tokens ?? []).map((t) => `${t.unitId}|${t.token}`)),
+  );
+  let units = state.units;
+  for (const effect of removed) {
+    for (const t of effect.tokens!) {
+      if (stillGranted.has(`${t.unitId}|${t.token}`)) continue;
+      const unit = units[t.unitId];
+      if (!unit || !unit.tokens.includes(t.token)) continue;
+      units = {
+        ...units,
+        [t.unitId]: { ...unit, tokens: unit.tokens.filter((x) => x !== t.token) },
+      };
+    }
+  }
+  return units === state.units ? state : { ...state, units };
+}
+
+/**
+ * At battle start, register the battle-long content effects: each army's
+ * rule, each chosen detachment's rule, and per-unit enhancements.
+ */
+function materializeArmyEffects(state: GameState, env: ReducerEnv): GameState {
+  const effects: ActiveEffect[] = [...state.activeEffects];
+  let seq = 0;
+  const push = (
+    defs: import('../types/content.js').EffectDef[],
+    kind: string,
+    id: string,
+    player: PlayerIndex,
+    boundUnits: string[],
+  ) => {
+    for (const def of defs) {
+      effects.push({
+        instanceId: `${kind}:${id}:${def.id}:${seq++}`,
+        def,
+        source: { kind, id, player },
+        boundUnits,
+        duration: 'battle',
+        activatedAt: { round: 0, turn: player, phase: SETUP_PHASE },
+      });
+    }
+  };
+
+  let next = state;
+  for (const player of [0, 1] as const) {
+    const p = state.players[player];
+    const faction = env.content.getFaction?.(p.factionId);
+    if (faction) {
+      push(faction.armyRule.effects, 'armyRule', faction.id, player, []);
+      next = appendLog(next, {
+        kind: 'armyRule',
+        player,
+        message: `${p.name}'s army rule is active: ${faction.armyRule.name}.`,
+      });
+    }
+    const detachment = env.content.getDetachment?.(p.detachmentId);
+    if (detachment) {
+      push(detachment.rule.effects, 'detachment', detachment.id, player, []);
+      next = appendLog(next, {
+        kind: 'detachment',
+        player,
+        message: `${p.name}'s detachment rule is active: ${detachment.rule.name}.`,
+      });
+      for (const unit of Object.values(state.units)) {
+        if (unit.owner !== player || !unit.enhancementId) continue;
+        const enhancement = detachment.enhancements.find((e) => e.id === unit.enhancementId);
+        if (enhancement) {
+          push(enhancement.effects, 'enhancement', enhancement.id, player, [unit.id]);
+        }
+      }
+    }
+  }
+  return { ...next, activeEffects: effects };
 }
 
 export function appendLog(

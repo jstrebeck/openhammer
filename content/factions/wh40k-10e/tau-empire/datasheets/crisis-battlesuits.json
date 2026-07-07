@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/crisis-battlesuits",
   "name": "Crisis Battlesuits",
   "factionId": "tau-empire",
@@ -69,5 +69,43 @@
       "id": "core.deep-strike"
     }
   ],
-  "abilities": []
+  "abilities": [
+    {
+      "id": "tau.crisis.weapon-support",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "ignoreModifiers",
+          "rolls": [
+            "hit"
+          ]
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Weapon Support System",
+      "paraphrase": "Ignore hit-roll modifiers on ranged attacks."
+    },
+    {
+      "id": "tau.crisis.support-system",
+      "trigger": "eligibility.shoot",
+      "effects": [
+        {
+          "type": "grantPermission",
+          "permission": "shootAfterFallBack"
+        }
+      ],
+      "name": "Battlesuit Support System",
+      "paraphrase": "May shoot after Falling Back."
+    }
+  ],
+  "wargearNotes": "TODO m4: Shield Generator (wargear 4++ variant); Turbo-jets (flat advance)"
 }

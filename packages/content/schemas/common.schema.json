@@ -4,15 +4,37 @@
   "$defs": {
     "diceExpression": {
       "oneOf": [
-        { "type": "number" },
-        { "type": "string", "pattern": "^\\s*(\\d*[dD][36])?\\s*([+-]\\s*\\d+)?\\s*$|^\\d+$" },
-        { "type": "string", "enum": ["$X"] }
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "pattern": "^\\s*(\\d*[dD][36])?\\s*([+-]\\s*\\d+)?\\s*$|^\\d+$"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "$X"
+          ]
+        }
       ]
     },
     "numberOrParam": {
-      "oneOf": [{ "type": "number" }, { "type": "string", "enum": ["$X"] }]
+      "oneOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "$X"
+          ]
+        }
+      ]
     },
-    "stringOrParam": { "type": "string" },
+    "stringOrParam": {
+      "type": "string"
+    },
     "hookName": {
       "type": "string",
       "enum": [
@@ -63,49 +85,156 @@
     },
     "duration": {
       "type": "string",
-      "enum": ["instant", "phase", "turn", "round", "battle"]
+      "enum": [
+        "instant",
+        "phase",
+        "turn",
+        "round",
+        "untilOwnCommandPhase",
+        "battle"
+      ]
     },
     "rollKind": {
       "type": "string",
-      "enum": ["hit", "wound", "save", "damage", "advance", "charge", "battleShock", "desperateEscape", "hazardous"]
+      "enum": [
+        "hit",
+        "wound",
+        "save",
+        "damage",
+        "advance",
+        "charge",
+        "battleShock",
+        "desperateEscape",
+        "hazardous"
+      ]
     },
     "condition": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": false,
       "properties": {
-        "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
-        "any": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
-        "not": { "$ref": "#/$defs/condition" },
-        "bearerIs": { "type": "string", "enum": ["attacker", "defender", "activeUnit"] },
-        "attackerHasKeyword": { "type": "string" },
-        "targetHasKeyword": { "type": "string" },
-        "bearerHasKeyword": { "type": "string" },
-        "weaponType": { "type": "string", "enum": ["ranged", "melee"] },
-        "weaponHasAbility": { "type": "string" },
-        "targetWithinHalfRange": { "const": true },
-        "targetFurtherThan": { "$ref": "#/$defs/numberOrParam" },
-        "targetWithin": { "type": "number" },
-        "phaseIs": { "type": "string" },
-        "turnIs": { "type": "string", "enum": ["own", "opponent"] },
-        "battleRoundAtLeast": { "type": "number" },
-        "bearerRemainedStationary": { "const": true },
-        "bearerAdvanced": { "const": true },
-        "bearerFellBack": { "const": true },
-        "bearerCharged": { "const": true },
-        "bearerBelowHalfStrength": { "const": true },
-        "bearerIsBattleShocked": { "const": true },
-        "bearerHasToken": { "type": "string" },
-        "attackerHasToken": { "type": "string" },
-        "targetHasToken": { "type": "string" },
-        "targetIsAttachedUnit": { "const": true },
-        "targetNotVisible": { "const": true },
-        "script": { "type": "string" }
+        "all": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        },
+        "any": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        },
+        "not": {
+          "$ref": "#/$defs/condition"
+        },
+        "bearerIs": {
+          "type": "string",
+          "enum": [
+            "attacker",
+            "defender",
+            "activeUnit"
+          ]
+        },
+        "attackerHasKeyword": {
+          "type": "string"
+        },
+        "targetHasKeyword": {
+          "type": "string"
+        },
+        "bearerHasKeyword": {
+          "type": "string"
+        },
+        "weaponType": {
+          "type": "string",
+          "enum": [
+            "ranged",
+            "melee"
+          ]
+        },
+        "weaponHasAbility": {
+          "type": "string"
+        },
+        "targetWithinHalfRange": {
+          "const": true
+        },
+        "targetFurtherThan": {
+          "$ref": "#/$defs/numberOrParam"
+        },
+        "targetWithin": {
+          "type": "number"
+        },
+        "phaseIs": {
+          "type": "string"
+        },
+        "turnIs": {
+          "type": "string",
+          "enum": [
+            "own",
+            "opponent"
+          ]
+        },
+        "battleRoundAtLeast": {
+          "type": "number"
+        },
+        "bearerRemainedStationary": {
+          "const": true
+        },
+        "bearerAdvanced": {
+          "const": true
+        },
+        "bearerFellBack": {
+          "const": true
+        },
+        "bearerCharged": {
+          "const": true
+        },
+        "bearerBelowHalfStrength": {
+          "const": true
+        },
+        "bearerIsBattleShocked": {
+          "const": true
+        },
+        "bearerHasToken": {
+          "type": "string"
+        },
+        "attackerHasToken": {
+          "type": "string"
+        },
+        "targetHasToken": {
+          "type": "string"
+        },
+        "targetIsAttachedUnit": {
+          "const": true
+        },
+        "targetNotVisible": {
+          "const": true
+        },
+        "script": {
+          "type": "string"
+        },
+        "bearerHasNotShot": {
+          "const": true
+        },
+        "bearerArrivedFromReserves": {
+          "const": true
+        },
+        "targetBelowStartingStrength": {
+          "const": true
+        },
+        "targetBelowHalfStrength": {
+          "const": true
+        },
+        "targetModelCountAtLeast": {
+          "type": "number"
+        }
       }
     },
     "effectPrimitive": {
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
         "type": {
           "type": "string",
@@ -142,77 +271,220 @@
             "removeToken",
             "setBattleShocked",
             "autoPassBattleShock",
-            "script"
+            "script",
+            "forceBattleShockTest"
           ]
         },
-        "roll": { "$ref": "#/$defs/rollKind" },
+        "roll": {
+          "$ref": "#/$defs/rollKind"
+        },
         "value": {
           "anyOf": [
-            { "$ref": "#/$defs/numberOrParam" },
-            { "type": "boolean" },
-            { "type": "string" }
+            {
+              "$ref": "#/$defs/numberOrParam"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
           ]
         },
-        "dice": { "type": "string", "enum": ["failed", "ones", "any"] },
-        "per": { "type": "number" },
-        "stat": { "type": "string", "enum": ["M", "T", "SV", "W", "LD", "OC", "A", "BS", "WS", "S", "AP", "D", "range"] },
-        "rolls": { "type": "array", "items": { "$ref": "#/$defs/rollKind" } },
-        "keyword": { "type": "string" },
-        "abilityId": { "type": "string" },
+        "dice": {
+          "type": "string",
+          "enum": [
+            "failed",
+            "ones",
+            "any"
+          ]
+        },
+        "per": {
+          "type": "number"
+        },
+        "stat": {
+          "type": "string",
+          "enum": [
+            "M",
+            "T",
+            "SV",
+            "W",
+            "LD",
+            "OC",
+            "A",
+            "BS",
+            "WS",
+            "S",
+            "AP",
+            "D",
+            "range"
+          ]
+        },
+        "rolls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rollKind"
+          }
+        },
+        "keyword": {
+          "type": "string"
+        },
+        "abilityId": {
+          "type": "string"
+        },
         "permission": {
           "type": "string",
-          "enum": ["shootAfterAdvance", "chargeAfterAdvance", "shootAfterFallBack", "chargeAfterFallBack", "shootInEngagement", "targetNonVisible"]
+          "enum": [
+            "shootAfterAdvance",
+            "chargeAfterAdvance",
+            "shootAfterFallBack",
+            "chargeAfterFallBack",
+            "shootInEngagement",
+            "targetNonVisible"
+          ]
         },
-        "what": { "type": "string", "enum": ["target", "shoot", "charge", "move", "fallBack"] },
-        "reason": { "type": "string" },
-        "token": { "type": "string" },
-        "duration": { "$ref": "#/$defs/duration" },
-        "scriptId": { "type": "string" }
+        "what": {
+          "type": "string",
+          "enum": [
+            "target",
+            "shoot",
+            "charge",
+            "move",
+            "fallBack"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "duration": {
+          "$ref": "#/$defs/duration"
+        },
+        "scriptId": {
+          "type": "string"
+        }
       }
     },
     "usageLimit": {
       "type": "object",
-      "required": ["count", "per"],
+      "required": [
+        "count",
+        "per"
+      ],
       "additionalProperties": false,
       "properties": {
-        "count": { "type": "number" },
-        "per": { "type": "string", "enum": ["battle", "round", "turn", "phase"] },
-        "scope": { "type": "string", "enum": ["army", "unit", "model"] }
+        "count": {
+          "type": "number"
+        },
+        "per": {
+          "type": "string",
+          "enum": [
+            "battle",
+            "round",
+            "turn",
+            "phase"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "army",
+            "unit",
+            "model"
+          ]
+        }
       }
     },
     "effectDef": {
       "type": "object",
-      "required": ["id", "trigger", "effects"],
+      "required": [
+        "id",
+        "trigger",
+        "effects"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "name": { "type": "string" },
-        "paraphrase": { "type": "string" },
-        "trigger": { "$ref": "#/$defs/hookName" },
-        "condition": { "$ref": "#/$defs/condition" },
-        "effects": { "type": "array", "items": { "$ref": "#/$defs/effectPrimitive" } },
-        "duration": { "$ref": "#/$defs/duration" },
-        "scope": { "type": "string", "enum": ["self", "model", "unit", "army"] },
-        "aura": {
-          "type": "object",
-          "required": ["range", "affects"],
-          "additionalProperties": false,
-          "properties": {
-            "range": { "type": "number" },
-            "affects": { "type": "string", "enum": ["friendly", "enemy", "any"] },
-            "condition": { "$ref": "#/$defs/condition" }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "paraphrase": {
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/hookName"
+        },
+        "condition": {
+          "$ref": "#/$defs/condition"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effectPrimitive"
           }
         },
-        "limit": { "$ref": "#/$defs/usageLimit" },
-        "scriptId": { "type": "string" }
+        "duration": {
+          "$ref": "#/$defs/duration"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "self",
+            "model",
+            "unit",
+            "army"
+          ]
+        },
+        "aura": {
+          "type": "object",
+          "required": [
+            "range",
+            "affects"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "range": {
+              "type": "number"
+            },
+            "affects": {
+              "type": "string",
+              "enum": [
+                "friendly",
+                "enemy",
+                "any"
+              ]
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            }
+          }
+        },
+        "limit": {
+          "$ref": "#/$defs/usageLimit"
+        },
+        "scriptId": {
+          "type": "string"
+        }
       }
     },
     "packHeader": {
       "type": "object",
-      "required": ["schemaVersion", "version"],
+      "required": [
+        "schemaVersion",
+        "version"
+      ],
       "properties": {
-        "schemaVersion": { "type": "number" },
-        "version": { "type": "string" }
+        "schemaVersion": {
+          "type": "number"
+        },
+        "version": {
+          "type": "string"
+        }
       }
     }
   }

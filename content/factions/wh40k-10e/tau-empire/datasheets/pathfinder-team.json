@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/pathfinder-team",
   "name": "Pathfinder Team",
   "factionId": "tau-empire",
@@ -72,5 +72,57 @@
       "id": "core.infiltrators"
     }
   ],
-  "abilities": []
+  "abilities": [
+    {
+      "id": "tau.pathfinder.target-uploaded-bs",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "modifyCharacteristic",
+          "stat": "BS",
+          "value": -1
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          },
+          {
+            "targetHasToken": "spotted"
+          }
+        ]
+      },
+      "name": "Target Uploaded (BS)",
+      "paraphrase": "BS +1 against Spotted targets."
+    },
+    {
+      "id": "tau.pathfinder.target-uploaded-cover",
+      "trigger": "attack.beforeSaveRoll",
+      "effects": [
+        {
+          "type": "ignoreCover"
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          },
+          {
+            "targetHasToken": "spotted"
+          }
+        ]
+      },
+      "name": "Target Uploaded (Ignores Cover)",
+      "paraphrase": "Ignores cover against Spotted targets."
+    }
+  ],
+  "wargearNotes": "TODO m4: Grav-inhibitor Drone (charge -2 vs chargers); Pulse Accelerator Drone (+6\" pulse carbines); Recon Drone (Infiltrators)"
 }

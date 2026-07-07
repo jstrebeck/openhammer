@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau.montka",
+  "name": "Mont'ka",
+  "rule": {
+    "name": "Killing Blow",
+    "paraphrase": "During battle rounds 1-3, T'au Empire ranged weapons are Assault, and Guided units' ranged weapons gain Lethal Hits against Spotted targets.",
+    "effects": [
+      {
+        "id": "tau.montka.assault",
+        "trigger": "eligibility.shoot",
+        "condition": {
+          "all": [
+            { "bearerHasKeyword": "T'au Empire" },
+            { "not": { "battleRoundAtLeast": 4 } }
+          ]
+        },
+        "effects": [{ "type": "grantPermission", "permission": "shootAfterAdvance" }]
+      },
+      {
+        "id": "tau.montka.lethal",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "T'au Empire" },
+            { "not": { "battleRoundAtLeast": 4 } },
+            { "targetHasToken": "spotted" },
+            { "not": { "bearerHasToken": "observer" } }
+          ]
+        },
+        "effects": [{ "type": "criticalHitsAutoWound" }]
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "tau.montka.exemplar",
+      "name": "Exemplar of the Mont'ka",
+      "points": 10,
+      "eligibleKeywords": [],
+      "excludeKeywords": ["Kroot Shaper"],
+      "paraphrase": "The bearer's unit keeps Killing Blow through round 4.",
+      "effects": [
+        {
+          "id": "tau.montka.exemplar.lethal",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [
+              { "bearerIs": "attacker" },
+              { "weaponType": "ranged" },
+              { "battleRoundAtLeast": 4 },
+              { "not": { "battleRoundAtLeast": 5 } },
+              { "targetHasToken": "spotted" }
+            ]
+          },
+          "effects": [{ "type": "criticalHitsAutoWound" }]
+        },
+        {
+          "id": "tau.montka.exemplar.assault",
+          "trigger": "eligibility.shoot",
+          "condition": {
+            "all": [{ "battleRoundAtLeast": 4 }, { "not": { "battleRoundAtLeast": 5 } }]
+          },
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterAdvance" }]
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.strategic-conqueror",
+      "name": "Strategic Conqueror",
+      "points": 15,
+      "eligibleKeywords": [],
+      "paraphrase": "OC +1 for friendly models on your chosen objective. Not yet automated (objective pick).",
+      "effects": [
+        {
+          "id": "tau.montka.strategic-conqueror.effect",
+          "trigger": "scoring.objectiveControl",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.montka.strategic-conqueror" }],
+          "scriptId": "todo.tau.montka.strategic-conqueror"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.strike-swiftly",
+      "name": "Strike Swiftly",
+      "points": 25,
+      "eligibleKeywords": [],
+      "paraphrase": "Grants Scouts 6\" to two nearby units pre-battle. Not yet automated.",
+      "effects": [
+        {
+          "id": "tau.montka.strike-swiftly.effect",
+          "trigger": "deploy.setup",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.montka.strike-swiftly" }],
+          "scriptId": "todo.tau.montka.strike-swiftly"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.coordinated-exploitation",
+      "name": "Coordinated Exploitation",
+      "points": 40,
+      "eligibleKeywords": [],
+      "excludeKeywords": ["Kroot Shaper"],
+      "paraphrase": "When the bearer's unit observes, Guided attacks on its Spotted target gain Sustained Hits 1. Not yet automated (cross-unit link).",
+      "effects": [
+        {
+          "id": "tau.montka.coordinated-exploitation.effect",
+          "trigger": "attack.beforeHitRoll",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.montka.coordinated-exploitation" }],
+          "scriptId": "todo.tau.montka.coordinated-exploitation"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "tau.montka.focused-fire",
+      "name": "Focused Fire",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "This unit concentrates fire: AP +1 on all its attacks this phase (rounds 1-3).",
+      "condition": { "not": { "battleRoundAtLeast": 4 } },
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "tau.montka.focused-fire.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "bearerIs": "attacker" },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.pulse-onslaught",
+      "name": "Pulse Onslaught",
+      "cost": 2,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "Shake an enemy unit: -2\" Move and -2 to its Charge rolls until your next Command phase.",
+      "target": { "who": "enemy" },
+      "effects": [
+        {
+          "id": "tau.montka.pulse-onslaught.move",
+          "trigger": "move.distance",
+          "effects": [{ "type": "modifyCharacteristic", "stat": "M", "value": -2 }],
+          "duration": "untilOwnCommandPhase",
+          "scope": "unit"
+        },
+        {
+          "id": "tau.montka.pulse-onslaught.charge",
+          "trigger": "move.chargeRoll",
+          "effects": [{ "type": "modifyRoll", "roll": "charge", "value": -2 }],
+          "duration": "untilOwnCommandPhase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.counterfire-defence",
+      "name": "Counterfire Defence Systems",
+      "cost": 2,
+      "player": "reactive",
+      "phase": ["shooting"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted T'au unit's incoming attacks lose 1 Damage this phase.",
+      "target": { "who": "friendly", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.montka.counterfire-defence.effect",
+          "trigger": "attack.damage",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "modifyRoll", "roll": "damage", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.aggressive-mobility",
+      "name": "Aggressive Mobility",
+      "cost": 1,
+      "player": "active",
+      "phase": ["movement"],
+      "window": "move.completed",
+      "paraphrase": "Advance without rolling: flat +6\". Not yet automated (advance override).",
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "tau.montka.aggressive-mobility.effect",
+          "trigger": "move.advanceRoll",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.montka.aggressive-mobility" }],
+          "scriptId": "todo.tau.montka.aggressive-mobility"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.pinpoint-counter-offensive",
+      "name": "Pinpoint Counter-offensive",
+      "cost": 1,
+      "player": "either",
+      "phase": [],
+      "window": "unit.destroyed",
+      "paraphrase": "Avenge a destroyed unit with battle-long hit re-rolls. Not yet automated.",
+      "target": { "who": "enemy" },
+      "effects": [
+        {
+          "id": "tau.montka.pinpoint-counter-offensive.effect",
+          "trigger": "unit.destroyed",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.montka.pinpoint" }],
+          "scriptId": "todo.tau.montka.pinpoint"
+        }
+      ]
+    },
+    {
+      "id": "tau.montka.combat-debarkation",
+      "name": "Combat Debarkation",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "paraphrase": "Disembarked unit re-rolls wounds vs the closest enemy. Not yet automated (transports).",
+      "target": { "who": "friendly", "keyword": "Infantry" },
+      "effects": [
+        {
+          "id": "tau.montka.combat-debarkation.effect",
+          "trigger": "attack.beforeWoundRoll",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.montka.combat-debarkation" }],
+          "scriptId": "todo.tau.montka.combat-debarkation"
+        }
+      ]
+    }
+  ]
+}

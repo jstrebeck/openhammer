@@ -88,6 +88,28 @@ export function evalCondition(cond: Condition | undefined, ctx: HookContext): bo
 
   if ('targetNotVisible' in cond) return ctx.targetVisible === false;
 
+  if ('bearerHasNotShot' in cond) {
+    const unit = ctx.bearerUnitId ? ctx.state.units[ctx.bearerUnitId] : undefined;
+    return unit ? !unit.turnFlags.hasShot : false;
+  }
+  if ('bearerArrivedFromReserves' in cond) {
+    const unit = ctx.bearerUnitId ? ctx.state.units[ctx.bearerUnitId] : undefined;
+    return unit?.turnFlags.arrivedFromReserves ?? false;
+  }
+  if ('targetBelowStartingStrength' in cond) {
+    const unit = ctx.targetUnitId ? ctx.state.units[ctx.targetUnitId] : undefined;
+    if (!unit) return false;
+    return unit.models.filter((m) => !m.destroyed).length < unit.startingStrength;
+  }
+  if ('targetBelowHalfStrength' in cond) {
+    return ctx.targetUnitId ? isBelowHalfStrength(ctx, ctx.targetUnitId) : false;
+  }
+  if ('targetModelCountAtLeast' in cond) {
+    const unit = ctx.targetUnitId ? ctx.state.units[ctx.targetUnitId] : undefined;
+    if (!unit) return false;
+    return unit.models.filter((m) => !m.destroyed).length >= cond.targetModelCountAtLeast;
+  }
+
   if ('script' in cond) return false; // resolved by the script registry layer
 
   return false;

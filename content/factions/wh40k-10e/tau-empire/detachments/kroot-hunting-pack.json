@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau.kroot-hunting-pack",
+  "name": "Kroot Hunting Pack",
+  "rule": {
+    "name": "Hunter's Instincts / Skirmish Fighters",
+    "paraphrase": "Kroot get +1 to hit targets below Starting Strength (+1 to wound if Below Half-strength), and carry a 5+ invulnerable save against ranged attacks / 6+ against melee.",
+    "effects": [
+      {
+        "id": "tau.kroot.instincts-hit",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "bearerHasKeyword": "Kroot" },
+            { "targetBelowStartingStrength": true }
+          ]
+        },
+        "effects": [{ "type": "modifyRoll", "roll": "hit", "value": 1 }]
+      },
+      {
+        "id": "tau.kroot.instincts-wound",
+        "trigger": "attack.beforeWoundRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "bearerHasKeyword": "Kroot" },
+            { "targetBelowHalfStrength": true }
+          ]
+        },
+        "effects": [{ "type": "modifyRoll", "roll": "wound", "value": 1 }]
+      },
+      {
+        "id": "tau.kroot.skirmish-ranged",
+        "trigger": "attack.beforeSaveRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "defender" },
+            { "bearerHasKeyword": "Kroot" },
+            { "weaponType": "ranged" }
+          ]
+        },
+        "effects": [{ "type": "setInvulnerableSave", "value": 5 }]
+      },
+      {
+        "id": "tau.kroot.skirmish-melee",
+        "trigger": "attack.beforeSaveRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "defender" },
+            { "bearerHasKeyword": "Kroot" },
+            { "weaponType": "melee" }
+          ]
+        },
+        "effects": [{ "type": "setInvulnerableSave", "value": 6 }]
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "tau.kroot.borthrod-gland",
+      "name": "Borthrod Gland",
+      "points": 15,
+      "eligibleKeywords": ["Kroot"],
+      "paraphrase": "The bearer's unit scores melee Critical Hits on 5+.",
+      "effects": [
+        {
+          "id": "tau.kroot.borthrod-gland.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "melee" }] },
+          "effects": [{ "type": "setCriticalHitOn", "value": 5 }]
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.kroothawk-flock",
+      "name": "Kroothawk Flock",
+      "points": 10,
+      "eligibleKeywords": ["Kroot"],
+      "paraphrase": "The bearer's unit's ranged weapons ignore cover (reserve-denial aura not yet automated).",
+      "effects": [
+        {
+          "id": "tau.kroot.kroothawk-flock.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "ranged" }] },
+          "effects": [{ "type": "ignoreCover" }]
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.nomadic-hunter",
+      "name": "Nomadic Hunter",
+      "points": 20,
+      "eligibleKeywords": ["Kroot"],
+      "paraphrase": "The bearer's unit moves 3\" further and its ranged weapons are Assault.",
+      "effects": [
+        {
+          "id": "tau.kroot.nomadic-hunter.move",
+          "trigger": "move.distance",
+          "effects": [{ "type": "modifyCharacteristic", "stat": "M", "value": 3 }]
+        },
+        {
+          "id": "tau.kroot.nomadic-hunter.assault",
+          "trigger": "eligibility.shoot",
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterAdvance" }]
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.root-carved-weapons",
+      "name": "Root-carved Weapons",
+      "points": 10,
+      "eligibleKeywords": ["Kroot"],
+      "paraphrase": "The bearer's weapons gain Precision and Devastating Wounds.",
+      "effects": [
+        {
+          "id": "tau.kroot.root-carved.devastating",
+          "trigger": "attack.beforeWoundRoll",
+          "condition": { "bearerIs": "attacker" },
+          "effects": [{ "type": "criticalWoundsBecomeMortal" }]
+        },
+        {
+          "id": "tau.kroot.root-carved.precision",
+          "trigger": "attack.allocate",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "targetIsAttachedUnit": true }] },
+          "effects": [{ "type": "allocatePrecision" }]
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "tau.kroot.guerrilla-warriors",
+      "name": "Guerrilla Warriors",
+      "cost": 1,
+      "player": "active",
+      "phase": ["movement"],
+      "window": "move.completed",
+      "activation": "proactive",
+      "paraphrase": "A Kroot unit that Fell Back can still shoot and charge this turn.",
+      "target": { "who": "friendly", "keyword": "Kroot" },
+      "effects": [
+        {
+          "id": "tau.kroot.guerrilla-warriors.shoot",
+          "trigger": "eligibility.shoot",
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterFallBack" }],
+          "duration": "turn",
+          "scope": "unit"
+        },
+        {
+          "id": "tau.kroot.guerrilla-warriors.charge",
+          "trigger": "eligibility.charge",
+          "effects": [{ "type": "grantPermission", "permission": "chargeAfterFallBack" }],
+          "duration": "turn",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.a-trap-well-laid",
+      "name": "A Trap Well Laid",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting", "fight"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "Kroot pile pressure on one enemy: AP +1 on Kroot attacks against the chosen enemy this phase.",
+      "target": { "who": "enemy" },
+      "effects": [
+        {
+          "id": "tau.kroot.a-trap-well-laid.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": {
+            "all": [{ "bearerIs": "defender" }, { "attackerHasKeyword": "Kroot" }]
+          },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.emp-grenades",
+      "name": "EMP Grenades",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["shooting", "fight"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted Kroot Grenades unit scrambles the attacker's sensors: the attacking Vehicle's skills worsen by 1.",
+      "target": { "who": "friendly", "keyword": "Grenades", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.kroot.emp-grenades.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [{ "bearerIs": "defender" }, { "attackerHasKeyword": "Vehicle" }]
+          },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "BS", "value": 1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.join-the-hunt",
+      "name": "Join the Hunt",
+      "cost": 2,
+      "player": "either",
+      "phase": [],
+      "window": "unit.destroyed",
+      "paraphrase": "A destroyed Kroot unit returns in Strategic Reserves. Not yet automated.",
+      "target": { "who": "friendly", "keyword": "Kroot" },
+      "effects": [
+        {
+          "id": "tau.kroot.join-the-hunt.effect",
+          "trigger": "unit.destroyed",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kroot.join-the-hunt" }],
+          "scriptId": "todo.tau.kroot.join-the-hunt"
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.the-grisly-feast",
+      "name": "The Grisly Feast",
+      "cost": 1,
+      "player": "either",
+      "phase": ["fight"],
+      "window": "fight.unitFought",
+      "paraphrase": "Enemies near feasting Kroot test Battle-shock next Command phase. Not yet automated (deferred test scheduling).",
+      "target": { "who": "friendly", "keyword": "Kroot" },
+      "effects": [
+        {
+          "id": "tau.kroot.the-grisly-feast.effect",
+          "trigger": "fight.unitFought",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kroot.grisly-feast" }],
+          "scriptId": "todo.tau.kroot.grisly-feast"
+        }
+      ]
+    },
+    {
+      "id": "tau.kroot.hidden-hunters",
+      "name": "Hidden Hunters",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["shooting"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted Kroot unit can only be shot from within 18\". Not yet automated (targeting restriction).",
+      "target": { "who": "friendly", "keyword": "Kroot", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.kroot.hidden-hunters.effect",
+          "trigger": "eligibility.target",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.kroot.hidden-hunters" }],
+          "scriptId": "todo.tau.kroot.hidden-hunters"
+        }
+      ]
+    }
+  ]
+}

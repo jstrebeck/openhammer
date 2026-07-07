@@ -33,6 +33,7 @@ export interface StratagemOption {
 export interface FollowUpResolvers {
   resolveShooting(state: GameState, env: ReducerEnv): GameState;
   applyBattleShock(state: GameState, env: ReducerEnv, unitId: UnitId, roll: number): GameState;
+  rollCharge(state: GameState, env: ReducerEnv): GameState;
 }
 
 export function enqueueWindows(state: GameState, windows: QueuedWindow[]): GameState {
@@ -87,6 +88,8 @@ export function applyFollowUp(
       return resolvers.applyBattleShock(state, env, followUp.unitId, followUp.roll);
     case 'resolveShooting':
       return resolvers.resolveShooting(state, env);
+    case 'rollCharge':
+      return resolvers.rollCharge(state, env);
   }
 }
 
@@ -105,7 +108,10 @@ export function eligibleStratagems(
 ): StratagemOption[] {
   const player = state.players[window.player];
   const out: StratagemOption[] = [];
-  const stratagems = env.content.getStratagems?.() ?? [];
+  const stratagems =
+    env.content.getStratagemsFor?.(state, window.player) ??
+    env.content.getStratagems?.() ??
+    [];
 
   for (const def of stratagems) {
     if (!windowsOf(def).includes(window.hook)) continue;
@@ -135,11 +141,15 @@ export function eligibleStratagems(
     );
     if (scriptIds.some((id) => !env.content.getScript?.(id))) continue;
 
-    // Target candidates.
+    // Target candidates. Only stratagems that opt in draw from the
+    // window's contextual list; the rest consider the whole board.
     let targets: UnitId[] = [];
     const requiresTarget = def.target !== undefined;
     if (def.target) {
-      const preset = window.context.candidateUnitIds as UnitId[] | undefined;
+      const preset = def.target.fromWindowContext
+        ? (window.context.candidateUnitIds as UnitId[] | undefined)
+        : undefined;
+      if (def.target.fromWindowContext && (preset?.length ?? 0) === 0) continue;
       targets = candidateTargets(state, env, window.player, def, preset);
       if (targets.length === 0) continue;
     }

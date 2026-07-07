@@ -3,6 +3,7 @@ import type { GameState, ModelState, PlayerIndex, UnitId, UnitState } from '../t
 import type { RulesContent } from './env.js';
 import { baseCircle, edgeToEdgeDistance } from '../measurement/index.js';
 import { checkLineOfSight, pointInPolygon, type LosBlocker } from '../los/index.js';
+import { evalCondition } from '../effects/conditions.js';
 
 /**
  * Spatial game checks shared by the setup/movement/shooting reducers.
@@ -208,4 +209,101 @@ export function unitVisible(
 
 export function enemyOf(player: PlayerIndex): PlayerIndex {
   return player === 0 ? 1 : 0;
+}
+
+/**
+ * Does any active effect grant this unit the given permission (Assault
+ * from a detachment rule, shoot-after-fall-back from a stratagem...)?
+ * Effect conditions are honoured with the unit as bearer.
+ */
+export function hasActivePermission(
+  state: GameState,
+  content: RulesContent,
+  unitId: UnitId,
+  permission: string,
+): boolean {
+  const unit = state.units[unitId];
+  if (!unit) return false;
+  const ctx = {
+    state,
+    content,
+    activePlayer: state.activePlayer,
+    phase: state.phase,
+    bearerUnitId: unitId,
+  };
+  const defGrants = (def: { effects: { type: string; permission?: string }[]; condition?: unknown }) => {
+    const grants = def.effects.some(
+      (p) => p.type === 'grantPermission' && p.permission === permission,
+    );
+    if (!grants) return false;
+    if (def.condition && !evalCondition(def.condition as never, ctx)) return false;
+    return true;
+  };
+  // Active effects bound to the unit (or its attached leader), plus
+  // army-wide effects from the unit's own player.
+  for (const active of state.activeEffects) {
+    const applies =
+      active.boundUnits.length > 0
+        ? active.boundUnits.includes(unitId) || active.boundUnits.includes(unit.leaderOf ?? '')
+        : active.source.player === unit.owner;
+    if (applies && defGrants(active.def)) return true;
+  }
+  // Innate datasheet abilities of the unit and its attached leader.
+  const sheets = [unit.datasheetId, unit.leaderOf ? state.units[unit.leaderOf]?.datasheetId : undefined];
+  for (const sheetId of sheets) {
+    if (!sheetId) continue;
+    const ds = content.getDatasheet(sheetId);
+    for (const def of ds?.abilities ?? []) {
+      if (defGrants(def)) return true;
+    }
+  }
+  return false;
+}
+
+/** Net modifyRoll modifier for a roll kind from effects bound to a unit. */
+export function boundRollModifier(state: GameState, unitId: UnitId, roll: string): number {
+  const unit = state.units[unitId];
+  if (!unit) return 0;
+  let total = 0;
+  for (const active of state.activeEffects) {
+    const applies =
+      active.boundUnits.length > 0
+        ? active.boundUnits.includes(unitId)
+        : active.source.player === unit.owner;
+    if (!applies) continue;
+    for (const p of active.def.effects) {
+      if (p.type === 'modifyRoll' && p.roll === roll) total += p.value;
+    }
+  }
+  return total;
+}
+
+/**
+ * Sum of modifyCharacteristic bonuses for `stat` from active effects bound
+ * to this unit (or global effects owned by the unit's owner) that fire on
+ * the given trigger — e.g. Move bonuses from Orders on 'move.distance'.
+ */
+export function boundCharacteristicBonus(
+  state: GameState,
+  unitId: UnitId,
+  stat: string,
+  trigger: string,
+): number {
+  const unit = state.units[unitId];
+  if (!unit) return 0;
+  let bonus = 0;
+  for (const active of state.activeEffects) {
+    if (active.def.trigger !== trigger) continue;
+    const applies =
+      active.boundUnits.length > 0
+        ? active.boundUnits.includes(unitId)
+        : active.source.player === unit.owner;
+    if (!applies) continue;
+    for (const prim of active.def.effects) {
+      if (prim.type === 'modifyCharacteristic' && prim.stat === stat) {
+        bonus += prim.value;
+      }
+    }
+  }
+  return bonus;
 }

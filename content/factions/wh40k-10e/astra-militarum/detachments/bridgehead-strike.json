@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "am.bridgehead-strike",
+  "name": "Bridgehead Strike",
+  "rule": {
+    "name": "Only the Best / Fire Zone Purge",
+    "paraphrase": "Astra Militarum Infantry re-roll ranged hit rolls of 1; Militarum Tempestus get +1 to hit in a turn they arrived from Reserves or disembarked.",
+    "effects": [
+      {
+        "id": "am.bridgehead.only-the-best",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "Infantry" }
+          ]
+        },
+        "effects": [{ "type": "reroll", "roll": "hit", "dice": "ones" }]
+      },
+      {
+        "id": "am.bridgehead.fire-zone-purge",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "Militarum Tempestus" },
+            { "bearerArrivedFromReserves": true }
+          ]
+        },
+        "effects": [{ "type": "modifyRoll", "roll": "hit", "value": 1 }]
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "am.bridgehead.shroud-projector",
+      "name": "Shroud Projector",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Enemies cannot Fire Overwatch at the bearer's unit. Not yet automated (window suppression).",
+      "effects": [
+        {
+          "id": "am.bridgehead.shroud-projector.effect",
+          "trigger": "move.completed",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.shroud-projector" }],
+          "scriptId": "todo.am.bridgehead.shroud-projector"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.priority-drop-beacon",
+      "name": "Priority-drop Beacon",
+      "points": 30,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer's unit can Deep Strike from turn 1. Not yet automated (arrival-round override).",
+      "effects": [
+        {
+          "id": "am.bridgehead.priority-drop-beacon.effect",
+          "trigger": "deploy.reserves",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.priority-drop" }],
+          "scriptId": "todo.am.bridgehead.priority-drop"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.bombast-vox",
+      "name": "Bombast-class Vox-array",
+      "points": 35,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Orders reach three Regiment units at once. Not yet automated (multi-target orders).",
+      "effects": [
+        {
+          "id": "am.bridgehead.bombast-vox.effect",
+          "trigger": "command.start",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.bombast-vox" }],
+          "scriptId": "todo.am.bridgehead.bombast-vox"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.advance-augury",
+      "name": "Advance Augury",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Redeploy up to three Regiment units after deployment. Not yet automated.",
+      "effects": [
+        {
+          "id": "am.bridgehead.advance-augury.effect",
+          "trigger": "deploy.setup",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.advance-augury" }],
+          "scriptId": "todo.am.bridgehead.advance-augury"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "am.bridgehead.fire-and-relocate",
+      "name": "Fire and Relocate",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "This unit may shoot in a turn in which it Advanced.",
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "am.bridgehead.fire-and-relocate.effect",
+          "trigger": "eligibility.shoot",
+          "effects": [{ "type": "grantPermission", "permission": "shootAfterAdvance" }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.servo-designators",
+      "name": "Servo-designators",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "Paint the target: the chosen enemy unit cannot have the Benefit of Cover this phase.",
+      "target": { "who": "enemy" },
+      "effects": [
+        {
+          "id": "am.bridgehead.servo-designators.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "ignoreCover" }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.firing-hot",
+      "name": "Firing Hot",
+      "cost": 2,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "Overcharged hot-shot fire: +1 Strength and AP within 12\" this phase (weapon-family scoping simplified).",
+      "target": { "who": "friendly", "keyword": "Infantry" },
+      "effects": [
+        {
+          "id": "am.bridgehead.firing-hot.strength",
+          "trigger": "attack.beforeWoundRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "targetWithin": 12 }] },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "S", "value": 1 }],
+          "duration": "phase",
+          "scope": "unit"
+        },
+        {
+          "id": "am.bridgehead.firing-hot.ap",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "targetWithin": 12 }] },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.bellicosa-drop",
+      "name": "Bellicosa Drop",
+      "cost": 1,
+      "player": "active",
+      "phase": ["movement"],
+      "window": "reserves.arrived",
+      "paraphrase": "Deep Strike beyond 6\" instead of 9\". Not yet automated (placement override).",
+      "target": { "who": "friendly", "keyword": "Infantry" },
+      "effects": [
+        {
+          "id": "am.bridgehead.bellicosa-drop.effect",
+          "trigger": "deploy.reserves",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.bellicosa-drop" }],
+          "scriptId": "todo.am.bridgehead.bellicosa-drop"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.on-my-position",
+      "name": "On My Position",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["fight"],
+      "window": "lifecycle.phaseEnd",
+      "paraphrase": "Danger-close barrage on your own position. Not yet automated.",
+      "target": { "who": "friendly", "keyword": "Regiment" },
+      "effects": [
+        {
+          "id": "am.bridgehead.on-my-position.effect",
+          "trigger": "lifecycle.phaseEnd",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.on-my-position" }],
+          "scriptId": "todo.am.bridgehead.on-my-position"
+        }
+      ]
+    },
+    {
+      "id": "am.bridgehead.aerial-extraction",
+      "name": "Aerial Extraction",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["fight"],
+      "window": "lifecycle.phaseEnd",
+      "paraphrase": "Extract a Deep Strike unit to Strategic Reserves. Not yet automated.",
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "am.bridgehead.aerial-extraction.effect",
+          "trigger": "lifecycle.phaseEnd",
+          "effects": [{ "type": "script", "scriptId": "todo.am.bridgehead.aerial-extraction" }],
+          "scriptId": "todo.am.bridgehead.aerial-extraction"
+        }
+      ]
+    }
+  ]
+}

@@ -23,6 +23,13 @@ export type GameAction =
   | { type: 'setReserves'; player: PlayerIndex; unitId: string; kind: 'none' | 'strategic' | 'deepStrike' }
   | { type: 'attachLeader'; player: PlayerIndex; leaderUnitId: string; bodyguardUnitId: string | null }
   | { type: 'scoutMove'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
+  | { type: 'chooseDetachment'; player: PlayerIndex; detachmentId: string }
+  | {
+      type: 'assignEnhancement';
+      player: PlayerIndex;
+      unitId: string;
+      enhancementId: string | null;
+    }
   // --- movement ---
   | {
       type: 'startMove';
@@ -55,6 +62,15 @@ export type GameAction =
       assignments: ShootingAssignment[];
     }
   | { type: 'consolidate'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
+  // --- activated faction mechanics (Orders, spotter pairings...) ---
+  | {
+      type: 'useAbility';
+      player: PlayerIndex;
+      abilityId: string;
+      unitId: string;
+      targetUnitId?: string;
+      secondTargetUnitId?: string;
+    }
   // --- stratagem windows ---
   | { type: 'useStratagem'; player: PlayerIndex; stratagemId: string; targetUnitId?: string }
   | {

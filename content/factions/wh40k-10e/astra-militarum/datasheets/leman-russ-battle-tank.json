@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "astra-militarum/leman-russ-battle-tank",
   "name": "Leman Russ Battle Tank",
   "factionId": "astra-militarum",
@@ -100,6 +100,27 @@
       "id": "core.deadly-demise"
     }
   ],
-  "abilities": [],
-  "wargearNotes": "TODO m4: Deadly Demise D6 (non-numeric value)"
+  "abilities": [
+    {
+      "id": "am.leman-russ.armoured-spearhead",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "reroll",
+          "roll": "hit",
+          "dice": "ones"
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          }
+        ]
+      },
+      "name": "Armoured Spearhead",
+      "paraphrase": "Re-roll hit rolls of 1 (full re-roll near contested objectives not yet automated)."
+    }
+  ],
+  "wargearNotes": "TODO m4: Damaged profile (-1 hit at 1-4W)"
 }

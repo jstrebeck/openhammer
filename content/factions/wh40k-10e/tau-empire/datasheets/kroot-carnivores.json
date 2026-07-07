@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "tau-empire/kroot-carnivores",
   "name": "Kroot Carnivores",
   "factionId": "tau-empire",
@@ -74,5 +74,6 @@
       "value": 7
     }
   ],
-  "abilities": []
+  "abilities": [],
+  "wargearNotes": "TODO m4: Fieldcraft (sticky objectives — M5); Bodyguard (dual leaders)"
 }

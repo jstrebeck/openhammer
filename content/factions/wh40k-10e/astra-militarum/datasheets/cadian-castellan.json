@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "astra-militarum/cadian-castellan",
   "name": "Cadian Castellan",
   "factionId": "astra-militarum",
@@ -72,8 +72,43 @@
       "id": "core.leader"
     }
   ],
-  "abilities": [],
-  "wargearNotes": "TODO m4: Voice of Command",
+  "abilities": [
+    {
+      "id": "am.castellan.senior-officer",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "extraHitsOnCritical",
+          "value": 1
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Senior Officer",
+      "paraphrase": "The led unit's ranged weapons gain Sustained Hits 1."
+    },
+    {
+      "id": "am.castellan.get-back-in-the-fight",
+      "trigger": "eligibility.shoot",
+      "effects": [
+        {
+          "type": "grantPermission",
+          "permission": "shootAfterFallBack"
+        }
+      ],
+      "name": "Get Back in the Fight",
+      "paraphrase": "The led unit may shoot after Falling Back."
+    }
+  ],
+  "wargearNotes": "TODO m4: Orders: issues 2 per phase (count override)",
   "leader": {
     "canLead": []
   }

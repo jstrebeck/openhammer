@@ -1,8 +1,11 @@
 import type {
   Datasheet,
+  DetachmentDef,
   EditionDef,
   EffectDef,
   EngineFlag,
+  FactionPack,
+  MechanicDef,
   StratagemDef,
   WeaponAbilityRef,
 } from '../types/content.js';
@@ -47,8 +50,21 @@ export interface RulesContent {
   effectOrder: Record<string, number>;
   /** All stratagems in play (core + detachment once factions land). */
   getStratagems?(): StratagemDef[];
+  /**
+   * Stratagems available to a specific player: the core set plus their
+   * chosen detachment's. Preferred over getStratagems when present.
+   */
+  getStratagemsFor?(state: GameState, player: number): StratagemDef[];
   /** Script registry lookup (undefined = script unavailable). */
   getScript?(scriptId: string): ScriptFn | undefined;
+  /** Faction pack (army rule + mechanics) by faction id. */
+  getFaction?(factionId: string): FactionPack | undefined;
+  /** A detachment definition by id. */
+  getDetachment?(detachmentId: string): DetachmentDef | undefined;
+  /** All detachments shipped for a faction. */
+  getDetachmentsFor?(factionId: string): DetachmentDef[];
+  /** Activated faction mechanics (Orders, spotter pairings) by faction. */
+  getFactionMechanics?(factionId: string): MechanicDef[];
 }
 
 export interface ReducerEnv {

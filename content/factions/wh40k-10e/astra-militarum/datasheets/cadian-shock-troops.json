@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "version": "2026-06",
+  "version": "2026-07",
   "id": "astra-militarum/cadian-shock-troops",
   "name": "Cadian Shock Troops",
   "factionId": "astra-militarum",
@@ -101,5 +101,6 @@
     }
   ],
   "coreAbilities": [],
-  "abilities": []
+  "abilities": [],
+  "wargearNotes": "TODO m4: Shock Troops (sticky objectives — M5); Vox-caster (CP refund)"
 }

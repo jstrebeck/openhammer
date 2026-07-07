@@ -29,6 +29,7 @@ import { applyBattleShock } from './battleShock.js';
 import {
   aliveModels,
   enemyOf,
+  hasActivePermission,
   isInEngagementRange,
   unitDistance,
   unitVisible,
@@ -47,6 +48,8 @@ function localResolvers(): FollowUpResolvers {
   return {
     resolveShooting: (s, e) => continueShooting(s, e),
     applyBattleShock: (s, e, unitId, roll) => applyBattleShock(s, e, unitId, roll),
+    // Charge rolls never follow from shooting-owned windows.
+    rollCharge: (s) => s,
   };
 }
 
@@ -67,7 +70,10 @@ export function reduceShooting(
       const unit = state.units[action.unitId];
       if (!unit || unit.owner !== action.player) return reject('Not your unit.');
       if (unit.turnFlags.hasShot) return reject(`${unit.name} has already shot this turn.`);
-      if (unit.turnFlags.moveKind === 'fallBack') {
+      if (
+        unit.turnFlags.moveKind === 'fallBack' &&
+        !hasActivePermission(state, env.content, unit.id, 'shootAfterFallBack')
+      ) {
         return reject('A unit that Fell Back cannot shoot this turn.');
       }
       if (action.assignments.length === 0) return reject('Declare at least one target.');
@@ -84,7 +90,11 @@ export function reduceShooting(
           return reject(`No models in ${unit.name} carry ${weapon.name}.`);
         }
         const flags = weaponFlags(env, weapon.abilities);
-        if (advanced && !weapon.abilities.some((x) => x.id === 'assault')) {
+        if (
+          advanced &&
+          !weapon.abilities.some((x) => x.id === 'assault') &&
+          !hasActivePermission(state, env.content, unit.id, 'shootAfterAdvance')
+        ) {
           return reject(`${unit.name} Advanced — only Assault weapons may shoot.`);
         }
         if (flags.includes('oneShot') && unit.oneShotFired.includes(weapon.id)) {
@@ -190,7 +200,18 @@ export function beginMeleeSequence(
     player: unit.owner,
     message: `${unit.name} makes its melee attacks.`,
   });
-  next = continueShooting(next, env);
+  // Same reactive pre-resolution window as shooting (Stimm Injectors,
+  // Trench Fighters...). Shooting-only stratagems are phase-gated out.
+  const targetIds = [...new Set(assignments.map((a) => a.targetUnitId))];
+  next = enqueueWindows(next, [
+    {
+      hook: 'shooting.targetsSelected',
+      player: enemyOf(unit.owner),
+      followUp: { type: 'resolveShooting' },
+      context: { attackerUnitId: unitId, candidateUnitIds: targetIds },
+    },
+  ]);
+  next = processWindowQueue(next, env, localResolvers());
   return { ok: true, state: next };
 }
 
@@ -644,23 +665,25 @@ function collectCandidates(
     }
   }
 
-  const contributors: [UnitState, string][] = [
-    [attacker, 'attacker'],
-    [target, 'defender'],
+  const contributors: [UnitState, string, string][] = [
+    [attacker, 'attacker', attacker.id],
+    [target, 'defender', target.id],
   ];
-  // An attached leader's abilities protect/serve the bodyguard unit too.
+  // An attached leader's abilities serve the unit it leads, on both sides.
   if (target.leaderOf && state.units[target.leaderOf]) {
-    contributors.push([state.units[target.leaderOf]!, 'defender-leader']);
+    contributors.push([state.units[target.leaderOf]!, 'defender-leader', target.id]);
   }
-  for (const [unit, role] of contributors) {
+  if (attacker.leaderOf && state.units[attacker.leaderOf]) {
+    contributors.push([state.units[attacker.leaderOf]!, 'attacker-leader', attacker.id]);
+  }
+  for (const [unit, role, bearerId] of contributors) {
     const ds = env.content.getDatasheet(unit.datasheetId);
     for (const ref of ds?.coreAbilities ?? []) {
       const { effects } = env.content.getCoreAbility(ref);
       for (const def of effects) {
         out.push({
           def,
-          // Leader abilities apply as if borne by the bodyguard unit.
-          bearerUnitId: role === 'defender-leader' ? target.id : unit.id,
+          bearerUnitId: bearerId,
           player: unit.owner,
           declOrder: order(def.id.split('#')[0] ?? def.id),
           sourceId: `${role}-ability:${ref.id}`,
@@ -670,7 +693,7 @@ function collectCandidates(
     for (const def of ds?.abilities ?? []) {
       out.push({
         def,
-        bearerUnitId: role === 'defender-leader' ? target.id : unit.id,
+        bearerUnitId: bearerId,
         player: unit.owner,
         declOrder: order(def.id),
         sourceId: `datasheet:${unit.datasheetId}`,
@@ -678,16 +701,38 @@ function collectCandidates(
     }
   }
 
+  // Effects bound to a unit in this exchange — including effects bound to
+  // an attached leader, which bear on the unit it leads.
+  const sideOf = new Map<string, string>([
+    [attacker.id, attacker.id],
+    [target.id, target.id],
+    ...(attacker.leaderOf ? ([[attacker.leaderOf, attacker.id]] as [string, string][]) : []),
+    ...(target.leaderOf ? ([[target.leaderOf, target.id]] as [string, string][]) : []),
+  ]);
   for (const active of state.activeEffects) {
     if (
       active.boundUnits.length > 0 &&
-      !active.boundUnits.some((u) => u === attacker.id || u === target.id)
+      !active.boundUnits.some((u) => sideOf.has(u))
     ) {
       continue;
     }
+    // Global effects (army/detachment rules) bear on the SOURCE player's
+    // unit in this exchange — so bearerIs/bearer-token conditions read
+    // "my unit", never the opponent's.
+    const boundMatch = active.boundUnits.find((u) => sideOf.has(u));
+    const bearerUnitId =
+      active.boundUnits.length > 0
+        ? boundMatch
+          ? sideOf.get(boundMatch)
+          : undefined
+        : attacker.owner === active.source.player
+          ? attacker.id
+          : target.owner === active.source.player
+            ? target.id
+            : undefined;
     out.push({
       def: active.def,
-      bearerUnitId: active.boundUnits.find((u) => u === attacker.id || u === target.id),
+      bearerUnitId,
       player: active.source.player,
       declOrder: order(active.def.id),
       sourceId: `${active.source.kind}:${active.source.id}`,

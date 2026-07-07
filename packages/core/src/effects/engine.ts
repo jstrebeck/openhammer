@@ -99,7 +99,8 @@ export function newAttackComputation(init: {
     ignoresCover: false,
     damageExpr: init.damageExpr,
     damageBonus: 0,
-    minimumDamage: 0,
+    // Core rule: an attack's damage can never be modified below 1.
+    minimumDamage: 1,
     rerollDamage: 'none',
     feelNoPain: null,
     precision: false,
@@ -263,6 +264,14 @@ function applyAttackPrimitive(prim: EffectPrimitive, comp: AttackComputation): v
       if (prim.stat === 'S') comp.strength += prim.value;
       if (prim.stat === 'T') comp.toughness += prim.value;
       if (prim.stat === 'AP') comp.ap += prim.value;
+      // BS/WS improvements are characteristic changes, NOT hit modifiers —
+      // they bypass the ±1 net cap by design (e.g. For the Greater Good,
+      // Take Aim!). A negative value improves the skill (4+ → 3+).
+      if ((prim.stat === 'BS' || prim.stat === 'WS') && comp.hitSkill !== null) {
+        comp.hitSkill = Math.max(2, comp.hitSkill + prim.value);
+      }
+      if (prim.stat === 'A') comp.attacksFlatBonus += prim.value;
+      if (prim.stat === 'D') comp.damageBonus += prim.value;
       break;
     case 'setCharacteristic':
       if (prim.stat === 'S') comp.strength = prim.value;
@@ -297,7 +306,10 @@ const DURATION_RANK: Record<EffectDuration, number> = {
   phase: 1,
   turn: 2,
   round: 3,
-  battle: 4,
+  // Swept explicitly at the source player's next command phase, never by
+  // the phase/turn/round boundaries.
+  untilOwnCommandPhase: 4,
+  battle: 5,
 };
 
 export type ExpiryBoundary = 'phase' | 'turn' | 'round' | 'battle';
@@ -305,10 +317,24 @@ export type ExpiryBoundary = 'phase' | 'turn' | 'round' | 'battle';
 /**
  * Remove effects whose duration expires at this boundary (and anything
  * shorter — nothing may linger because nothing swept it).
+ * untilOwnCommandPhase effects survive all of these; they are swept by
+ * sweepOwnCommandPhaseEffects at the owner's command phase.
  */
 export function sweepExpiredEffects(effects: ActiveEffect[], boundary: ExpiryBoundary): ActiveEffect[] {
   const rank = DURATION_RANK[boundary];
-  return effects.filter((e) => DURATION_RANK[e.duration] > rank);
+  return effects.filter(
+    (e) => e.duration === 'untilOwnCommandPhase' || DURATION_RANK[e.duration] > rank,
+  );
+}
+
+/** Expire the given player's untilOwnCommandPhase effects (command start). */
+export function sweepOwnCommandPhaseEffects(
+  effects: ActiveEffect[],
+  player: number,
+): ActiveEffect[] {
+  return effects.filter(
+    (e) => !(e.duration === 'untilOwnCommandPhase' && e.source.player === player),
+  );
 }
 
 // ---------------------------------------------------------------------------

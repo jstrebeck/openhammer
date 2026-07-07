@@ -25,6 +25,7 @@ export {
   finishActivation,
 } from './state/fightReducer.js';
 export { reduceWindow, getResolvers } from './state/windowReducer.js';
+export { reduceAbility } from './state/abilityReducer.js';
 export * from './state/windows.js';
 export {
   applyBattleShock,

@@ -131,6 +131,11 @@ export interface ActiveEffect {
   duration: EffectDuration;
   /** Round/turn/phase stamp at activation, for expiry. */
   activatedAt: { round: number; turn: PlayerIndex; phase: string };
+  /**
+   * Tokens this effect planted on units — removed together with the
+   * effect when it expires (tokens never outlive their sweep).
+   */
+  tokens?: { unitId: UnitId; token: string }[];
 }
 
 export interface UsageCounters {
@@ -256,12 +261,17 @@ export interface ShootingSequence {
   } | null;
 }
 
-/** Charge in progress: declared and rolled, awaiting the move (or a fail). */
+/**
+ * Charge in progress. Declared first (reactive window opens before the
+ * dice), then rolled, then moved or failed.
+ */
 export interface ChargeSequence {
   unitId: UnitId;
   targetIds: UnitId[];
-  roll: number;
-  rolls: [number, number];
+  roll: number | null;
+  rolls: [number, number] | null;
+  /** Net charge-roll modifier applied (from effects like Photon Grenades). */
+  modifier?: number;
 }
 
 /** Fight-phase alternation. The reactive player selects first in each step. */
@@ -289,7 +299,8 @@ export interface QueuedWindow {
 export type WindowFollowUp =
   | { type: 'none' }
   | { type: 'battleShockFailed'; unitId: UnitId; roll: number }
-  | { type: 'resolveShooting' };
+  | { type: 'resolveShooting' }
+  | { type: 'rollCharge' };
 
 // ---------------------------------------------------------------------------
 // Game log
