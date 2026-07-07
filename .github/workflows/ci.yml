@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate content packs
+        run: npx tsx packages/content/src/cli.ts
+      - name: Typecheck
+        run: |
+          npx tsc -b packages/core packages/content packages/server
+          npx tsc -p packages/client --noEmit
+      - name: Tests
+        run: npx vitest run
+      - name: Client build
+        working-directory: packages/client
+        run: npx vite build
