@@ -31,6 +31,7 @@ export interface ServerContent {
   versions: Record<string, string>;
   registerDatasheets(datasheets: Datasheet[]): void;
   allDatasheets(): Datasheet[];
+  factionBundles(): Record<string, import('./protocol.js').FactionBundle>;
   loaded: LoadedEditionContent;
 }
 
@@ -116,6 +117,19 @@ export function buildServerContent(editionId: string, contentRoot?: string): Ser
       for (const ds of sheets) datasheets.set(ds.id, ds);
     },
     allDatasheets: () => [...datasheets.values()],
+    factionBundles: () =>
+      Object.fromEntries(
+        [...factions.values()].map((f) => [
+          f.pack.id,
+          {
+            id: f.pack.id,
+            name: f.pack.name,
+            armyRuleName: f.pack.armyRule.name,
+            mechanics: f.pack.mechanics ?? [],
+            detachments: f.detachments,
+          },
+        ]),
+      ),
     loaded,
   };
 }

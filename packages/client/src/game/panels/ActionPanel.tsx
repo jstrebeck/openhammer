@@ -48,8 +48,163 @@ function PanelBody({ game, seat }: { game: GameState; seat: PlayerIndex }) {
       {game.phase === 'shooting' && <ShootingActions game={game} seat={seat} />}
       {game.phase === 'charge' && <ChargeActions game={game} seat={seat} />}
       {game.phase === 'fight' && <FightActions game={game} seat={seat} />}
+      <FactionAbilities game={game} seat={seat} />
+      <ProactiveStratagems game={game} seat={seat} />
       <AdvanceStepButton game={game} seat={seat} />
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Faction mechanics (Orders, spotting...) — fully data-driven from the
+// content bundle: anything whose timing matches the current phase.
+// ---------------------------------------------------------------------------
+
+function FactionAbilities({ game, seat }: { game: GameState; seat: PlayerIndex }) {
+  const dispatch = useGameStore((s) => s.dispatch);
+  const factions = useGameStore((s) => s.factions);
+  const [selections, setSelections] = useState<Record<string, { unit: string; target: string }>>(
+    {},
+  );
+  const faction = factions[game.players[seat].factionId];
+  if (!faction) return null;
+  const myTurn = game.activePlayer === seat;
+  const mechanics = faction.mechanics.filter(
+    (m) =>
+      (m.timing.phase.length === 0 || m.timing.phase.includes(game.phase)) &&
+      (m.timing.player !== 'active' || myTurn),
+  );
+  if (mechanics.length === 0) return null;
+  const mine = Object.values(game.units).filter(
+    (u) => u.owner === seat && aliveModels(u).some((m) => m.position !== null),
+  );
+  const enemies = Object.values(game.units).filter(
+    (u) => u.owner !== seat && aliveModels(u).some((m) => m.position !== null),
+  );
+  return (
+    <div className="stack faction-abilities">
+      <p className="muted">{faction.armyRuleName}:</p>
+      {mechanics.map((m) => {
+        const sel = selections[m.id] ?? { unit: '', target: '' };
+        const setSel = (patch: Partial<{ unit: string; target: string }>) =>
+          setSelections((prev) => ({ ...prev, [m.id]: { ...sel, ...patch } }));
+        const targetPool = m.target?.who === 'enemy' ? enemies : mine;
+        return (
+          <div key={m.id} className="prep-row">
+            <span className="prep-name">{m.name}</span>
+            <select
+              aria-label={`${m.name} user`}
+              value={sel.unit}
+              onChange={(e) => setSel({ unit: e.target.value })}
+            >
+              <option value="">— unit —</option>
+              {mine.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            {m.target && (
+              <select
+                aria-label={`${m.name} target`}
+                value={sel.target}
+                onChange={(e) => setSel({ target: e.target.value })}
+              >
+                <option value="">— target —</option>
+                {targetPool.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              disabled={sel.unit === '' || (m.target !== undefined && sel.target === '')}
+              onClick={() =>
+                dispatch({
+                  type: 'useAbility',
+                  player: seat,
+                  abilityId: m.id,
+                  unitId: sel.unit,
+                  ...(sel.target ? { targetUnitId: sel.target } : {}),
+                })
+              }
+            >
+              Use
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Proactive (own-turn) detachment stratagems, used outside windows
+// ---------------------------------------------------------------------------
+
+function ProactiveStratagems({ game, seat }: { game: GameState; seat: PlayerIndex }) {
+  const dispatch = useGameStore((s) => s.dispatch);
+  const factions = useGameStore((s) => s.factions);
+  const [targets, setTargets] = useState<Record<string, string>>({});
+  const faction = factions[game.players[seat].factionId];
+  const detachment = faction?.detachments.find((d) => d.id === game.players[seat].detachmentId);
+  if (!detachment) return null;
+  const me = game.players[seat];
+  const available = detachment.stratagems.filter(
+    (s) =>
+      s.activation === 'proactive' &&
+      (s.phase.length === 0 || s.phase.includes(game.phase)) &&
+      (s.player === 'either' ||
+        (s.player === 'active') === (game.activePlayer === seat)) &&
+      me.cp >= s.cost &&
+      !me.stratagemsUsedThisPhase.includes(s.id),
+  );
+  if (available.length === 0) return null;
+  const pool = (who: 'friendly' | 'enemy') =>
+    Object.values(game.units).filter(
+      (u) =>
+        (who === 'friendly' ? u.owner === seat : u.owner !== seat) &&
+        aliveModels(u).some((m) => m.position !== null),
+    );
+  return (
+    <div className="stack proactive-stratagems">
+      <p className="muted">Stratagems ({detachment.name}):</p>
+      {available.map((s) => (
+        <div key={s.id} className="prep-row">
+          <span className="prep-name">
+            {s.name} ({s.cost} CP)
+          </span>
+          {s.target && (
+            <select
+              aria-label={`${s.name} target`}
+              value={targets[s.id] ?? ''}
+              onChange={(e) => setTargets((prev) => ({ ...prev, [s.id]: e.target.value }))}
+            >
+              <option value="">— target —</option>
+              {pool(s.target.who).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            disabled={s.target !== undefined && !(targets[s.id] ?? '')}
+            onClick={() =>
+              dispatch({
+                type: 'useStratagem',
+                player: seat,
+                stratagemId: s.id,
+                ...(targets[s.id] ? { targetUnitId: targets[s.id] } : {}),
+              })
+            }
+          >
+            Use
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -171,10 +326,15 @@ function SetupActions({ game, seat }: { game: GameState; seat: PlayerIndex }) {
 function PreGamePrep({ game, seat }: { game: GameState; seat: PlayerIndex }) {
   const dispatch = useGameStore((s) => s.dispatch);
   const datasheets = useGameStore((s) => s.datasheets);
+  const factions = useGameStore((s) => s.factions);
   const mine = Object.values(game.units).filter(
     (u) => u.owner === seat && aliveModels(u).length > 0,
   );
   if (mine.length === 0) return null;
+  const faction = factions[game.players[seat].factionId];
+  const detachment = faction?.detachments.find(
+    (d) => d.id === game.players[seat].detachmentId,
+  );
 
   const isCharacter = (u: UnitState): boolean =>
     (datasheets[u.datasheetId]?.keywords ?? []).some((k) => k.toLowerCase() === 'character');
@@ -183,6 +343,57 @@ function PreGamePrep({ game, seat }: { game: GameState; seat: PlayerIndex }) {
 
   return (
     <div className="stack pregame-prep">
+      {faction && (
+        <div className="prep-row">
+          <span className="prep-name">Detachment</span>
+          <select
+            aria-label="Detachment"
+            value={detachment?.id ?? ''}
+            onChange={(e) =>
+              e.target.value &&
+              dispatch({ type: 'chooseDetachment', player: seat, detachmentId: e.target.value })
+            }
+          >
+            <option value="">— choose —</option>
+            {faction.detachments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {detachment &&
+        mine
+          .filter((u) =>
+            (datasheets[u.datasheetId]?.keywords ?? []).some(
+              (k) => k.toLowerCase() === 'character',
+            ),
+          )
+          .map((u) => (
+            <div key={`enh-${u.id}`} className="prep-row">
+              <span className="prep-name">{u.name} enhancement</span>
+              <select
+                aria-label={`Enhancement for ${u.name}`}
+                value={u.enhancementId ?? ''}
+                onChange={(e) =>
+                  dispatch({
+                    type: 'assignEnhancement',
+                    player: seat,
+                    unitId: u.id,
+                    enhancementId: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+              >
+                <option value="">No enhancement</option>
+                {detachment.enhancements.map((enh) => (
+                  <option key={enh.id} value={enh.id}>
+                    {enh.name} (+{enh.points} pts)
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
       <p className="muted">Reserves &amp; Leaders (before the roll-off):</p>
       {mine.map((u) => {
         const ds = datasheets[u.datasheetId];
@@ -504,11 +715,18 @@ function ChargeActions({ game, seat }: { game: GameState; seat: PlayerIndex }) {
     return (
       <div className="stack">
         <p>
-          <strong>{unit.name}</strong> rolled{' '}
-          <strong>
-            {seq.rolls[0]}+{seq.rolls[1]} = {seq.roll}"
-          </strong>{' '}
-          to charge. Click the board to position the move, then commit.
+          <strong>{unit.name}</strong>{' '}
+          {seq.rolls === null ? (
+            <>declared a charge — waiting on the roll (reactive window may be open)…</>
+          ) : (
+            <>
+              rolled{' '}
+              <strong>
+                {seq.rolls[0]}+{seq.rolls[1]} = {seq.roll}"
+              </strong>{' '}
+              to charge. Click the board to position the move, then commit.
+            </>
+          )}
         </p>
         <button
           disabled={!myTurn || staged === null}

@@ -70,6 +70,7 @@ export async function startServer(options: {
   const contentMessage = (): ServerMessage => ({
     type: 'content',
     datasheets: Object.fromEntries(content.allDatasheets().map((d) => [d.id, d])),
+    factions: content.factionBundles(),
   });
 
   wss.on('connection', (ws) => {

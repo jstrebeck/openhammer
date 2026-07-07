@@ -82,11 +82,21 @@ Import both sample rosters → deploy on a 3D top-down board (terrain + objectiv
 - Per-wound allocation/invuln choice still auto-resolved; transports, FLY, terrain climb costs, Big Guns Never Tire, daisy-chain melee reach remain open (M4/M6 scope).
 - Attached-unit activation economy: leader+bodyguard still activate as separate units for movement.
 
-## Milestone 4 — Factions complete
+## Milestone 4 — Factions complete ✅ (mechanics-in-play; deferred items documented in-pack)
 
-- [ ] Both faction packs fully authored: army rules (For the Greater Good as guided/spotter tokens; Voice of Command as Orders → token effects), all 4 detachments each (rule + enhancements + stratagems), every datasheet/weapon/ability in the sample lists.
-- [ ] Automated content-coverage test: every unit/weapon/ability named in `samples/*.json` resolves to pack content.
-- [ ] Wahapedia CSV cross-check for stats/points; alias lists absorb naming drift.
+- [x] **Activated faction mechanics are engine vocabulary** (`MechanicDef` + `useAbility`): timing/user-keyword/target/range validation, shared usage-limit groups (an Officer issues ONE order per round), exclusive groups (a new Order replaces the old), token planting with sweep-coupled expiry, `untilOwnCommandPhase` duration surviving the opponent's turn — `packages/core/src/state/abilityReducer.ts`, tests `gameplay-m4.test.ts` (issue/limits/range/phase/battle-shock bans/expiry round-trip).
+- [x] **For the Greater Good** as data: spot/spot-with-markerlight mechanics plant observer/spotted/spotted-ml tokens; army-rule effects grant BS+1 (a characteristic improvement, deliberately outside the ±1 hit-mod cap) and markerlight Ignores Cover — `content/factions/wh40k-10e/tau-empire/faction.json`.
+- [x] **Voice of Command** as data: all six Orders (Move! Move! Move! feeds real movement budgets; Fix Bayonets/Take Aim as WS/BS improvements; FRFSRF adds attacks to rapid-fire weapons; Take Cover; Duty and Honour OC for M5 scoring) — `astra-militarum/faction.json`.
+- [x] **Eight detachments authored from the Wahapedia data export** (Kauyon, Mont'ka, Retaliation Cadre, Kroot Hunting Pack; Combined Arms, Bridgehead Strike, Hammer of the Emperor, Siege Regiment): 8 rules, 32 enhancements, 48 stratagems as validated effect data. Detachment stratagems are scoped to their owner (`getStratagemsFor`, tested); own-turn buffs use the new proactive activation; new reactive window `charge.declared` lands Photon Grenades/Minefield BEFORE the charge roll with real -2 modifiers; battle-start materialization registers army/detachment/enhancement effects (tested).
+- [x] **Sample-list datasheet abilities** authored (Volley Fire, Weapon Support System ignore-hit-modifiers, Shield Generator 4++, Crisis Commander re-rolls, Senior Officer Sustained 1, Get Back in the Fight via datasheet-granted permissions, Armoured Spearhead, Mobile Hunter-killers, Target Uploaded, Kroot skirmish invulns + instinct bonuses...). Every deferred ability is DOCUMENTED in that datasheet's `wargearNotes` TODO — enforced by the coverage gate.
+- [x] **Coverage gate** (`packages/content/src/coverage.test.ts`): both samples import with zero issues (every unit + weapon matched, points exact), army rules real, 4 detachments each with rules/enhancements/stratagems, every roster ability implemented-or-documented, unique effect ids, todo-scripts explicitly marked — plus an **engine-neutrality test** that fails if `packages/core` source ever names a faction.
+- [x] **Client UI**: detachment picker + per-character enhancement selects (pre-game), a data-driven Faction Abilities panel (Orders in the command phase, spotting in the shooting phase — same generic component), proactive stratagem panel with CP/phase/turn gating; faction bundles ship over the `content` message. 5 new component tests; 268 tests green workspace-wide; `vite build` clean.
+- [x] Wahapedia CSV cross-check: raw export CSVs were pulled and detachment/enhancement/stratagem names, costs, CP and timing came from them verbatim (no verbatim rules prose stored — paraphrases only).
+
+### Known debts carried out of milestone 4
+- ~20 of the 48 stratagems + ~10 enhancements are data-present but effect-deferred (`todo.*` script ids — never offered in-game): resurrections, redeploys/reserve exits, order-count/sharing overrides, fight-on-death, terrain traversal, Iron Tread's flat advance, artillery-support round choice. Each carries its reason in its paraphrase.
+- Enhancement points not yet added to army totals; Castellan's 2-orders-per-phase datasheet override not modeled (limit stays 1); Take Cover! lacks the 3+ floor; Battle-shock does not yet cancel in-flight Orders; leader "while leading" conditions approximate (apply to the bearer's unit even when solo).
+- The M4 UI panels were verified by component tests + the 268-test suite (incl. the real-server integration path); a fresh two-browser session for Orders/spotting has not been run this milestone.
 
 ## Milestone 5 — Missions & scoring
 

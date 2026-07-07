@@ -689,16 +689,16 @@ describe('full game over the wire (client stores <-> real server)', () => {
         await qact(
           active,
           { type: 'declareCharge', player: active, unitId, targetIds: [targetId] },
-          (g2) => g2.charge?.unitId === unitId,
+          (g2) => g2.charge?.unitId === unitId && g2.charge.roll !== null,
           'leg2: declareCharge',
         );
         const seq = game(active).charge!;
-        expect(seq.roll).toBe(seq.rolls[0] + seq.rolls[1]);
+        expect(seq.roll).toBe(seq.rolls![0] + seq.rolls![1]);
         expect(seq.targetIds).toEqual([targetId]);
         expect(game(active).units[unitId]!.turnFlags.chargeDeclared).toBe(true);
 
         const needed = Math.max(0.6, gap - 0.5); // end ~0.5" out: inside ER
-        if (seq.roll + 1e-6 >= needed) {
+        if (seq.roll! + 1e-6 >= needed) {
           const cur = game(active).units[unitId]!;
           const dir = towards(cur, game(active).units[targetId]!);
           await qact(

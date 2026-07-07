@@ -436,7 +436,9 @@ function InteractionLayer({ game }: { game: GameState }) {
         interaction.mode === 'charging' && interaction.unitId === unit.id
           ? interaction.staged
           : null;
-      pushMovePreview('charge', unit, game.charge.roll, staged, '#fb923c');
+      if (game.charge.roll !== null) {
+        pushMovePreview('charge', unit, game.charge.roll, staged, '#fb923c');
+      }
     }
   }
 

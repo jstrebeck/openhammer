@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { Datasheet, GameAction, GameState, PlayerIndex } from '@openhammer/core';
-import type { ClientMessage, ServerMessage } from '@openhammer/server';
+import type { ClientMessage, FactionBundle, ServerMessage } from '@openhammer/server';
 import type { SocketFactory, SocketHandle } from './net/socket';
 import { IDLE, type Interaction } from './game/interaction';
 
@@ -67,6 +67,7 @@ export interface GameStore {
   playerName: string;
 
   datasheets: Record<string, Datasheet>;
+  factions: Record<string, FactionBundle>;
   game: GameState | null;
   chat: ChatEntry[];
   presence: Presence | null;
@@ -207,7 +208,7 @@ export function createGameStore(
           });
           break;
         case 'content':
-          set({ datasheets: message.datasheets });
+          set({ datasheets: message.datasheets, factions: message.factions ?? {} });
           break;
         case 'rejected': {
           const rejection: Rejection = {
@@ -301,6 +302,7 @@ export function createGameStore(
       spectator: false,
       playerName: '',
       datasheets: {},
+      factions: {},
       game: null,
       chat: [],
       presence: null,

@@ -1,4 +1,19 @@
-import type { Datasheet, GameAction, GameState } from '@openhammer/core';
+import type {
+  Datasheet,
+  DetachmentDef,
+  GameAction,
+  GameState,
+  MechanicDef,
+} from '@openhammer/core';
+
+/** Faction content the client UI needs (picker lists, ability panels). */
+export interface FactionBundle {
+  id: string;
+  name: string;
+  armyRuleName: string;
+  mechanics: MechanicDef[];
+  detachments: DetachmentDef[];
+}
 
 /**
  * Wire protocol. Clients only ever PROPOSE actions; the server validates
@@ -26,7 +41,11 @@ export type ServerMessage =
   | { type: 'imported'; playerIndex: 0 | 1; issues: string[]; unitCount: number }
   | { type: 'undoRequested'; by: 0 | 1; count: number }
   | { type: 'undoResolved'; performed: boolean; approved?: boolean }
-  | { type: 'content'; datasheets: Record<string, Datasheet> }
+  | {
+      type: 'content';
+      datasheets: Record<string, Datasheet>;
+      factions?: Record<string, FactionBundle>;
+    }
   | { type: 'chat'; from: string; text: string; at: number }
   | { type: 'presence'; seats: { name: string; connected: boolean }[]; spectators: number }
   | { type: 'error'; error: string };

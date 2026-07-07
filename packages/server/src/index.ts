@@ -3,4 +3,4 @@ export { RoomManager, type Room, type Seat, type SerializedRoom } from './rooms.
 export { buildServerContent, type ServerContent } from './content.js';
 export { materializeRoster } from './materialize.js';
 export { saveRoom, loadRooms } from './persistence.js';
-export type { ClientMessage, ServerMessage } from './protocol.js';
+export type { ClientMessage, FactionBundle, ServerMessage } from './protocol.js';
