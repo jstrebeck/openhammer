@@ -243,6 +243,12 @@ export function rollSave(
   modelInvuln: number | null,
   params: CoreParameters,
   rng: RngState,
+  /**
+   * The defender's explicit choice between armour and invulnerable save.
+   * Undefined auto-picks the better one (the fast-roll path); an explicit
+   * choice is honored even when it is worse — that is the player's right.
+   */
+  forceInvulnerable?: boolean,
 ): SaveResult {
   // Cover: +1 to armour save vs ranged, but not for Sv3+ (or better) vs AP0.
   const coverApplied =
@@ -261,9 +267,12 @@ export function rollSave(
       ? Math.min(comp.invulnerableSave, modelInvuln)
       : comp.invulnerableSave
     : modelInvuln;
-  // Auto-pick the better save; the defender UI can override before rolling.
-  const useInvuln = invuln !== null && invuln < armourNeeded;
-  const needed = useInvuln ? invuln : armourNeeded;
+  // Auto-pick the better save unless the defender chose explicitly.
+  const useInvuln =
+    forceInvulnerable === undefined
+      ? invuln !== null && invuln < armourNeeded
+      : forceInvulnerable && invuln !== null;
+  const needed = useInvuln ? invuln! : armourNeeded;
   const { rolls, rng: next } = rollD6(rng, 1);
   const die = rolls[0] ?? 1;
   const saved = die !== 1 && die >= needed;

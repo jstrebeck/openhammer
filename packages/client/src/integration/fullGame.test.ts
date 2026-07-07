@@ -522,23 +522,43 @@ describe('full game over the wire (client stores <-> real server)', () => {
             (decision.context.wounds as number) + (decision.context.mortalWounds as number),
           ).toBeGreaterThan(0);
 
-          // The attacker cannot resolve the defender's saves — and the
-          // defender's store is the one that dispatches.
-          await act(
-            defender,
-            { type: 'resolveSaves', player: defender },
-            (g) => g.pendingDecision === null && g.units[moverId]!.turnFlags.hasShot,
-            `t${turn}: resolveSaves by defender`,
-          );
+          // Per-wound allocation over the wire: the defender picks a
+          // specific model for the first wound, then auto-resolves the
+          // rest. (A single-wound batch skips straight to auto-resolve.)
+          if ((decision.context.wounds as number) >= 2) {
+            const targetUnit = game(defender).units[targetId]!;
+            const pick = targetUnit.models.find((m) => !m.destroyed)!;
+            await act(
+              defender,
+              { type: 'allocateWound', player: defender, modelId: pick.id },
+              (g) =>
+                g.pendingDecision === null ||
+                (g.pendingDecision.kind === 'saves' &&
+                  (g.pendingDecision.context.wounds as number) ===
+                    (decision.context.wounds as number) - 1),
+              `t${turn}: allocateWound by defender`,
+            );
+          }
+          if (game(defender).pendingDecision !== null) {
+            // The attacker cannot resolve the defender's saves — and the
+            // defender's store is the one that dispatches.
+            await act(
+              defender,
+              { type: 'resolveSaves', player: defender },
+              (g) => g.pendingDecision === null && g.units[moverId]!.turnFlags.hasShot,
+              `t${turn}: resolveSaves by defender`,
+            );
+          }
 
           const g = game(defender);
           const woundsAfter = g.units[targetId]!.models.reduce(
             (sum, m) => sum + (m.destroyed ? 0 : m.woundsRemaining),
             0,
           );
-          const savesLog = g.log.find((l) => l.kind === 'saves');
-          expect(woundsAfter < woundsBefore || savesLog !== undefined).toBe(true);
-          expect(savesLog?.message).toContain('resolves saves');
+          const savesLogs = g.log.filter((l) => l.kind === 'saves');
+          expect(woundsAfter < woundsBefore || savesLogs.length > 0).toBe(true);
+          // Per-wound allocation and batch resolution both leave entries.
+          expect(savesLogs.some((l) => /save \d/.test(l.message))).toBe(true);
           expect(g.units[moverId]!.turnFlags.hasShot).toBe(true);
           savesResolved = true;
           break;

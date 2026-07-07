@@ -49,6 +49,12 @@ export type GameAction =
       assignments: ShootingAssignment[];
     }
   | { type: 'resolveSaves'; player: PlayerIndex }
+  | {
+      type: 'allocateWound';
+      player: PlayerIndex;
+      modelId: string;
+      useInvulnerable?: boolean;
+    }
   // --- charge ---
   | { type: 'declareCharge'; player: PlayerIndex; unitId: string; targetIds: string[] }
   | { type: 'commitCharge'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }

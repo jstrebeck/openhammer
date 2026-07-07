@@ -45,7 +45,12 @@ export function reduce(state: GameState, action: GameAction, env: ReducerEnv): A
   }
 
   // While a reactive decision is open, only the actions resolving it pass.
-  const decisionResolvers: GameAction['type'][] = ['resolveSaves', 'useStratagem', 'passWindow'];
+  const decisionResolvers: GameAction['type'][] = [
+    'resolveSaves',
+    'allocateWound',
+    'useStratagem',
+    'passWindow',
+  ];
   if (state.pendingDecision !== null && !decisionResolvers.includes(action.type)) {
     return {
       ok: false,

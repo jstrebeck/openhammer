@@ -205,6 +205,57 @@ export function reduceShooting(
       return { ok: true, state: resolveSaves(state, env) };
     }
 
+    case 'allocateWound': {
+      const decision = state.pendingDecision;
+      if (!decision || decision.kind !== 'saves') {
+        return reject('There are no saves to resolve.');
+      }
+      if (action.player !== decision.player) {
+        return reject('Only the defending player allocates these wounds.', 'OUT_OF_TURN');
+      }
+      const seq = state.shooting;
+      const current = seq?.current;
+      if (!seq || !current) return reject('No shooting sequence in progress.');
+      const target = state.units[current.targetUnitId]!;
+      // The allocation pool: with Precision live, the attached leader's
+      // models take the wounds first; otherwise the target unit's.
+      const leaderUnit =
+        current.precision && target.leaderOf ? state.units[target.leaderOf] : undefined;
+      const leaderAlive = leaderUnit?.models.some((m) => !m.destroyed) ?? false;
+      const pool = leaderAlive ? leaderUnit!.models : target.models;
+      const poolUnit = leaderAlive ? leaderUnit! : target;
+      const model = pool.find((m) => m.id === action.modelId);
+      if (!model || model.destroyed) {
+        return reject(
+          leaderAlive
+            ? `Precision is live — wounds must go to ${poolUnit.name}'s models.`
+            : 'Choose an alive model in the target unit.',
+        );
+      }
+      // Core rule: a model that already lost wounds or had attacks
+      // allocated this phase MUST take subsequent allocations.
+      const wounded = pool.find((m) => !m.destroyed && m.hasTakenWoundsThisPhase);
+      if (wounded && wounded.id !== model.id) {
+        return reject(
+          `Wounds must be allocated to the already-wounded model first (${wounded.id}).`,
+        );
+      }
+      if (action.useInvulnerable) {
+        const ds = env.content.getDatasheet(poolUnit.datasheetId);
+        const profile = ds?.models.find((pr) => pr.id === model.profileId) ?? ds?.models[0];
+        const hasInvuln =
+          (profile?.invulnerableSave ?? null) !== null || current.save.invulnerableSave !== null;
+        if (!hasInvuln) return reject('That model has no invulnerable save.');
+      }
+      return {
+        ok: true,
+        state: resolveSaves(state, env, {
+          modelId: action.modelId,
+          useInvulnerable: action.useInvulnerable,
+        }),
+      };
+    }
+
     default:
       return null;
   }
@@ -425,7 +476,11 @@ export function continueShooting(state: GameState, env: ReducerEnv): GameState {
   return next;
 }
 
-function resolveSaves(state: GameState, env: ReducerEnv): GameState {
+function resolveSaves(
+  state: GameState,
+  env: ReducerEnv,
+  single?: { modelId: string; useInvulnerable?: boolean },
+): GameState {
   const seq = state.shooting;
   const current = seq?.current;
   if (!seq || !current) return state;
@@ -489,9 +544,20 @@ function resolveSaves(state: GameState, env: ReducerEnv): GameState {
     }
   };
 
-  for (let i = 0; i < current.woundsPending; i++) {
-    const alloc = allocate();
+  const toProcess = single ? Math.min(1, current.woundsPending) : current.woundsPending;
+  let processed = 0;
+  for (let i = 0; i < toProcess; i++) {
+    // An explicit allocation overrides the auto pick for its one wound.
+    const alloc = single
+      ? (() => {
+          const leaderPick = leaderModels?.find((m) => m.id === single.modelId && !m.destroyed);
+          if (leaderPick) return { model: leaderPick, leader: true };
+          const targetPick = targetModels.find((m) => m.id === single.modelId && !m.destroyed);
+          return targetPick ? { model: targetPick, leader: false } : null;
+        })()
+      : allocate();
     if (!alloc) break;
+    processed++;
     const profile = profileOf(alloc.model, alloc.leader);
     const saveResult = rollSave(
       comp,
@@ -499,6 +565,7 @@ function resolveSaves(state: GameState, env: ReducerEnv): GameState {
       profile?.invulnerableSave ?? null,
       params,
       rng,
+      single?.useInvulnerable,
     );
     rng = saveResult.rng;
     if (saveResult.saved) {
@@ -518,8 +585,39 @@ function resolveSaves(state: GameState, env: ReducerEnv): GameState {
     }
     applyDamage(alloc.model, taken);
     lines.push(
-      `save ${saveResult.die} vs ${saveResult.needed}+ — failed, ${taken} damage${alloc.leader ? ' (Precision: leader)' : ''}`,
+      `save ${saveResult.die} vs ${saveResult.needed}+${saveResult.usedInvulnerable ? ' (invuln)' : ''} — failed, ${taken} damage${alloc.leader ? ' (Precision: leader)' : ''}`,
     );
+  }
+
+  const remainingPending = current.woundsPending - processed;
+  if (single && remainingPending > 0) {
+    // More wounds to allocate: keep the decision open with fresh counts.
+    let next: GameState = {
+      ...state,
+      rng,
+      units: {
+        ...state.units,
+        [target.id]: { ...target, models: targetModels },
+        ...(leaderUnit && leaderModels
+          ? { [leaderUnit.id]: { ...leaderUnit, models: leaderModels } }
+          : {}),
+      },
+      shooting: {
+        ...seq,
+        current: { ...current, woundsPending: remainingPending },
+      },
+      pendingDecision: {
+        ...state.pendingDecision!,
+        context: { ...state.pendingDecision!.context, wounds: remainingPending },
+      },
+    };
+    next = appendLog(next, {
+      kind: 'saves',
+      player: target.owner,
+      message: `${target.name}: ${lines.join('; ')} (${remainingPending} wound(s) left to allocate).`,
+      data: { targetUnitId: target.id, destroyed: destroyedCount },
+    });
+    return next;
   }
 
   for (let i = 0; i < current.mortalWounds; i++) {
