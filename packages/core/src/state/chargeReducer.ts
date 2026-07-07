@@ -297,7 +297,7 @@ export function rollChargeNow(state: GameState, env: ReducerEnv): GameState {
  * Windows after a completed charge: the reactive player first (Fire
  * Overwatch / Heroic Intervention), then the active player (Tank Shock).
  */
-export function chargeCompletedWindows(
+function chargeCompletedWindows(
   state: GameState,
   env: ReducerEnv,
   chargedUnitId: UnitId,

@@ -40,8 +40,8 @@ export const DEFAULT_SAMPLES_DIR = join(
   'samples',
 );
 
-export const EDITION_ID = 'wh40k-10e';
-export const PACK_VERSION = '2026-06';
+const EDITION_ID = 'wh40k-10e';
+const PACK_VERSION = '2026-06';
 
 export interface GeneratedFactionPack {
   faction: FactionPack;
@@ -79,7 +79,7 @@ const SAMPLES: SampleConfig[] = [
 // ---------------------------------------------------------------------------
 
 /** 'strike-team' from 'Strike Team'; shares normalization with the importer. */
-export function slugify(name: string): string {
+function slugify(name: string): string {
   return normalizeName(name).replace(/ /g, '-');
 }
 

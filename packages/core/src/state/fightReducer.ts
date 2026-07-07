@@ -172,7 +172,7 @@ export function reduceFight(
 // by the attack sequence when a melee activation finishes its attacks)
 // ---------------------------------------------------------------------------
 
-export function fightGate(state: GameState, env: ReducerEnv): ActionResult | null {
+function fightGate(state: GameState, env: ReducerEnv): ActionResult | null {
   if (phaseStepKind(env, state).phase !== 'fight') {
     return reject('Fight actions are only legal in the Fight phase.');
   }
@@ -198,7 +198,7 @@ function hasFightsFirst(state: GameState, env: ReducerEnv, unit: UnitState): boo
   );
 }
 
-export function eligibleThisStep(state: GameState, env: ReducerEnv, unit: UnitState): boolean {
+function eligibleThisStep(state: GameState, env: ReducerEnv, unit: UnitState): boolean {
   if (aliveModels(unit).length === 0 || !unitIsOnBattlefield(unit)) return false;
   if ((state.fight?.fought ?? []).includes(unit.id)) return false;
   if (unit.turnFlags.hasFought) return false;
@@ -209,7 +209,7 @@ export function eligibleThisStep(state: GameState, env: ReducerEnv, unit: UnitSt
   return true;
 }
 
-export function eligibleFighters(
+function eligibleFighters(
   state: GameState,
   env: ReducerEnv,
   player: PlayerIndex,
@@ -245,7 +245,7 @@ export function computeSelector(
 }
 
 /** Close out an activation after Consolidate (or after skipped attacks). */
-export function finishActivation(state: GameState, env: ReducerEnv, unitId: UnitId): GameState {
+function finishActivation(state: GameState, env: ReducerEnv, unitId: UnitId): GameState {
   const unit = state.units[unitId]!;
   let next: GameState = {
     ...state,

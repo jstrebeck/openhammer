@@ -126,7 +126,16 @@ export function reduceMovement(
       if (alive.some((m) => !byId.has(m.id))) {
         return reject('Provide a destination for every model (unmoved models keep their spot).');
       }
-      // Per-model distance budget: that model's M (+ the unit's advance roll).
+      // Per-model distance budget: that model's M (+ the unit's advance
+      // roll). Rule checks honor the game's enforcement level: 'enforce'
+      // rejects, 'warn' allows with a logged warning, 'off' stays silent.
+      const movementLevel = state.enforcement.movement;
+      const ruleWarnings: string[] = [];
+      const ruleViolation = (message: string): ActionResult | null => {
+        if (movementLevel === 'enforce') return reject(message);
+        if (movementLevel === 'warn') ruleWarnings.push(message);
+        return null;
+      };
       for (const model of alive) {
         const dest = byId.get(model.id)!;
         const from = model.position;
@@ -134,9 +143,10 @@ export function reduceMovement(
         const budget = modelMove(env, state, unit.id, model.profileId) + (pending.advanceRoll ?? 0);
         const moved = distance(from, { x: dest.x, y: dest.y });
         if (moved > budget + 1e-6) {
-          return reject(
+          const rejected = ruleViolation(
             `${unit.name}: a model moved ${moved.toFixed(1)}" but its maximum is ${budget}".`,
           );
+          if (rejected) return rejected;
         }
       }
       if (!positionsOnBoard(state, action.positions)) {
@@ -147,11 +157,12 @@ export function reduceMovement(
       }
       const endsInER = positionsInEngagementRange(state, env.content, unit, action.positions);
       if (endsInER) {
-        return reject(
+        const rejected = ruleViolation(
           pending.kind === 'fallBack'
             ? 'A Fall Back move must end outside Engagement Range.'
             : 'A Normal or Advance move cannot end within Engagement Range.',
         );
+        if (rejected) return rejected;
       }
       const coherent = checkCoherency(env.content, unit, action.positions);
       if (!coherent && state.enforcement.coherency === 'enforce') {
@@ -182,6 +193,9 @@ export function reduceMovement(
           player: action.player,
           message: `${unit.name} ended its move out of coherency.`,
         });
+      }
+      for (const warning of ruleWarnings) {
+        next = appendLog(next, { kind: 'warning', player: action.player, message: warning });
       }
       const verb =
         pending.kind === 'advance'

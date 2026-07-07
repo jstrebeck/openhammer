@@ -2,41 +2,94 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "openhammer://schemas/edition",
   "type": "object",
-  "required": ["schemaVersion", "version", "id", "name", "battleRounds", "phases", "parameters"],
+  "required": [
+    "schemaVersion",
+    "version",
+    "id",
+    "name",
+    "battleRounds",
+    "phases",
+    "parameters"
+  ],
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": { "type": "number" },
-    "version": { "type": "string" },
-    "id": { "type": "string" },
-    "name": { "type": "string" },
-    "battleRounds": { "type": "integer", "minimum": 1 },
+    "schemaVersion": {
+      "type": "number"
+    },
+    "version": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "battleRounds": {
+      "type": "integer",
+      "minimum": 1
+    },
     "phases": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "kind", "steps"],
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "steps"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
           "kind": {
             "type": "string",
-            "enum": ["command", "movement", "shooting", "charge", "fight", "custom"]
+            "enum": [
+              "command",
+              "movement",
+              "shooting",
+              "charge",
+              "fight",
+              "custom"
+            ]
           },
           "steps": {
             "type": "array",
             "minItems": 1,
             "items": {
               "type": "object",
-              "required": ["id", "name", "kind"],
+              "required": [
+                "id",
+                "name",
+                "kind"
+              ],
               "additionalProperties": false,
               "properties": {
-                "id": { "type": "string" },
-                "name": { "type": "string" },
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
                 "kind": {
                   "type": "string",
-                  "enum": ["command", "battleShock", "moveUnits", "reinforcements", "shoot", "charge", "fightsFirst", "remainingCombats", "custom"]
+                  "enum": [
+                    "command",
+                    "battleShock",
+                    "moveUnits",
+                    "reinforcements",
+                    "shoot",
+                    "charge",
+                    "fightsFirst",
+                    "remainingCombats",
+                    "custom"
+                  ]
                 }
               }
             }
@@ -70,35 +123,102 @@
       ],
       "additionalProperties": false,
       "properties": {
-        "engagementRangeHorizontal": { "type": "number" },
-        "engagementRangeVertical": { "type": "number" },
-        "coherencyDistanceHorizontal": { "type": "number" },
-        "coherencyDistanceVertical": { "type": "number" },
-        "coherencyTwoNeighboursAt": { "type": "integer" },
-        "objectiveControlRangeHorizontal": { "type": "number" },
-        "objectiveControlRangeVertical": { "type": "number" },
-        "chargeRange": { "type": "number" },
-        "pileInDistance": { "type": "number" },
-        "consolidateDistance": { "type": "number" },
+        "engagementRangeHorizontal": {
+          "type": "number"
+        },
+        "engagementRangeVertical": {
+          "type": "number"
+        },
+        "coherencyDistanceHorizontal": {
+          "type": "number"
+        },
+        "coherencyDistanceVertical": {
+          "type": "number"
+        },
+        "coherencyTwoNeighboursAt": {
+          "type": "integer"
+        },
+        "objectiveControlRangeHorizontal": {
+          "type": "number"
+        },
+        "objectiveControlRangeVertical": {
+          "type": "number"
+        },
+        "chargeRange": {
+          "type": "number"
+        },
+        "pileInDistance": {
+          "type": "number"
+        },
+        "consolidateDistance": {
+          "type": "number"
+        },
         "modifierCaps": {
           "type": "object",
-          "required": ["hit", "wound", "saveImprovement"],
+          "required": [
+            "hit",
+            "wound",
+            "saveImprovement"
+          ],
           "additionalProperties": false,
           "properties": {
-            "hit": { "type": "number" },
-            "wound": { "type": "number" },
-            "saveImprovement": { "type": "number" }
+            "hit": {
+              "type": "number"
+            },
+            "wound": {
+              "type": "number"
+            },
+            "saveImprovement": {
+              "type": "number"
+            }
           }
         },
-        "coverIneligibleSaveAtOrBelow": { "type": "number" },
-        "cpPerCommandPhase": { "type": "number" },
-        "maxExtraCpPerRound": { "type": "number" },
-        "battleShockDice": { "$ref": "openhammer://schemas/common#/$defs/diceExpression" },
-        "desperateEscapeFailOn": { "type": "number" },
-        "deepStrikeDistance": { "type": "number" },
-        "reservesMaxPointsFraction": { "type": "number" },
-        "defaultCriticalHitOn": { "type": "number" },
-        "defaultCriticalWoundOn": { "type": "number" }
+        "coverIneligibleSaveAtOrBelow": {
+          "type": "number"
+        },
+        "cpPerCommandPhase": {
+          "type": "number"
+        },
+        "maxExtraCpPerRound": {
+          "type": "number"
+        },
+        "battleShockDice": {
+          "$ref": "openhammer://schemas/common#/$defs/diceExpression"
+        },
+        "desperateEscapeFailOn": {
+          "type": "number"
+        },
+        "deepStrikeDistance": {
+          "type": "number"
+        },
+        "reservesMaxPointsFraction": {
+          "type": "number"
+        },
+        "defaultCriticalHitOn": {
+          "type": "number"
+        },
+        "defaultCriticalWoundOn": {
+          "type": "number"
+        },
+        "bigGunsNeverTire": {
+          "type": "object",
+          "required": [
+            "keywords",
+            "hitPenalty"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "hitPenalty": {
+              "type": "number"
+            }
+          }
+        }
       }
     }
   }

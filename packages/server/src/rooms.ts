@@ -72,7 +72,11 @@ export class RoomManager {
 
   constructor(private readonly content: ServerContent) {}
 
-  createRoom(hostName: string, deploymentMapId = 'dawn-of-war'): { room: Room; token: string } {
+  createRoom(
+    hostName: string,
+    deploymentMapId = 'dawn-of-war',
+    mode: 'strict' | 'casual' = 'strict',
+  ): { room: Room; token: string } {
     const id = randomBytes(4).toString('hex');
     const token = randomBytes(16).toString('hex');
     const map =
@@ -98,6 +102,16 @@ export class RoomManager {
         { name: 'Awaiting opponent', factionId: '', detachmentId: '' },
       ],
       rngSeed: randomInt(2 ** 31),
+      ...(mode === 'casual'
+        ? {
+            enforcement: {
+              movement: 'warn' as const,
+              targeting: 'warn' as const,
+              coherency: 'warn' as const,
+              stratagems: 'warn' as const,
+            },
+          }
+        : {}),
     });
     const room: Room = {
       id,

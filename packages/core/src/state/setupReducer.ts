@@ -526,6 +526,6 @@ function hasUndeployedUnits(state: GameState, player: PlayerIndex): boolean {
   );
 }
 
-export function deploymentComplete(state: GameState): boolean {
+function deploymentComplete(state: GameState): boolean {
   return !hasUndeployedUnits(state, 0) && !hasUndeployedUnits(state, 1);
 }

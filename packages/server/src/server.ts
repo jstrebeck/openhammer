@@ -88,7 +88,11 @@ export async function startServer(options: {
 
       switch (message.type) {
         case 'create': {
-          const { room, token } = rooms.createRoom(message.name);
+          const { room, token } = rooms.createRoom(
+            message.name,
+            undefined,
+            message.mode ?? 'strict',
+          );
           conn.roomId = room.id;
           conn.token = token;
           conn.name = message.name;

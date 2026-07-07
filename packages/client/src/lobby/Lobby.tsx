@@ -16,6 +16,7 @@ export function Lobby() {
   const uploadRoster = useGameStore((s) => s.uploadRoster);
 
   const [name, setName] = useState('');
+  const [casual, setCasual] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -49,9 +50,17 @@ export function Lobby() {
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Commander" />
           </label>
           <div className="lobby-row">
-            <button disabled={!name.trim()} onClick={() => createRoom(name.trim())}>
+            <button disabled={!name.trim()} onClick={() => createRoom(name.trim(), casual)}>
               Create Game
             </button>
+            <label className="casual-toggle">
+              <input
+                type="checkbox"
+                checked={casual}
+                onChange={(e) => setCasual(e.target.checked)}
+              />
+              Casual (rules warn instead of blocking)
+            </label>
           </div>
           <div className="lobby-row">
             <input

@@ -19,6 +19,8 @@ jobs:
         run: |
           npx tsc -b packages/core packages/content packages/server
           npx tsc -p packages/client --noEmit
+      - name: Orphan-export lint
+        run: node scripts/check-orphans.mjs
       - name: Tests
         run: npx vitest run
       - name: Client build

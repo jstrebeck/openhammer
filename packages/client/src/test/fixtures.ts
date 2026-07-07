@@ -25,34 +25,6 @@ export function makePlayer(index: PlayerIndex, name: string): PlayerState {
   };
 }
 
-export function makeBoard(): BoardState {
-  return {
-    width: 60,
-    height: 44,
-    terrain: [],
-    objectives: [{ id: 'obj-center', position: { x: 30, y: 22 } }],
-    deploymentZones: [
-      {
-        player: 0,
-        polygon: [
-          { x: 0, y: 0 },
-          { x: 60, y: 0 },
-          { x: 60, y: 12 },
-          { x: 0, y: 12 },
-        ],
-      },
-      {
-        player: 1,
-        polygon: [
-          { x: 0, y: 32 },
-          { x: 60, y: 32 },
-          { x: 60, y: 44 },
-          { x: 0, y: 44 },
-        ],
-      },
-    ],
-  };
-}
 
 export function makeModel(id: string, overrides: Partial<ModelState> = {}): ModelState {
   return {
@@ -146,7 +118,13 @@ export function makeState(overrides: Partial<GameState> = {}): GameState {
     firstPlayer: 0,
     players: [makePlayer(0, 'Alice'), makePlayer(1, 'Bob')],
     units: {},
-    board: makeBoard(),
+    board: {
+      width: 60,
+      height: 44,
+      terrain: [],
+      objectives: [],
+      deploymentZones: [],
+    },
     activeEffects: [],
     usage: { counts: {} },
     setup: null,

@@ -85,7 +85,7 @@ export interface GameStore {
 
   connect(): void;
   disconnect(): void;
-  createRoom(name: string): void;
+  createRoom(name: string, casual?: boolean): void;
   joinRoom(roomId: string, name: string): void;
   spectate(roomId: string, name: string): void;
   uploadRoster(roster: unknown): void;
@@ -329,9 +329,9 @@ export function createGameStore(
         conn.open = false;
         set({ status: 'idle' });
       },
-      createRoom: (name) => {
+      createRoom: (name, casual) => {
         set({ playerName: name });
-        push({ type: 'create', name });
+        push({ type: 'create', name, ...(casual ? { mode: 'casual' as const } : {}) });
       },
       joinRoom: (roomId, name) => {
         set({ playerName: name });

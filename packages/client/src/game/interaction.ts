@@ -34,7 +34,6 @@ export const IDLE: Interaction = { mode: 'idle' };
 /** Client-side prefilters only — the server measures authoritatively. */
 export const CHARGE_RANGE_PREFILTER = 12.5;
 export const ENGAGEMENT_RANGE_PREFILTER = 1.1;
-export const PILE_IN_BUDGET = 3;
 
 export function baseRadiusInches(baseSizeMm: number): number {
   return baseSizeMm / 25.4 / 2;

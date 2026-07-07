@@ -20,7 +20,7 @@ export interface NewGamePlayer {
 }
 
 /** Rules enforcement defaults to ENFORCE; setup flow offers "Casual (warn)". */
-export const DEFAULT_ENFORCEMENT: EnforcementConfig = {
+const DEFAULT_ENFORCEMENT: EnforcementConfig = {
   movement: 'enforce',
   targeting: 'enforce',
   coherency: 'enforce',

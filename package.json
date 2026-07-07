@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate-content": "npm run validate-content -w packages/content",
-    "typecheck": "tsc -b packages/core packages/content packages/server --noEmit"
+    "typecheck": "tsc -b packages/core packages/content packages/server --noEmit",
+    "check-orphans": "node scripts/check-orphans.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",

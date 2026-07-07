@@ -101,7 +101,7 @@ function windowsOf(def: StratagemDef): string[] {
   return Array.isArray(def.window) ? def.window : [def.window];
 }
 
-export function eligibleStratagems(
+function eligibleStratagems(
   state: GameState,
   env: ReducerEnv,
   window: QueuedWindow,
@@ -204,6 +204,3 @@ function candidateTargets(
 // Small logging helper shared by window resolution
 // ---------------------------------------------------------------------------
 
-export function logWindow(state: GameState, player: PlayerIndex, message: string): GameState {
-  return appendLog(state, { kind: 'stratagem', player, message });
-}

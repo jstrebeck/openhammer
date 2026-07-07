@@ -21,7 +21,7 @@ export interface FactionBundle {
  */
 
 export type ClientMessage =
-  | { type: 'create'; name: string }
+  | { type: 'create'; name: string; mode?: 'strict' | 'casual' }
   | { type: 'join'; roomId: string; name: string }
   | { type: 'spectate'; roomId: string; name: string }
   | { type: 'reconnect'; roomId: string; token: string }

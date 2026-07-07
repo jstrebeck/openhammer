@@ -74,13 +74,25 @@ export function reduceShooting(
         unit.turnFlags.moveKind === 'fallBack' &&
         !hasActivePermission(state, env.content, unit.id, 'shootAfterFallBack')
       ) {
-        return reject('A unit that Fell Back cannot shoot this turn.');
+        if (state.enforcement.targeting === 'enforce') {
+          return reject('A unit that Fell Back cannot shoot this turn.');
+        }
       }
       if (action.assignments.length === 0) return reject('Declare at least one target.');
 
       const inER = isInEngagementRange(state, env.content, unit.id);
       const advanced = unit.turnFlags.moveKind === 'advance';
       const er = env.content.edition.parameters.engagementRangeHorizontal;
+
+      // Targeting-rule checks honor the enforcement level: 'enforce'
+      // rejects, 'warn' allows with a logged warning, 'off' is silent.
+      const targetingLevel = state.enforcement.targeting;
+      const ruleWarnings: string[] = [];
+      const ruleViolation = (message: string): ActionResult | null => {
+        if (targetingLevel === 'enforce') return reject(message);
+        if (targetingLevel === 'warn') ruleWarnings.push(message);
+        return null;
+      };
 
       for (const a of action.assignments) {
         const weapon = unit.weapons[a.weaponId];
@@ -95,7 +107,8 @@ export function reduceShooting(
           !weapon.abilities.some((x) => x.id === 'assault') &&
           !hasActivePermission(state, env.content, unit.id, 'shootAfterAdvance')
         ) {
-          return reject(`${unit.name} Advanced — only Assault weapons may shoot.`);
+          const rejected = ruleViolation(`${unit.name} Advanced — only Assault weapons may shoot.`);
+          if (rejected) return rejected;
         }
         if (flags.includes('oneShot') && unit.oneShotFired.includes(weapon.id)) {
           return reject(`${weapon.name} has already been fired this battle (One Shot).`);
@@ -107,28 +120,45 @@ export function reduceShooting(
           return reject(`${target.name} is attached to a bodyguard unit — target the unit instead.`);
         }
         const dist = unitDistance(env.content, unit, target);
+        const bgnt = env.content.edition.parameters.bigGunsNeverTire;
+        const hasBgntKeyword = (unitId: string): boolean =>
+          (bgnt?.keywords ?? []).some((k) =>
+            env.content
+              .getUnitKeywords(state, unitId)
+              .some((uk) => uk.toLowerCase() === k.toLowerCase()),
+          );
         if (inER) {
-          // Pistols only, at a unit within Engagement Range.
-          if (!flags.includes('pistol')) {
-            return reject(
-              'Units in Engagement Range can only fire Pistols (Big Guns Never Tire: later).',
+          // Pistols fire at a unit in Engagement Range; Big Guns Never
+          // Tire lets Monsters/Vehicles shoot normally from combat.
+          if (!flags.includes('pistol') && !hasBgntKeyword(unit.id)) {
+            const rejected = ruleViolation(
+              'Units in Engagement Range can only fire Pistols (or shoot via Big Guns Never Tire).',
             );
+            if (rejected) return rejected;
           }
-          if (dist === null || dist > er) {
-            return reject('Pistols fired from combat must target a unit within Engagement Range.');
+          if (flags.includes('pistol') && (dist === null || dist > er)) {
+            const rejected = ruleViolation(
+              'Pistols fired from combat must target a unit within Engagement Range.',
+            );
+            if (rejected) return rejected;
           }
         } else {
-          if (isInEngagementRange(state, env.content, target.id)) {
-            return reject(
+          // Enemy units locked in melee are safe — unless they are Big
+          // Guns Never Tire targets (Monsters/Vehicles).
+          if (isInEngagementRange(state, env.content, target.id) && !hasBgntKeyword(target.id)) {
+            const rejected = ruleViolation(
               `${target.name} is within Engagement Range of your units and cannot be targeted.`,
             );
+            if (rejected) return rejected;
           }
         }
         if (dist === null || (weapon.range !== null && dist > weapon.range)) {
-          return reject(`${target.name} is out of range of ${weapon.name}.`);
+          const rejected = ruleViolation(`${target.name} is out of range of ${weapon.name}.`);
+          if (rejected) return rejected;
         }
         if (!unitVisible(state, env.content, unit, target)) {
-          return reject(`${target.name} is not visible to ${unit.name}.`);
+          const rejected = ruleViolation(`${target.name} is not visible to ${unit.name}.`);
+          if (rejected) return rejected;
         }
       }
 
@@ -146,6 +176,9 @@ export function reduceShooting(
         player: action.player,
         message: `${unit.name} opens fire (${action.assignments.length} weapon assignment(s)).`,
       });
+      for (const warning of ruleWarnings) {
+        next = appendLog(next, { kind: 'warning', player: action.player, message: warning });
+      }
       // Reactive window BEFORE any dice: Smokescreen / Go to Ground apply
       // to the incoming attack. Candidates: the units being targeted.
       const targetIds = [...new Set(action.assignments.map((a) => a.targetUnitId))];
@@ -268,6 +301,19 @@ export function continueShooting(state: GameState, env: ReducerEnv): GameState {
     distance: unitDistance(env.content, attacker, target) ?? undefined,
     targetVisible: true,
   };
+
+  // Big Guns Never Tire: -1 to hit for non-Pistol ranged attacks made
+  // from, or into, a melee (a plain modifier — it respects the ±1 cap).
+  const bgntParam = params.bigGunsNeverTire;
+  if (bgntParam && !seq.melee) {
+    const isPistol = weapon.abilities.some((x) => x.id === 'pistol');
+    if (!isPistol) {
+      const inMelee = (unitId: string) => isInEngagementRange(state, env.content, unitId);
+      if (inMelee(attacker.id) || inMelee(target.id)) {
+        comp.hitModifiers.push(bgntParam.hitPenalty);
+      }
+    }
+  }
 
   for (const hook of [
     'attack.attacksCount',

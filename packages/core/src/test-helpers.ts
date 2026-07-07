@@ -105,7 +105,7 @@ export function makeState(partial: Partial<GameState> = {}): GameState {
   };
 }
 
-export function makeContentAccess(datasheets: Record<string, Datasheet> = {}): ContentAccess {
+function makeContentAccess(datasheets: Record<string, Datasheet> = {}): ContentAccess {
   return {
     getDatasheet: (id) => datasheets[id],
     getUnitKeywords: (state, unitId) => {
@@ -168,7 +168,7 @@ export const testEdition: EditionDef = {
   parameters: testParams,
 };
 
-export function makeRulesContent(
+function makeRulesContent(
   overrides: Partial<RulesContent> & { datasheets?: Record<string, Datasheet> } = {},
 ): RulesContent {
   const { datasheets, ...rest } = overrides;

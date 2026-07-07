@@ -63,12 +63,6 @@ export function parseDiceExpression(expr: string | number): DiceExpr {
   return { count, sides, flat };
 }
 
-/** Min/max possible results, for UI ranges. */
-export function diceExprRange(expr: string | number): { min: number; max: number } {
-  const e = parseDiceExpression(expr);
-  return { min: e.count * (e.count ? 1 : 0) + e.flat, max: e.count * (e.sides || 0) + e.flat };
-}
-
 /** Evaluate an expression with real rolls. */
 export function evalDiceExpression(
   expr: string | number,

@@ -505,6 +505,12 @@ export interface CoreParameters {
   modifierCaps: { hit: number; wound: number; saveImprovement: number };
   /** Benefit of Cover does not apply to saves this good or better vs AP 0. */
   coverIneligibleSaveAtOrBelow: number;
+  /**
+   * Big Guns Never Tire: units with these keywords may shoot while (and
+   * be shot while) within Engagement Range, at the given hit penalty
+   * (Pistols exempt).
+   */
+  bigGunsNeverTire?: { keywords: string[]; hitPenalty: number };
   cpPerCommandPhase: number;
   maxExtraCpPerRound: number;
   battleShockDice: DiceExpression;
