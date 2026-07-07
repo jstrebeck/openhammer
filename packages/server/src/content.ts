@@ -106,6 +106,7 @@ export function buildServerContent(editionId: string, contentRoot?: string): Ser
     getDetachmentsFor: (factionId) =>
       [...detachments.values()].filter((d) => d.factionId === factionId).map((d) => d.def),
     getFactionMechanics: (factionId) => factions.get(factionId)?.pack.mechanics ?? [],
+    getMission: (missionId) => loaded.missions.find((m) => m.id === missionId),
   };
 
   return {

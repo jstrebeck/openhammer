@@ -394,6 +394,16 @@ function PreGamePrep({ game, seat }: { game: GameState; seat: PlayerIndex }) {
               </select>
             </div>
           ))}
+      <label className="prep-row painted-toggle">
+        <input
+          type="checkbox"
+          checked={game.players[seat].paintedArmy}
+          onChange={(e) =>
+            dispatch({ type: 'setPaintedArmy', player: seat, painted: e.target.checked })
+          }
+        />
+        Fully painted army (+10 VP)
+      </label>
       <p className="muted">Reserves &amp; Leaders (before the roll-off):</p>
       {mine.map((u) => {
         const ds = datasheets[u.datasheetId];

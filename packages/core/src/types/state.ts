@@ -355,6 +355,8 @@ export interface GameState {
   usage: UsageCounters;
 
   setup: SetupState | null;
+  /** Live objective control (refreshed at scoring points and turn ends). */
+  objectiveControl?: Record<string, { controller: PlayerIndex | null; oc: [number, number] }>;
   pendingMove: PendingMove | null;
   shooting: ShootingSequence | null;
   charge: ChargeSequence | null;

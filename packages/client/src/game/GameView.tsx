@@ -104,6 +104,24 @@ function EndScreen() {
           Final score — {game.players[0].name}: {game.players[0].vp} VP · {game.players[1].name}:{' '}
           {game.players[1].vp} VP
         </p>
+        <div className="vp-breakdown">
+          {game.players.map((p) => (
+            <div key={p.index}>
+              <h3>{p.name}</h3>
+              {p.vpLog.length === 0 ? (
+                <p className="muted">No victory points scored.</p>
+              ) : (
+                <ul>
+                  {p.vpLog.map((entry, i) => (
+                    <li key={i}>
+                      R{entry.round}: +{entry.amount} VP — {entry.detail}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

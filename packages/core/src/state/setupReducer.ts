@@ -35,7 +35,8 @@ export function reduceSetup(
       action.type === 'attachLeader' ||
       action.type === 'scoutMove' ||
       action.type === 'chooseDetachment' ||
-      action.type === 'assignEnhancement'
+      action.type === 'assignEnhancement' ||
+      action.type === 'setPaintedArmy'
     ) {
       return reject('Setup actions are only legal before the battle begins.');
     }
@@ -90,6 +91,12 @@ export function reduceSetup(
         message: `${state.players[action.player].name} loaded a roster of ${action.units.length} unit(s).`,
       });
       return { ok: true, state: next };
+    }
+
+    case 'setPaintedArmy': {
+      const players: GameState['players'] = [state.players[0], state.players[1]];
+      players[action.player] = { ...players[action.player], paintedArmy: action.painted };
+      return { ok: true, state: { ...state, players } };
     }
 
     case 'chooseDetachment': {

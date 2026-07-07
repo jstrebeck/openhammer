@@ -6,6 +6,7 @@ import type {
   EngineFlag,
   FactionPack,
   MechanicDef,
+  MissionDef,
   StratagemDef,
   WeaponAbilityRef,
 } from '../types/content.js';
@@ -65,6 +66,8 @@ export interface RulesContent {
   getDetachmentsFor?(factionId: string): DetachmentDef[];
   /** Activated faction mechanics (Orders, spotter pairings) by faction. */
   getFactionMechanics?(factionId: string): MechanicDef[];
+  /** Mission definition (scoring cadence and bonuses) by id. */
+  getMission?(missionId: string): MissionDef | undefined;
 }
 
 export interface ReducerEnv {

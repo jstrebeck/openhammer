@@ -24,6 +24,7 @@ export type GameAction =
   | { type: 'attachLeader'; player: PlayerIndex; leaderUnitId: string; bodyguardUnitId: string | null }
   | { type: 'scoutMove'; player: PlayerIndex; unitId: string; positions: ModelPlacement[] }
   | { type: 'chooseDetachment'; player: PlayerIndex; detachmentId: string }
+  | { type: 'setPaintedArmy'; player: PlayerIndex; painted: boolean }
   | {
       type: 'assignEnhancement';
       player: PlayerIndex;

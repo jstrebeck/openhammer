@@ -17,6 +17,7 @@ import { reduceWindow, getResolvers } from './windowReducer.js';
 import { clearOwnBattleShock, runOneBattleShockTest, unitsToTest } from './battleShock.js';
 import { enqueueWindows, processWindowQueue } from './windows.js';
 import { phaseStepKind } from './kinds.js';
+import { refreshObjectiveControl, scoreEndOfBattle, scorePrimary } from './scoring.js';
 
 /**
  * The pure, server-authoritative reducer. Phase order comes from the
@@ -168,6 +169,8 @@ function onEnterStep(state: GameState, env: ReducerEnv): GameState {
     const before = next.activeEffects;
     const after = sweepOwnCommandPhaseEffects(before, next.activePlayer);
     next = stripExpiredTokens({ ...next, activeEffects: after }, before, after);
+    // Mission primary scoring at its data-declared cadence.
+    next = scorePrimary(next, env, next.activePlayer, 'command.start');
   }
 
   if (step === 'battleShock') {
@@ -241,7 +244,7 @@ function advanceStepCore(state: GameState, env: ReducerEnv): GameState {
   }
 
   // Turn boundary.
-  next = endTurn(next);
+  next = endTurn(next, env);
   const otherPlayer: PlayerIndex = state.activePlayer === 0 ? 1 : 0;
   const bothPlayersDone = otherPlayer === state.firstPlayer;
   if (!bothPlayersDone) {
@@ -251,7 +254,7 @@ function advanceStepCore(state: GameState, env: ReducerEnv): GameState {
   // Round boundary.
   next = endRound(next);
   if (state.round >= edition.battleRounds) {
-    return endBattle(next);
+    return endBattle(next, env);
   }
   return enterPhase(
     { ...next, round: state.round + 1, activePlayer: state.firstPlayer },
@@ -322,7 +325,7 @@ function endPhase(state: GameState): GameState {
   return next;
 }
 
-function endTurn(state: GameState): GameState {
+function endTurn(state: GameState, env: ReducerEnv): GameState {
   let next = sweepUsageCounters(state, 'turn');
   next = stripExpiredTokens(
     next,
@@ -352,6 +355,8 @@ function endTurn(state: GameState): GameState {
     player: state.activePlayer,
     message: `Player ${state.activePlayer + 1}'s turn ends.`,
   });
+  // Objective control is re-checked at the end of every turn.
+  next = refreshObjectiveControl(next, env);
 }
 
 function endRound(state: GameState): GameState {
@@ -376,7 +381,9 @@ function endRound(state: GameState): GameState {
   });
 }
 
-function endBattle(state: GameState): GameState {
+function endBattle(state: GameState, env: ReducerEnv): GameState {
+  // Final mission scoring (second player's hold + battle-end bonuses).
+  state = scoreEndOfBattle(state, env);
   // Reserves that never arrived count as destroyed.
   let swept = state;
   for (const unit of Object.values(state.units)) {

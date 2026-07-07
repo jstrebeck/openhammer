@@ -877,4 +877,177 @@ describe('full game over the wire (client stores <-> real server)', () => {
     },
     180_000,
   );
+
+  it(
+    'leg 3: plays out the remaining rounds to the end of the battle with automatic scoring',
+    async () => {
+      const driver = makeDriver(stores);
+      const { game } = driver;
+
+      /** Generic fight-phase activation: select an eligible unit, stay
+       * put through pile-in/consolidate, throw no attacks. Keeps the
+       * run-out deterministic while still exercising the alternation. */
+      const clearFightQueue = async (): Promise<void> => {
+        for (let guard = 0; guard < 40; guard++) {
+          const g = game(0);
+          const fight = g.fight;
+          if (!fight || fight.selector === null) return;
+          const seat = fight.selector;
+          const eligible = Object.values(g.units).find(
+            (u) =>
+              u.owner === seat &&
+              !u.turnFlags.hasFought &&
+              !fight.fought.includes(u.id) &&
+              u.models.some((m) => !m.destroyed && m.position !== null) &&
+              canFightThisStep(g, u, stores[0].getState().datasheets),
+          );
+          if (!eligible) return;
+          const stay = () =>
+            eligible.models
+              .filter((m) => !m.destroyed && m.position !== null)
+              .map((m) => ({ modelId: m.id, x: m.position!.x, y: m.position!.y }));
+          await driver.act(
+            seat,
+            { type: 'selectFighter', player: seat, unitId: eligible.id },
+            (g2) => g2.fight?.activeUnitId === eligible.id,
+            `leg3: selectFighter ${eligible.id}`,
+          );
+          await driver.act(
+            seat,
+            { type: 'pileIn', player: seat, unitId: eligible.id, positions: stay() },
+            (g2) => g2.fight?.stage === 'attacks',
+            `leg3: pileIn ${eligible.id}`,
+          );
+          await driver.act(
+            seat,
+            { type: 'declareMelee', player: seat, unitId: eligible.id, assignments: [] },
+            (g2) => g2.fight?.stage === 'consolidate',
+            `leg3: no attacks ${eligible.id}`,
+          );
+          await driver.act(
+            seat,
+            { type: 'consolidate', player: seat, unitId: eligible.id, positions: stay() },
+            (g2) => g2.units[eligible.id]!.turnFlags.hasFought,
+            `leg3: consolidate ${eligible.id}`,
+          );
+        }
+      };
+
+      /** Walk the seat's nearest free unit onto their home objective so
+       * the primary cadence has something to score for BOTH players. */
+      const parked: [boolean, boolean] = [false, false];
+      const parkOnHomeObjective = async (seat: PlayerIndex): Promise<void> => {
+        if (parked[seat]) return;
+        const g = game(seat);
+        if (g.phase !== 'movement' || g.step !== 'moveUnits' || g.activePlayer !== seat) return;
+        const home = [...g.board.objectives].sort((a, b) =>
+          seat === 0 ? a.position.y - b.position.y : b.position.y - a.position.y,
+        )[0]!;
+        const anchorDist = (u: UnitState): number => {
+          const m = u.models.find((mm) => !mm.destroyed && mm.position !== null);
+          if (!m) return Infinity;
+          return Math.hypot(
+            home.position.x - m.position!.x,
+            home.position.y - m.position!.y,
+          );
+        };
+        const movable = Object.values(g.units)
+          .filter(
+            (u) =>
+              u.owner === seat &&
+              u.turnFlags.moveKind === null &&
+              u.models.some((m) => !m.destroyed && m.position !== null),
+          )
+          .sort((a, b) => anchorDist(a) - anchorDist(b))[0];
+        if (!movable) {
+          parked[seat] = true;
+          return;
+        }
+        const anchor = movable.models.find((m) => !m.destroyed && m.position !== null)!;
+        const dx = home.position.x - anchor.position!.x;
+        const dy = home.position.y - anchor.position!.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= 1.5) {
+          parked[seat] = true;
+          return;
+        }
+        const step = Math.min(5.5, Math.max(0, dist - 1));
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const positions = movable.models
+          .filter((m) => !m.destroyed && m.position !== null)
+          .map((m) => ({
+            modelId: m.id,
+            x: m.position!.x + ux * step,
+            y: m.position!.y + uy * step,
+          }));
+        try {
+          await driver.act(
+            seat,
+            { type: 'startMove', player: seat, unitId: movable.id, kind: 'normal' },
+            (g2) => g2.pendingMove?.unitId === movable.id,
+            `leg3: park start ${movable.id}`,
+          );
+          await driver.act(
+            seat,
+            { type: 'commitMove', player: seat, unitId: movable.id, positions },
+            (g2) => g2.units[movable.id]!.turnFlags.moveKind === 'normal',
+            `leg3: park commit ${movable.id}`,
+          );
+          if (dist - step <= 2.5) parked[seat] = true;
+        } catch {
+          // A rejected park (overlap etc.) is retried on a later turn with
+          // fresh geometry; the loop guard bounds the whole run-out.
+          if (g.pendingMove?.unitId === movable.id) {
+            stores[seat]
+              .getState()
+              .dispatch({ type: 'cancelMove', player: seat, unitId: movable.id });
+          }
+        }
+      };
+
+      let guard = 0;
+      while (game(0).phase !== 'ended' && guard++ < 250) {
+        await clearFightQueue();
+        await parkOnHomeObjective(game(0).activePlayer);
+        const g = game(0);
+        if (g.phase === 'ended') break;
+        const active = g.activePlayer;
+        const before = g.actionSeq;
+        await driver.act(
+          active,
+          { type: 'advanceStep', player: active },
+          (g2) => g2.actionSeq > before || g2.phase === 'ended',
+          `leg3: advance ${g.round}/${g.phase}/${g.step}`,
+        );
+      }
+
+      const final = game(0);
+      expect(final.phase).toBe('ended');
+      expect(final.round).toBe(5);
+      expect(final.result).not.toBeNull();
+
+      // Automatic primary scoring fired at its cadence: the deployed
+      // armies hold their home objectives, so both players scored.
+      for (const seat of [0, 1] as const) {
+        const primary = final.players[seat].vpLog.filter((v) => v.source === 'primary');
+        expect(primary.length, `player ${seat} primary scoring entries`).toBeGreaterThan(0);
+        const total = final.players[seat].vpLog.reduce((a, v) => a + v.amount, 0);
+        expect(final.players[seat].vp).toBe(total);
+      }
+      expect(
+        final.log.some((l) => l.kind === 'scoring' && /holds .* objective/.test(l.message)),
+      ).toBe(true);
+      // The winner matches the VP totals (or a draw).
+      const [p0, p1] = final.players;
+      const expected = p0.vp > p1.vp ? 0 : p1.vp > p0.vp ? 1 : 'draw';
+      expect(final.result!.winner).toBe(expected);
+      // eslint-disable-next-line no-console
+      console.info(
+        `[fullGame leg 3] ended R${final.round}: ${p0.name} ${p0.vp} VP vs ${p1.name} ${p1.vp} VP -> winner=${String(final.result!.winner)}`,
+      );
+      driver.stop();
+    },
+    180_000,
+  );
 });

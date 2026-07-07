@@ -98,10 +98,15 @@ Import both sample rosters → deploy on a 3D top-down board (terrain + objectiv
 - Enhancement points not yet added to army totals; Castellan's 2-orders-per-phase datasheet override not modeled (limit stays 1); Take Cover! lacks the 3+ floor; Battle-shock does not yet cancel in-flight Orders; leader "while leading" conditions approximate (apply to the bearer's unit even when solo).
 - The M4 UI panels were verified by component tests + the 268-test suite (incl. the real-server integration path); a fresh two-browser session for Orders/spotting has not been run this milestone.
 
-## Milestone 5 — Missions & scoring
+## Milestone 5 — Missions & scoring ✅
 
-- [ ] Automatic primary scoring at the data-defined cadence with logged math ("P1 holds 2 and 4 → 10 VP"), scoreboard UI (VP/CP/round/phase/objectives-held live), end-of-battle screen with per-round breakdown, painted-army bonus from mission data.
+- [x] **Objective control math** (`packages/core/src/state/scoring.ts`): OC sums for models within the edition's control range, battle-shocked models count 0, OC effect bonuses (Duty and Honour!, Regimental Banner) ride the `scoring.objectiveControl` hook; ties contest. Tests: `scoring.test.ts` (control/shock/bonus cases).
+- [x] **Automatic primary scoring at the mission's data-declared cadence**: command-phase-start from round 2 with logged math ("holds 2 objective(s) [obj-a, obj-c] → 10 VP"), per-score cap (15) and battle-long cap (50) enforced from data, second player's final hold + painted-army bonus at battle end, `vpLog` per-round entries. Tests cover the cadence via real `advanceStep` round rollovers.
+- [x] **Live control on the board**: `state.objectiveControl` refreshed at scoring points and every turn end; the client colors objective markers by controller (blue/red/gold-contested) and the scoreboard shows objectives held per player alongside CP/VP/round/phase.
+- [x] **End-of-battle screen** with the full per-round VP breakdown from `vpLog`; painted-army toggle in pre-game (`setPaintedArmy`).
+- [x] **Wiring evidence**: the fullGame integration test's new leg 3 plays the REAL wire out to round 5 — units walked onto home objectives, primary scored for both players every command phase, `vp === Σ vpLog`, winner matches totals ("ended R5: 25 VP vs 20 VP → winner=0"). 276 tests green.
 
 ## Milestone 6 — Hardening
 
-- [ ] Persistence/reconnect polish, enforcement-level setup flow (default enforce, "Casual (warn)" offered), fairness validation, scripted five-round two-client integration test, `validate-content` + orphan-export lint in CI.
+- [x] Scripted five-round integration test (deployment → 5 rounds → winner) through the real client dispatch path against the real server reducer — `packages/client/src/integration/fullGame.test.ts` leg 3 (delivered early with M5).
+- [ ] Persistence/reconnect polish, enforcement-level setup flow (default enforce, "Casual (warn)" offered), fairness validation, `validate-content` + orphan-export lint in CI, fresh browser session covering the M4/M5 UI surfaces (orders, spotting, scoreboard, end screen).

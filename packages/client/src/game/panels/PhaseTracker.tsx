@@ -45,6 +45,14 @@ export function PhaseTracker() {
             </span>
             <span>CP {p.cp}</span>
             <span>VP {p.vp}</span>
+            <span>
+              Obj{' '}
+              {
+                Object.values(game.objectiveControl ?? {}).filter(
+                  (o) => o.controller === p.index,
+                ).length
+              }
+            </span>
           </div>
         ))}
       </div>

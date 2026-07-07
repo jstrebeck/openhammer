@@ -232,21 +232,27 @@ function DeploymentZones({ game }: { game: GameState }) {
   );
 }
 
+const OBJECTIVE_COLORS = ['#3b82f6', '#ef4444'] as const;
+
 function Objectives({ game }: { game: GameState }) {
   return (
     <group>
-      {game.board.objectives.map((o) => (
-        <group key={o.id} position={[o.position.x, 0, o.position.y]}>
-          <mesh position={[0, 0.06, 0]}>
-            <cylinderGeometry args={[0.79, 0.79, 0.12, 24]} />
-            <meshStandardMaterial color="#d4af37" />
-          </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-            <ringGeometry args={[2.9, 3.0, 48]} />
-            <meshBasicMaterial color="#d4af37" transparent opacity={0.5} depthWrite={false} />
-          </mesh>
-        </group>
-      ))}
+      {game.board.objectives.map((o) => {
+        const controller = game.objectiveControl?.[o.id]?.controller ?? null;
+        const color = controller === null ? '#d4af37' : OBJECTIVE_COLORS[controller];
+        return (
+          <group key={o.id} position={[o.position.x, 0, o.position.y]}>
+            <mesh position={[0, 0.06, 0]}>
+              <cylinderGeometry args={[0.79, 0.79, 0.12, 24]} />
+              <meshStandardMaterial color={color} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+              <ringGeometry args={[2.9, 3.0, 48]} />
+              <meshBasicMaterial color={color} transparent opacity={0.5} depthWrite={false} />
+            </mesh>
+          </group>
+        );
+      })}
     </group>
   );
 }
