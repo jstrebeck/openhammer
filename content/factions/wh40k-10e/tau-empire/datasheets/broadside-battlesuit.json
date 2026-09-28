@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau-empire/broadside-battlesuit",
+  "name": "Broadside Battlesuit",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Infantry",
+    "Battlesuit",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Broadside Battlesuit",
+      "move": 5,
+      "toughness": 6,
+      "save": 2,
+      "wounds": 8,
+      "leadership": 7,
+      "objectiveControl": 2,
+      "baseSizeMm": 50,
+      "heightInches": 2.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 125
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "heavy-rail-rifle",
+      "name": "Heavy rail rifle",
+      "kind": "ranged",
+      "range": 30,
+      "attacks": "2",
+      "skill": 4,
+      "strength": 12,
+      "ap": -4,
+      "damage": "D6+1",
+      "abilities": [
+        {
+          "id": "devastating-wounds"
+        },
+        {
+          "id": "heavy"
+        }
+      ]
+    },
+    {
+      "id": "twin-smart-missile-system",
+      "name": "Twin smart missile system",
+      "kind": "ranged",
+      "range": 30,
+      "attacks": "4",
+      "skill": 4,
+      "strength": 5,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "indirect-fire"
+        },
+        {
+          "id": "twin-linked"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "crushing-bulk",
+      "name": "Crushing bulk",
+      "kind": "melee",
+      "range": null,
+      "attacks": "3",
+      "skill": 5,
+      "strength": 6,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [],
+  "abilities": [
+    {
+      "id": "tau.broadside.weapon-support",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "ignoreModifiers",
+          "rolls": [
+            "hit"
+          ]
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Weapon Support System",
+      "paraphrase": "Ignore hit-roll modifiers on ranged attacks."
+    }
+  ],
+  "wargearNotes": "TODO m4: Advanced Armour (FNP 4+ vs mortal wounds only)"
+}

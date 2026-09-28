@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau-empire/strike-team",
+  "name": "Strike Team",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Infantry",
+    "Battleline",
+    "Grenades",
+    "Fire Warrior"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Fire Warrior",
+      "move": 6,
+      "toughness": 3,
+      "save": 4,
+      "wounds": 1,
+      "leadership": 7,
+      "objectiveControl": 2,
+      "baseSizeMm": 28,
+      "heightInches": 1.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 10,
+        "points": 120
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "pulse-rifle",
+      "name": "Pulse rifle",
+      "kind": "ranged",
+      "range": 30,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 5,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "rapid-fire",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "pulse-pistol",
+      "name": "Pulse pistol",
+      "kind": "ranged",
+      "range": 12,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 5,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "pistol"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "close-combat-weapon",
+      "name": "Close combat weapon",
+      "kind": "melee",
+      "range": null,
+      "attacks": "1",
+      "skill": 5,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [],
+  "abilities": [],
+  "wargearNotes": "TODO m4: Suppression Volley (post-shot hit debuff); DS8 Support Turret; Photon Grenades (charge-shock wargear)"
+}

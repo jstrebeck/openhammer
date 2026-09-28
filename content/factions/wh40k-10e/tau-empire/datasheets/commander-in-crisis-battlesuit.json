@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau-empire/commander-in-crisis-battlesuit",
+  "name": "Commander in Crisis Battlesuit",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Character",
+    "Battlesuit",
+    "Fly",
+    "Jet Pack",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Commander in Crisis Battlesuit",
+      "move": 10,
+      "toughness": 5,
+      "save": 3,
+      "wounds": 6,
+      "leadership": 7,
+      "objectiveControl": 1,
+      "baseSizeMm": 50,
+      "heightInches": 2.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 160
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "plasma-rifle",
+      "name": "Plasma rifle",
+      "kind": "ranged",
+      "range": 24,
+      "attacks": "1",
+      "skill": 3,
+      "strength": 8,
+      "ap": -3,
+      "damage": "3",
+      "abilities": []
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "battlesuit-fists",
+      "name": "Battlesuit fists",
+      "kind": "melee",
+      "range": null,
+      "attacks": "3",
+      "skill": 3,
+      "strength": 6,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.deep-strike"
+    },
+    {
+      "id": "core.leader"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "tau.commander.crisis-commander",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "reroll",
+          "roll": "hit",
+          "dice": "ones"
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Crisis Commander",
+      "paraphrase": "The led unit re-rolls ranged hit rolls of 1."
+    },
+    {
+      "id": "tau.commander.shield-generator",
+      "trigger": "attack.beforeSaveRoll",
+      "effects": [
+        {
+          "type": "setInvulnerableSave",
+          "value": 4
+        }
+      ],
+      "condition": {
+        "bearerIs": "defender"
+      },
+      "name": "Shield Generator",
+      "paraphrase": "4+ invulnerable save."
+    },
+    {
+      "id": "tau.commander.support-system",
+      "trigger": "eligibility.shoot",
+      "effects": [
+        {
+          "type": "grantPermission",
+          "permission": "shootAfterFallBack"
+        }
+      ],
+      "name": "Battlesuit Support System",
+      "paraphrase": "May shoot after Falling Back."
+    }
+  ],
+  "leader": {
+    "canLead": []
+  }
+}

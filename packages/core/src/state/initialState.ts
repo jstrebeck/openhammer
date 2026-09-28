@@ -1,67 +1,90 @@
-import type { GameState } from '../types/index';
-import {
-  DEFAULT_RULES_CONFIG,
-  createEmptyTurnTracking,
-  createEmptyShootingState,
-  createEmptyChargeState,
-  createEmptyFightState,
-  createEmptyDeploymentState,
-  createEmptyStratagemEffects,
-} from '../types/index';
-import { DEFAULT_EDITION_ID } from '../rules/registry';
-import { generateUUID } from '../utils/uuid';
+import type { BoardState, EnforcementConfig, GameState, PlayerIndex } from '../types/state.js';
+import { SETUP_PHASE } from './reducer.js';
 
-export function createInitialGameState(options?: {
-  editionId?: string;
-  boardWidth?: number;
-  boardHeight?: number;
-}): GameState {
+export interface NewGameConfig {
+  editionId: string;
+  missionId: string;
+  deploymentMapId: string;
+  contentVersions: Record<string, string>;
+  board: BoardState;
+  players: [NewGamePlayer, NewGamePlayer];
+  rngSeed: number;
+  enforcement?: EnforcementConfig;
+  firstPlayer?: PlayerIndex;
+}
+
+export interface NewGamePlayer {
+  name: string;
+  factionId: string;
+  detachmentId: string;
+}
+
+/** Rules enforcement defaults to ENFORCE; setup flow offers "Casual (warn)". */
+const DEFAULT_ENFORCEMENT: EnforcementConfig = {
+  movement: 'enforce',
+  targeting: 'enforce',
+  coherency: 'enforce',
+  stratagems: 'enforce',
+};
+
+export function createInitialGameState(config: NewGameConfig): GameState {
   return {
-    id: generateUUID(),
-    editionId: options?.editionId ?? DEFAULT_EDITION_ID,
-    board: {
-      width: options?.boardWidth ?? 60,
-      height: options?.boardHeight ?? 44,
-    },
-    models: {},
+    contentVersions: config.contentVersions,
+    editionId: config.editionId,
+    missionId: config.missionId,
+    deploymentMapId: config.deploymentMapId,
+    enforcement: config.enforcement ?? DEFAULT_ENFORCEMENT,
+    phase: SETUP_PHASE,
+    step: null,
+    round: 0,
+    activePlayer: config.firstPlayer ?? 0,
+    firstPlayer: config.firstPlayer ?? 0,
+    players: [
+      {
+        index: 0,
+        name: config.players[0].name,
+        factionId: config.players[0].factionId,
+        detachmentId: config.players[0].detachmentId,
+        cp: 0,
+        extraCpThisRound: 0,
+        vp: 0,
+        vpLog: [],
+        stratagemsUsedThisPhase: [],
+        paintedArmy: false,
+      },
+      {
+        index: 1,
+        name: config.players[1].name,
+        factionId: config.players[1].factionId,
+        detachmentId: config.players[1].detachmentId,
+        cp: 0,
+        extraCpThisRound: 0,
+        vp: 0,
+        vpLog: [],
+        stratagemsUsedThisPhase: [],
+        paintedArmy: false,
+      },
+    ],
     units: {},
-    players: {},
-    terrain: {},
-    deploymentZones: {},
-    objectives: {},
-    turnState: {
-      roundNumber: 1,
-      activePlayerId: '',
-      currentPhaseIndex: 0,
+    board: config.board,
+    activeEffects: [],
+    usage: { counts: {} },
+    setup: {
+      rostersLoaded: [false, false],
+      rollOff: null,
+      attacker: null,
+      deployNext: null,
+      readyToStart: false,
     },
-    turnTracking: createEmptyTurnTracking(),
-    shootingState: createEmptyShootingState(),
-    chargeState: createEmptyChargeState(),
-    fightState: createEmptyFightState(),
-    battleShocked: [],
-    score: {},
-    stratagemsUsedThisPhase: [],
-    gameStarted: false,
-    embarkedUnits: {},
-    reserves: {},
-    hoverModeUnits: [],
-    weaponsFired: {},
-    attachedUnits: {},
-    log: { entries: [] },
-    rulesConfig: { ...DEFAULT_RULES_CONFIG },
-    stratagemEffects: createEmptyStratagemEffects(),
-    cpGainedThisRound: {},
-    persistingEffects: [],
-    factionState: {},
-    // Sprint H: Pre-Game Setup
-    setupPhase: 'muster',
-    enhancements: [],
-    playerFactionKeywords: {},
-    playerDetachments: {},
-    deploymentState: createEmptyDeploymentState(),
-    // Sprint I: Mission System & Game Lifecycle
-    maxBattleRounds: 5,
-    scoringLog: [],
-    secondaryObjectives: {},
+    pendingMove: null,
+    shooting: null,
+    charge: null,
+    fight: null,
+    windowQueue: [],
+    pendingDecision: null,
+    rng: { seed: config.rngSeed, counter: 0 },
+    log: [],
+    actionSeq: 0,
+    result: null,
   };
 }

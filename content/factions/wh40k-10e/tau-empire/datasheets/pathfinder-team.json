@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau-empire/pathfinder-team",
+  "name": "Pathfinder Team",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Infantry",
+    "Markerlight",
+    "Grenades",
+    "Fire Warrior"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Pathfinder",
+      "move": 7,
+      "toughness": 3,
+      "save": 5,
+      "wounds": 1,
+      "leadership": 7,
+      "objectiveControl": 1,
+      "baseSizeMm": 28,
+      "heightInches": 1.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 10,
+        "points": 110
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "pulse-carbine",
+      "name": "Pulse carbine",
+      "kind": "ranged",
+      "range": 20,
+      "attacks": "2",
+      "skill": 4,
+      "strength": 5,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "assault"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "close-combat-weapon",
+      "name": "Close combat weapon",
+      "kind": "melee",
+      "range": null,
+      "attacks": "1",
+      "skill": 5,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.infiltrators"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "tau.pathfinder.target-uploaded-bs",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "modifyCharacteristic",
+          "stat": "BS",
+          "value": -1
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          },
+          {
+            "targetHasToken": "spotted"
+          }
+        ]
+      },
+      "name": "Target Uploaded (BS)",
+      "paraphrase": "BS +1 against Spotted targets."
+    },
+    {
+      "id": "tau.pathfinder.target-uploaded-cover",
+      "trigger": "attack.beforeSaveRoll",
+      "effects": [
+        {
+          "type": "ignoreCover"
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          },
+          {
+            "targetHasToken": "spotted"
+          }
+        ]
+      },
+      "name": "Target Uploaded (Ignores Cover)",
+      "paraphrase": "Ignores cover against Spotted targets."
+    }
+  ],
+  "wargearNotes": "TODO m4: Grav-inhibitor Drone (charge -2 vs chargers); Pulse Accelerator Drone (+6\" pulse carbines); Recon Drone (Infiltrators)"
+}

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "astra-militarum/heavy-weapons-squad",
+  "name": "Heavy Weapons Squad",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Infantry",
+    "Regiment",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Heavy Weapons Team",
+      "move": 6,
+      "toughness": 3,
+      "save": 5,
+      "wounds": 2,
+      "leadership": 7,
+      "objectiveControl": 1,
+      "baseSizeMm": 28,
+      "heightInches": 1.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 3,
+        "points": 110
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "lascannon",
+      "name": "Lascannon",
+      "kind": "ranged",
+      "range": 48,
+      "attacks": "1",
+      "skill": 4,
+      "strength": 12,
+      "ap": -3,
+      "damage": "D6+1",
+      "abilities": [
+        {
+          "id": "heavy"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "close-combat-weapon",
+      "name": "Close combat weapon",
+      "kind": "melee",
+      "range": null,
+      "attacks": "1",
+      "skill": 5,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [],
+  "abilities": []
+}

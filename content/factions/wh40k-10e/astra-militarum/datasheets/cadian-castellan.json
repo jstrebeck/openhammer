@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "astra-militarum/cadian-castellan",
+  "name": "Cadian Castellan",
+  "factionId": "astra-militarum",
+  "keywords": [
+    "Character",
+    "Infantry",
+    "Officer",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "Astra Militarum"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Cadian Castellan",
+      "move": 6,
+      "toughness": 3,
+      "save": 4,
+      "wounds": 4,
+      "leadership": 6,
+      "objectiveControl": 1,
+      "baseSizeMm": 32,
+      "heightInches": 1.4
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 80
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "laspistol",
+      "name": "Laspistol",
+      "kind": "ranged",
+      "range": 12,
+      "attacks": "1",
+      "skill": 3,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": [
+        {
+          "id": "pistol"
+        }
+      ]
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "power-weapon",
+      "name": "Power weapon",
+      "kind": "melee",
+      "range": null,
+      "attacks": "4",
+      "skill": 3,
+      "strength": 5,
+      "ap": -2,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.leader"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "am.castellan.senior-officer",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "extraHitsOnCritical",
+          "value": 1
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Senior Officer",
+      "paraphrase": "The led unit's ranged weapons gain Sustained Hits 1."
+    },
+    {
+      "id": "am.castellan.get-back-in-the-fight",
+      "trigger": "eligibility.shoot",
+      "effects": [
+        {
+          "type": "grantPermission",
+          "permission": "shootAfterFallBack"
+        }
+      ],
+      "name": "Get Back in the Fight",
+      "paraphrase": "The led unit may shoot after Falling Back."
+    }
+  ],
+  "wargearNotes": "TODO m4: Orders: issues 2 per phase (count override)",
+  "leader": {
+    "canLead": []
+  }
+}

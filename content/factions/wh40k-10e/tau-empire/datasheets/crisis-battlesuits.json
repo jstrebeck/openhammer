@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau-empire/crisis-battlesuits",
+  "name": "Crisis Battlesuits",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Infantry",
+    "Battlesuit",
+    "Fly",
+    "Jet Pack",
+    "Grenades"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Crisis Battlesuit",
+      "move": 10,
+      "toughness": 5,
+      "save": 3,
+      "wounds": 5,
+      "leadership": 7,
+      "objectiveControl": 2,
+      "baseSizeMm": 50,
+      "heightInches": 2.2
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 3,
+        "points": 230
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "missile-pod",
+      "name": "Missile pod",
+      "kind": "ranged",
+      "range": 30,
+      "attacks": "2",
+      "skill": 4,
+      "strength": 7,
+      "ap": -1,
+      "damage": "2",
+      "abilities": []
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "battlesuit-fists",
+      "name": "Battlesuit fists",
+      "kind": "melee",
+      "range": null,
+      "attacks": "2",
+      "skill": 5,
+      "strength": 5,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.deep-strike"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "tau.crisis.weapon-support",
+      "trigger": "attack.beforeHitRoll",
+      "effects": [
+        {
+          "type": "ignoreModifiers",
+          "rolls": [
+            "hit"
+          ]
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Weapon Support System",
+      "paraphrase": "Ignore hit-roll modifiers on ranged attacks."
+    },
+    {
+      "id": "tau.crisis.support-system",
+      "trigger": "eligibility.shoot",
+      "effects": [
+        {
+          "type": "grantPermission",
+          "permission": "shootAfterFallBack"
+        }
+      ],
+      "name": "Battlesuit Support System",
+      "paraphrase": "May shoot after Falling Back."
+    }
+  ],
+  "wargearNotes": "TODO m4: Shield Generator (wargear 4++ variant); Turbo-jets (flat advance)"
+}

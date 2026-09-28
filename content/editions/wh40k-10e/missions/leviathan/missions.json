@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "missions": [
+    {
+      "id": "take-and-hold",
+      "name": "Take and Hold",
+      "pointsLimit": 1000,
+      "deploymentMapIds": ["dawn-of-war", "hammer-and-anvil", "search-and-destroy"],
+      "firstTurn": "rollOff",
+      "objectiveControlNote": "Objectives are controlled by the player with the higher OC total within 3\" horizontally and 5\" vertically; battle-shocked models count 0.",
+      "primaryScoring": [
+        {
+          "id": "take-and-hold.hold",
+          "name": "Hold Objectives",
+          "cadence": {
+            "hook": "command.start",
+            "fromRound": 2,
+            "player": "active"
+          },
+          "scoring": {
+            "perObjectiveHeld": 5,
+            "maxPerScore": 15
+          },
+          "maxTotal": 50
+        },
+        {
+          "id": "take-and-hold.final",
+          "name": "End of Battle Scoring (second player)",
+          "cadence": {
+            "hook": "lifecycle.battleEnd",
+            "fromRound": 5,
+            "player": "either"
+          },
+          "scoring": {
+            "perObjectiveHeld": 5,
+            "maxPerScore": 15
+          },
+          "maxTotal": 50
+        }
+      ],
+      "bonusVP": [
+        { "id": "painted-army", "name": "Painted Army", "value": 10, "auto": false }
+      ]
+    }
+  ]
+}

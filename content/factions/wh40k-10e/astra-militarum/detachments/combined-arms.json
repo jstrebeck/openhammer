@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "am.combined-arms",
+  "name": "Combined Arms",
+  "rule": {
+    "name": "Born Soldiers",
+    "paraphrase": "Regiment ranged attacks against visible non-Monster/Vehicle units gain Lethal Hits; Squadron ranged attacks against visible Monsters and Vehicles gain Lethal Hits.",
+    "effects": [
+      {
+        "id": "am.combined-arms.regiment-lethal",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "Regiment" },
+            {
+              "not": {
+                "any": [{ "targetHasKeyword": "Monster" }, { "targetHasKeyword": "Vehicle" }]
+              }
+            }
+          ]
+        },
+        "effects": [{ "type": "criticalHitsAutoWound" }]
+      },
+      {
+        "id": "am.combined-arms.squadron-lethal",
+        "trigger": "attack.beforeHitRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "Squadron" },
+            {
+              "any": [{ "targetHasKeyword": "Monster" }, { "targetHasKeyword": "Vehicle" }]
+            }
+          ]
+        },
+        "effects": [{ "type": "criticalHitsAutoWound" }]
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "am.combined-arms.drill-commander",
+      "name": "Drill Commander",
+      "points": 20,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "While the bearer leads a unit that Remained Stationary, its ranged attacks crit on 5+.",
+      "effects": [
+        {
+          "id": "am.combined-arms.drill-commander.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [
+              { "bearerIs": "attacker" },
+              { "weaponType": "ranged" },
+              { "bearerRemainedStationary": true }
+            ]
+          },
+          "effects": [{ "type": "setCriticalHitOn", "value": 5 }]
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.death-mask",
+      "name": "Death Mask of Ollanius",
+      "points": 10,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Battle-shocked, the bearer's unit keeps OC-1 instead of OC 0. Not yet automated.",
+      "effects": [
+        {
+          "id": "am.combined-arms.death-mask.effect",
+          "trigger": "scoring.objectiveControl",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.death-mask" }],
+          "scriptId": "todo.am.combined-arms.death-mask"
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.grand-strategist",
+      "name": "Grand Strategist",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer issues one extra Order. Not yet automated (order count override).",
+      "effects": [
+        {
+          "id": "am.combined-arms.grand-strategist.effect",
+          "trigger": "command.start",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.grand-strategist" }],
+          "scriptId": "todo.am.combined-arms.grand-strategist"
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.reactive-command",
+      "name": "Reactive Command",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Free Order when enemies arrive within 9\". Not yet automated.",
+      "effects": [
+        {
+          "id": "am.combined-arms.reactive-command.effect",
+          "trigger": "reserves.arrived",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.reactive-command" }],
+          "scriptId": "todo.am.combined-arms.reactive-command"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "am.combined-arms.fields-of-fire",
+      "name": "Fields of Fire",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "Concentrated barrage: your units' attacks against the chosen enemy gain AP +1 this phase.",
+      "target": { "who": "enemy" },
+      "effects": [
+        {
+          "id": "am.combined-arms.fields-of-fire.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": {
+            "all": [{ "bearerIs": "defender" }, { "attackerHasKeyword": "Astra Militarum" }]
+          },
+          "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.stalwart-protector",
+      "name": "Stalwart Protector",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["shooting"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "Infantry sheltering behind your Vehicle gain cover this phase (visibility nuance simplified).",
+      "target": { "who": "friendly", "keyword": "Infantry", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "am.combined-arms.stalwart-protector.effect",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "grantCover" }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.coordinated-action",
+      "name": "Coordinated Action",
+      "cost": 1,
+      "player": "either",
+      "phase": [],
+      "window": "lifecycle.phaseStart",
+      "paraphrase": "Orders affecting one unit affect a paired unit too. Not yet automated (order sharing).",
+      "target": { "who": "friendly" },
+      "effects": [
+        {
+          "id": "am.combined-arms.coordinated-action.effect",
+          "trigger": "lifecycle.phaseStart",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.coordinated-action" }],
+          "scriptId": "todo.am.combined-arms.coordinated-action"
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.inspired-command",
+      "name": "Inspired Command",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["command"],
+      "window": "lifecycle.phaseStart",
+      "paraphrase": "Issue an Order in the opponent's Command phase. Not yet automated (out-of-turn orders).",
+      "target": { "who": "friendly", "keyword": "Officer" },
+      "effects": [
+        {
+          "id": "am.combined-arms.inspired-command.effect",
+          "trigger": "lifecycle.phaseStart",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.inspired-command" }],
+          "scriptId": "todo.am.combined-arms.inspired-command"
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.reinforcements",
+      "name": "Reinforcements!",
+      "cost": 2,
+      "player": "either",
+      "phase": [],
+      "window": "unit.destroyed",
+      "paraphrase": "A destroyed Regiment unit returns at full strength in Strategic Reserves. Not yet automated.",
+      "target": { "who": "friendly", "keyword": "Regiment" },
+      "effects": [
+        {
+          "id": "am.combined-arms.reinforcements.effect",
+          "trigger": "unit.destroyed",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.reinforcements" }],
+          "scriptId": "todo.am.combined-arms.reinforcements",
+          "limit": { "count": 1, "per": "battle" }
+        }
+      ]
+    },
+    {
+      "id": "am.combined-arms.flexible-command",
+      "name": "Flexible Command",
+      "cost": 2,
+      "player": "active",
+      "phase": ["command"],
+      "window": "lifecycle.phaseStart",
+      "paraphrase": "Officers may order Squadron units this phase. Not yet automated (order target override).",
+      "target": { "who": "friendly", "keyword": "Officer" },
+      "effects": [
+        {
+          "id": "am.combined-arms.flexible-command.effect",
+          "trigger": "lifecycle.phaseStart",
+          "effects": [{ "type": "script", "scriptId": "todo.am.combined-arms.flexible-command" }],
+          "scriptId": "todo.am.combined-arms.flexible-command"
+        }
+      ]
+    }
+  ]
+}

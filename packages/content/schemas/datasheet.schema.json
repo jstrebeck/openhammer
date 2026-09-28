@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/datasheet",
+  "type": "object",
+  "required": ["schemaVersion", "version", "id", "name", "factionId", "keywords", "factionKeywords", "models", "unitComposition", "rangedWeapons", "meleeWeapons", "coreAbilities", "abilities"],
+  "additionalProperties": false,
+  "$defs": {
+    "weaponProfile": {
+      "type": "object",
+      "required": ["id", "name", "kind", "range", "attacks", "skill", "strength", "ap", "damage", "abilities"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "type": "string", "enum": ["ranged", "melee"] },
+        "range": { "type": ["number", "null"] },
+        "attacks": { "$ref": "openhammer://schemas/common#/$defs/diceExpression" },
+        "skill": { "type": ["number", "null"] },
+        "strength": { "type": "number" },
+        "ap": { "type": "number", "maximum": 0 },
+        "damage": { "$ref": "openhammer://schemas/common#/$defs/diceExpression" },
+        "abilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "value": { "type": "number" },
+              "keyword": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "aliases": { "type": "array", "items": { "type": "string" } },
+    "factionId": { "type": "string" },
+    "keywords": { "type": "array", "items": { "type": "string" } },
+    "factionKeywords": { "type": "array", "items": { "type": "string" } },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "move", "toughness", "save", "wounds", "leadership", "objectiveControl", "baseSizeMm", "heightInches"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "move": { "type": "number" },
+          "toughness": { "type": "number" },
+          "save": { "type": "number" },
+          "invulnerableSave": { "type": "number" },
+          "wounds": { "type": "number" },
+          "leadership": { "type": "number" },
+          "objectiveControl": { "type": "number" },
+          "baseSizeMm": { "type": "number" },
+          "baseDimensionsMm": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "heightInches": { "type": "number" }
+        }
+      }
+    },
+    "unitComposition": {
+      "type": "object",
+      "required": ["sizes"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string" },
+        "sizes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["models", "points"],
+            "additionalProperties": false,
+            "properties": {
+              "models": { "type": "integer", "minimum": 1 },
+              "points": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "rangedWeapons": { "type": "array", "items": { "$ref": "#/$defs/weaponProfile" } },
+    "meleeWeapons": { "type": "array", "items": { "$ref": "#/$defs/weaponProfile" } },
+    "coreAbilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "value": { "type": "number" },
+          "keyword": { "type": "string" }
+        }
+      }
+    },
+    "abilities": {
+      "type": "array",
+      "items": { "$ref": "openhammer://schemas/common#/$defs/effectDef" }
+    },
+    "wargearNotes": { "type": "string" },
+    "leader": {
+      "type": "object",
+      "required": ["canLead"],
+      "additionalProperties": false,
+      "properties": { "canLead": { "type": "array", "items": { "type": "string" } } }
+    },
+    "transport": {
+      "type": "object",
+      "required": ["capacity"],
+      "additionalProperties": false,
+      "properties": {
+        "capacity": { "type": "integer" },
+        "restrictions": { "type": "string" }
+      }
+    },
+    "isEpicHero": { "type": "boolean" }
+  }
+}

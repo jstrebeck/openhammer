@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau-empire/cadre-fireblade",
+  "name": "Cadre Fireblade",
+  "factionId": "tau-empire",
+  "keywords": [
+    "Character",
+    "Infantry",
+    "Markerlight",
+    "Grenades",
+    "Fire Warrior"
+  ],
+  "factionKeywords": [
+    "T'au Empire"
+  ],
+  "models": [
+    {
+      "id": "default",
+      "name": "Cadre Fireblade",
+      "move": 6,
+      "toughness": 3,
+      "save": 4,
+      "wounds": 4,
+      "leadership": 7,
+      "objectiveControl": 1,
+      "baseSizeMm": 32,
+      "heightInches": 1.4
+    }
+  ],
+  "unitComposition": {
+    "sizes": [
+      {
+        "models": 1,
+        "points": 65
+      }
+    ]
+  },
+  "rangedWeapons": [
+    {
+      "id": "fireblade-pulse-rifle",
+      "name": "Fireblade pulse rifle",
+      "kind": "ranged",
+      "range": 30,
+      "attacks": "2",
+      "skill": 3,
+      "strength": 5,
+      "ap": 0,
+      "damage": "2",
+      "abilities": []
+    }
+  ],
+  "meleeWeapons": [
+    {
+      "id": "close-combat-weapon",
+      "name": "Close combat weapon",
+      "kind": "melee",
+      "range": null,
+      "attacks": "2",
+      "skill": 4,
+      "strength": 3,
+      "ap": 0,
+      "damage": "1",
+      "abilities": []
+    }
+  ],
+  "coreAbilities": [
+    {
+      "id": "core.leader"
+    }
+  ],
+  "abilities": [
+    {
+      "id": "tau.fireblade.volley-fire",
+      "trigger": "attack.attacksCount",
+      "effects": [
+        {
+          "type": "addAttacks",
+          "value": 1
+        }
+      ],
+      "condition": {
+        "all": [
+          {
+            "bearerIs": "attacker"
+          },
+          {
+            "weaponType": "ranged"
+          }
+        ]
+      },
+      "name": "Volley Fire",
+      "paraphrase": "+1 Attack on ranged weapons in the Fireblade-led unit."
+    }
+  ],
+  "leader": {
+    "canLead": []
+  },
+  "wargearNotes": "TODO m4: Crack Shot (AP -3 on critical wounds)"
+}

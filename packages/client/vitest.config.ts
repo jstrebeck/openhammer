@@ -1,14 +1,10 @@
 import { defineConfig } from 'vitest/config';
-import path from 'path';
 
 export default defineConfig({
   test: {
-    globals: true,
+    name: 'client',
     environment: 'jsdom',
-  },
-  resolve: {
-    alias: {
-      '@openhammer/core': path.resolve(__dirname, '../core/src'),
-    },
+    setupFiles: ['src/test/setup.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 });

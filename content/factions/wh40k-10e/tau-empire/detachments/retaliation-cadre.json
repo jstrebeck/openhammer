@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "tau.retaliation-cadre",
+  "name": "Retaliation Cadre",
+  "rule": {
+    "name": "Bonded Heroes",
+    "paraphrase": "Battlesuit ranged attacks gain +1 Strength within 12\" and also +1 AP within 9\".",
+    "effects": [
+      {
+        "id": "tau.retaliation.strength",
+        "trigger": "attack.beforeWoundRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "Battlesuit" },
+            { "targetWithin": 12 }
+          ]
+        },
+        "effects": [{ "type": "modifyCharacteristic", "stat": "S", "value": 1 }]
+      },
+      {
+        "id": "tau.retaliation.ap",
+        "trigger": "attack.beforeSaveRoll",
+        "condition": {
+          "all": [
+            { "bearerIs": "attacker" },
+            { "weaponType": "ranged" },
+            { "bearerHasKeyword": "Battlesuit" },
+            { "targetWithin": 9 }
+          ]
+        },
+        "effects": [{ "type": "modifyCharacteristic", "stat": "AP", "value": -1 }]
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "tau.retaliation.prototype-weapon",
+      "name": "Prototype Weapon System",
+      "points": 15,
+      "eligibleKeywords": ["Battlesuit"],
+      "paraphrase": "The bearer's ranged weapons gain Sustained Hits 1 (rules offer a Lethal Hits choice; fixed here for now).",
+      "effects": [
+        {
+          "id": "tau.retaliation.prototype-weapon.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "weaponType": "ranged" }] },
+          "effects": [{ "type": "extraHitsOnCritical", "value": 1 }]
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.internal-grenade-racks",
+      "name": "Internal Grenade Racks",
+      "points": 20,
+      "eligibleKeywords": ["Battlesuit"],
+      "paraphrase": "Mortal wounds to a unit the bearer moves over. Not yet automated (move-over trigger).",
+      "effects": [
+        {
+          "id": "tau.retaliation.internal-grenade-racks.effect",
+          "trigger": "move.completed",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.retaliation.grenade-racks" }],
+          "scriptId": "todo.tau.retaliation.grenade-racks"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.puretide-chip",
+      "name": "Puretide Engram Neurochip",
+      "points": 25,
+      "eligibleKeywords": ["Battlesuit"],
+      "paraphrase": "4+ to refund a CP when the bearer's unit is targeted by a stratagem. Not yet automated.",
+      "effects": [
+        {
+          "id": "tau.retaliation.puretide-chip.effect",
+          "trigger": "lifecycle.phaseStart",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.retaliation.puretide" }],
+          "scriptId": "todo.tau.retaliation.puretide"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.starflare",
+      "name": "Starflare Ignition System",
+      "points": 20,
+      "eligibleKeywords": ["Battlesuit"],
+      "paraphrase": "End of opponent's turn: leave the battlefield into Strategic Reserves. Not yet automated.",
+      "effects": [
+        {
+          "id": "tau.retaliation.starflare.effect",
+          "trigger": "lifecycle.turnEnd",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.retaliation.starflare" }],
+          "scriptId": "todo.tau.retaliation.starflare"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "tau.retaliation.arrokon-protocol",
+      "name": "The Arro'kon Protocol",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "A Battlesuit unit gains Sustained Hits 1 against units of 6+ models this phase.",
+      "target": { "who": "friendly", "keyword": "Battlesuit" },
+      "effects": [
+        {
+          "id": "tau.retaliation.arrokon-protocol.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [{ "bearerIs": "attacker" }, { "targetModelCountAtLeast": 6 }]
+          },
+          "effects": [{ "type": "extraHitsOnCritical", "value": 1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.stimm-injectors",
+      "name": "Stimm Injectors",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["shooting", "fight"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted Battlesuit unit gains Feel No Pain 6+ for the phase.",
+      "target": { "who": "friendly", "keyword": "Battlesuit", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.retaliation.stimm-injectors.effect",
+          "trigger": "attack.feelNoPain",
+          "condition": { "bearerIs": "defender" },
+          "effects": [{ "type": "feelNoPain", "value": 6 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.grav-inhibitor",
+      "name": "Grav-inhibitor Field",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["charge"],
+      "window": "charge.declared",
+      "paraphrase": "A charged Battlesuit unit disrupts the charge: the chargers take a Battle-shock test (mortal-wound rider not yet automated).",
+      "target": { "who": "friendly", "keyword": "Battlesuit", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "tau.retaliation.grav-inhibitor.effect",
+          "trigger": "charge.declared",
+          "effects": [{ "type": "forceBattleShockTest" }],
+          "duration": "instant"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.fail-safe-detonator",
+      "name": "Fail-safe Detonator",
+      "cost": 2,
+      "player": "either",
+      "phase": [],
+      "window": "unit.modelDestroyed",
+      "paraphrase": "A dying Battlesuit chooses its Deadly Demise result. Not yet automated.",
+      "target": { "who": "friendly", "keyword": "Battlesuit" },
+      "effects": [
+        {
+          "id": "tau.retaliation.fail-safe-detonator.effect",
+          "trigger": "unit.modelDestroyed",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.retaliation.fail-safe" }],
+          "scriptId": "todo.tau.retaliation.fail-safe"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.shortened-blade",
+      "name": "The Shortened Blade",
+      "cost": 2,
+      "player": "active",
+      "phase": ["movement"],
+      "window": "reserves.arrived",
+      "paraphrase": "Deep Strike at more than 6\" instead of 9\". Not yet automated (placement override).",
+      "target": { "who": "friendly", "keyword": "Battlesuit" },
+      "effects": [
+        {
+          "id": "tau.retaliation.shortened-blade.effect",
+          "trigger": "deploy.reserves",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.retaliation.shortened-blade" }],
+          "scriptId": "todo.tau.retaliation.shortened-blade"
+        }
+      ]
+    },
+    {
+      "id": "tau.retaliation.torchstar-gambit",
+      "name": "The Torchstar Gambit",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "paraphrase": "A FLY Battlesuit unit moves after shooting. Not yet automated (post-shoot move).",
+      "target": { "who": "friendly", "keyword": "Fly" },
+      "effects": [
+        {
+          "id": "tau.retaliation.torchstar-gambit.effect",
+          "trigger": "attack.resolved",
+          "effects": [{ "type": "script", "scriptId": "todo.tau.retaliation.torchstar" }],
+          "scriptId": "todo.tau.retaliation.torchstar"
+        }
+      ]
+    }
+  ]
+}

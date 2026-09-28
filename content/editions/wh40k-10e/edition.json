@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "id": "wh40k-10e",
+  "name": "Warhammer 40,000 — 10th Edition",
+  "battleRounds": 5,
+  "phases": [
+    {
+      "id": "command",
+      "name": "Command Phase",
+      "kind": "command",
+      "steps": [
+        {
+          "id": "command",
+          "name": "Command",
+          "kind": "command"
+        },
+        {
+          "id": "battleShock",
+          "name": "Battle-shock",
+          "kind": "battleShock"
+        }
+      ]
+    },
+    {
+      "id": "movement",
+      "name": "Movement Phase",
+      "kind": "movement",
+      "steps": [
+        {
+          "id": "moveUnits",
+          "name": "Move Units",
+          "kind": "moveUnits"
+        },
+        {
+          "id": "reinforcements",
+          "name": "Reinforcements",
+          "kind": "reinforcements"
+        }
+      ]
+    },
+    {
+      "id": "shooting",
+      "name": "Shooting Phase",
+      "kind": "shooting",
+      "steps": [
+        {
+          "id": "shoot",
+          "name": "Shoot",
+          "kind": "shoot"
+        }
+      ]
+    },
+    {
+      "id": "charge",
+      "name": "Charge Phase",
+      "kind": "charge",
+      "steps": [
+        {
+          "id": "charge",
+          "name": "Charge",
+          "kind": "charge"
+        }
+      ]
+    },
+    {
+      "id": "fight",
+      "name": "Fight Phase",
+      "kind": "fight",
+      "steps": [
+        {
+          "id": "fightsFirst",
+          "name": "Fights First",
+          "kind": "fightsFirst"
+        },
+        {
+          "id": "remainingCombats",
+          "name": "Remaining Combats",
+          "kind": "remainingCombats"
+        }
+      ]
+    }
+  ],
+  "parameters": {
+    "engagementRangeHorizontal": 1,
+    "engagementRangeVertical": 5,
+    "coherencyDistanceHorizontal": 2,
+    "coherencyDistanceVertical": 5,
+    "coherencyTwoNeighboursAt": 7,
+    "objectiveControlRangeHorizontal": 3,
+    "objectiveControlRangeVertical": 5,
+    "chargeRange": 12,
+    "pileInDistance": 3,
+    "consolidateDistance": 3,
+    "modifierCaps": {
+      "hit": 1,
+      "wound": 1,
+      "saveImprovement": 1
+    },
+    "coverIneligibleSaveAtOrBelow": 3,
+    "cpPerCommandPhase": 1,
+    "maxExtraCpPerRound": 1,
+    "battleShockDice": "2D6",
+    "desperateEscapeFailOn": 2,
+    "deepStrikeDistance": 9,
+    "reservesMaxPointsFraction": 0.25,
+    "defaultCriticalHitOn": 6,
+    "defaultCriticalWoundOn": 6,
+    "bigGunsNeverTire": {
+      "keywords": [
+        "Monster",
+        "Vehicle"
+      ],
+      "hitPenalty": -1
+    }
+  }
+}

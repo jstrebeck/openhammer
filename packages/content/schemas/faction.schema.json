@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/faction",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "version",
+    "id",
+    "name",
+    "editionId",
+    "armyRule"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "number"
+    },
+    "version": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "editionId": {
+      "type": "string"
+    },
+    "armyRule": {
+      "type": "object",
+      "required": [
+        "name",
+        "effects"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "paraphrase": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "openhammer://schemas/common#/$defs/effectDef"
+          }
+        }
+      }
+    },
+    "mechanics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "timing",
+          "user",
+          "duration",
+          "effects"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "paraphrase": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "timing": {
+            "type": "object",
+            "required": [
+              "phase",
+              "player"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "phase": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "player": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "either"
+                ]
+              }
+            }
+          },
+          "user": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "keyword": {
+                "type": "string"
+              },
+              "condition": {
+                "$ref": "openhammer://schemas/common#/$defs/condition"
+              }
+            }
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "who"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "type": "string",
+                "enum": [
+                  "friendly",
+                  "enemy"
+                ]
+              },
+              "keyword": {
+                "type": "string"
+              },
+              "condition": {
+                "$ref": "openhammer://schemas/common#/$defs/condition"
+              },
+              "within": {
+                "type": "number"
+              }
+            }
+          },
+          "secondTarget": {
+            "type": "object",
+            "required": [
+              "who"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "type": "string",
+                "enum": [
+                  "friendly",
+                  "enemy"
+                ]
+              },
+              "keyword": {
+                "type": "string"
+              },
+              "within": {
+                "type": "number"
+              }
+            }
+          },
+          "limit": {
+            "$ref": "openhammer://schemas/common#/$defs/usageLimit"
+          },
+          "applyTokens": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "to",
+                "token"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "to": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "target",
+                    "secondTarget"
+                  ]
+                },
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "duration": {
+            "$ref": "openhammer://schemas/common#/$defs/duration"
+          },
+          "effects": {
+            "type": "array",
+            "items": {
+              "$ref": "openhammer://schemas/common#/$defs/effectDef"
+            }
+          },
+          "exclusiveGroup": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

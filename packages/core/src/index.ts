@@ -1,34 +1,30 @@
-// Side-effect: register built-in editions and factions
-import './editions/index';
-import './detachments/index';
-
-export * from './types/geometry';
-export * from './types/index';
-export * from './types/terrain';
-export * from './rules/RulesEdition';
-export * from './rules/registry';
-export * from './state/actions';
-export * from './state/reducer';
-export * from './state/initialState';
-export * from './measurement/index';
-export * from './los/index';
-export * from './terrain/templates';
-export * from './terrain/cover';
-export * from './army-list/index';
-export * from './dice/index';
-export * from './combat/abilities';
-export * from './combat/attackPipeline';
-export * from './combat/saves';
-export * from './combat/shooting';
-export * from './combat/woundAllocation';
-export * from './combat/stratagems';
-export * from './combat/factionModifiers';
-export * from './deployment/validators';
-export * from './networking/protocol';
-export * from './formation/index';
-export * from './transport/index';
-export * from './aircraft/index';
-export * from './missions/index';
-export * from './sequencing/index';
-export * from './detachments/index';
-export * from './utils/uuid';
+export * from './types/geometry.js';
+export * from './types/content.js';
+export * from './types/state.js';
+export * from './dice/index.js';
+export * from './effects/context.js';
+export * from './effects/conditions.js';
+export * from './effects/engine.js';
+export * from './attack/pipeline.js';
+export * from './measurement/index.js';
+export * from './los/index.js';
+export * from './state/actions.js';
+export * from './state/env.js';
+export * from './state/reducer.js';
+export * from './state/initialState.js';
+export * from './state/validation.js';
+export { reduceSetup } from './state/setupReducer.js';
+export { reduceMovement } from './state/movementReducer.js';
+export { reduceShooting, continueShooting, beginMeleeSequence } from './state/shootingReducer.js';
+export { reduceCharge, rollChargeNow } from './state/chargeReducer.js';
+export { reduceFight, computeSelector } from './state/fightReducer.js';
+export { reduceWindow, getResolvers } from './state/windowReducer.js';
+export { reduceAbility } from './state/abilityReducer.js';
+export * from './state/windows.js';
+export {
+  applyBattleShock,
+  clearOwnBattleShock,
+  runOneBattleShockTest,
+  unitsToTest,
+} from './state/battleShock.js';
+export { phaseStepKind } from './state/kinds.js';

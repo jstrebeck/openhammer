@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/deployment-maps",
+  "type": "object",
+  "required": ["schemaVersion", "version", "maps"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "maps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "boardSize", "zones", "objectives"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "boardSize": {
+            "type": "object",
+            "required": ["width", "height"],
+            "additionalProperties": false,
+            "properties": {
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            }
+          },
+          "zones": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "required": ["player", "polygon"],
+              "additionalProperties": false,
+              "properties": {
+                "player": { "type": "integer", "enum": [0, 1] },
+                "polygon": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": {
+                    "type": "object",
+                    "required": ["x", "y"],
+                    "additionalProperties": false,
+                    "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+                  }
+                }
+              }
+            }
+          },
+          "objectives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "x", "y"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "x": { "type": "number" },
+                "y": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

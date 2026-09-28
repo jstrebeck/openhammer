@@ -1,0 +1,389 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-06",
+  "stratagems": [
+    {
+      "id": "core.command-reroll",
+      "name": "Command Re-roll",
+      "cost": 1,
+      "player": "either",
+      "phase": [],
+      "window": [
+        "attack.afterHitRoll",
+        "attack.afterWoundRoll",
+        "attack.afterSaveRoll",
+        "attack.damage",
+        "move.advanceRoll",
+        "move.chargeRoll",
+        "command.battleShockTest"
+      ],
+      "paraphrase": "Re-roll one of your rolls: Hit, Wound, Damage, Save, Advance, Charge, Desperate Escape, Hazardous, or number of attacks.",
+      "effects": [
+        {
+          "id": "core.command-reroll.effect",
+          "trigger": "attack.afterHitRoll",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.command-reroll"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.command-reroll"
+        }
+      ]
+    },
+    {
+      "id": "core.counter-offensive",
+      "name": "Counter-Offensive",
+      "cost": 2,
+      "player": "either",
+      "phase": [
+        "fight"
+      ],
+      "window": "fight.unitFought",
+      "paraphrase": "After an enemy unit fights, one of your eligible units fights next.",
+      "target": {
+        "who": "friendly",
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.counter-offensive.effect",
+          "trigger": "fight.unitFought",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.counter-offensive"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.counter-offensive"
+        }
+      ]
+    },
+    {
+      "id": "core.epic-challenge",
+      "name": "Epic Challenge",
+      "cost": 1,
+      "player": "either",
+      "phase": [
+        "fight"
+      ],
+      "window": "fight.unitSelected",
+      "paraphrase": "One Character's melee attacks gain Precision this phase.",
+      "target": {
+        "who": "friendly",
+        "keyword": "Character",
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.epic-challenge.effect",
+          "trigger": "attack.allocate",
+          "condition": {
+            "all": [
+              {
+                "bearerIs": "attacker"
+              },
+              {
+                "weaponType": "melee"
+              },
+              {
+                "targetIsAttachedUnit": true
+              }
+            ]
+          },
+          "effects": [
+            {
+              "type": "allocatePrecision"
+            }
+          ],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "core.tank-shock",
+      "name": "Tank Shock",
+      "cost": 1,
+      "player": "active",
+      "phase": [
+        "charge"
+      ],
+      "window": "charge.completed",
+      "paraphrase": "After a Vehicle ends a Charge move: roll D6s equal to the chosen melee weapon's Strength (+2 dice if S exceeds the target's T); each 5+ is a mortal wound, max 6.",
+      "target": {
+        "who": "friendly",
+        "keyword": "Vehicle",
+        "condition": {
+          "bearerCharged": true
+        },
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.tank-shock.effect",
+          "trigger": "charge.completed",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.tank-shock"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.tank-shock"
+        }
+      ]
+    },
+    {
+      "id": "core.insane-bravery",
+      "name": "Insane Bravery",
+      "cost": 1,
+      "player": "active",
+      "phase": [
+        "command"
+      ],
+      "window": "command.battleShockFailed",
+      "paraphrase": "Treat a just-failed Battle-shock test as passed.",
+      "target": {
+        "who": "friendly",
+        "allowBattleShocked": true,
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.insane-bravery.effect",
+          "trigger": "command.battleShockFailed",
+          "effects": [
+            {
+              "type": "autoPassBattleShock"
+            }
+          ],
+          "duration": "instant"
+        }
+      ],
+      "condition": {
+        "turnIs": "own"
+      }
+    },
+    {
+      "id": "core.grenade",
+      "name": "Grenade",
+      "cost": 1,
+      "player": "active",
+      "phase": [
+        "shooting"
+      ],
+      "window": "shooting.unitSelected",
+      "paraphrase": "One Grenades unit not in Engagement Range: pick a visible enemy unit within 8\"; roll 6D6, each 4+ inflicts a mortal wound.",
+      "target": {
+        "who": "friendly",
+        "keyword": "Grenades"
+      },
+      "effects": [
+        {
+          "id": "core.grenade.effect",
+          "trigger": "shooting.unitSelected",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.grenade"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.grenade"
+        }
+      ]
+    },
+    {
+      "id": "core.rapid-ingress",
+      "name": "Rapid Ingress",
+      "cost": 1,
+      "player": "reactive",
+      "phase": [
+        "movement"
+      ],
+      "window": "lifecycle.phaseEnd",
+      "paraphrase": "At the end of your opponent's Movement phase, set up one of your Reserves units as if it were your Reinforcements step.",
+      "condition": {
+        "phaseIs": "movement"
+      },
+      "target": {
+        "who": "friendly"
+      },
+      "effects": [
+        {
+          "id": "core.rapid-ingress.effect",
+          "trigger": "lifecycle.phaseEnd",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.rapid-ingress"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.rapid-ingress"
+        }
+      ]
+    },
+    {
+      "id": "core.smokescreen",
+      "name": "Smokescreen",
+      "cost": 1,
+      "player": "reactive",
+      "phase": [
+        "shooting"
+      ],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted Smoke unit gains the Benefit of Cover and Stealth until the end of the phase.",
+      "target": {
+        "who": "friendly",
+        "keyword": "Smoke",
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.smokescreen.cover",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": {
+            "bearerIs": "defender"
+          },
+          "effects": [
+            {
+              "type": "grantCover"
+            }
+          ],
+          "duration": "phase",
+          "scope": "unit"
+        },
+        {
+          "id": "core.smokescreen.stealth",
+          "trigger": "attack.beforeHitRoll",
+          "condition": {
+            "all": [
+              {
+                "bearerIs": "defender"
+              },
+              {
+                "weaponType": "ranged"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "type": "modifyRoll",
+              "roll": "hit",
+              "value": -1
+            }
+          ],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "core.fire-overwatch",
+      "name": "Fire Overwatch",
+      "cost": 1,
+      "player": "reactive",
+      "phase": [
+        "movement",
+        "charge"
+      ],
+      "window": [
+        "move.completed",
+        "reserves.arrived",
+        "charge.completed"
+      ],
+      "paraphrase": "When an enemy unit is set up or moves within 24\" of one of your units, that unit shoots it; only unmodified 6s hit. Once per turn.",
+      "target": {
+        "who": "friendly",
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.fire-overwatch.effect",
+          "trigger": "move.completed",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.fire-overwatch"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.fire-overwatch",
+          "limit": {
+            "count": 1,
+            "per": "turn"
+          }
+        }
+      ]
+    },
+    {
+      "id": "core.go-to-ground",
+      "name": "Go to Ground",
+      "cost": 1,
+      "player": "reactive",
+      "phase": [
+        "shooting"
+      ],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "A targeted Infantry unit gains a 6+ invulnerable save and the Benefit of Cover until the end of the phase.",
+      "target": {
+        "who": "friendly",
+        "keyword": "Infantry",
+        "fromWindowContext": true
+      },
+      "effects": [
+        {
+          "id": "core.go-to-ground.invuln",
+          "trigger": "attack.beforeSaveRoll",
+          "condition": {
+            "bearerIs": "defender"
+          },
+          "effects": [
+            {
+              "type": "setInvulnerableSave",
+              "value": 6
+            },
+            {
+              "type": "grantCover"
+            }
+          ],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "core.heroic-intervention",
+      "name": "Heroic Intervention",
+      "cost": 2,
+      "player": "reactive",
+      "phase": [
+        "charge"
+      ],
+      "window": "charge.completed",
+      "paraphrase": "After an enemy unit ends a Charge move, one of your units within 6\" charges it (Vehicles must be Walkers; no Charge bonus).",
+      "target": {
+        "who": "friendly"
+      },
+      "effects": [
+        {
+          "id": "core.heroic-intervention.effect",
+          "trigger": "charge.completed",
+          "effects": [
+            {
+              "type": "script",
+              "scriptId": "core.heroic-intervention"
+            }
+          ],
+          "duration": "instant",
+          "scriptId": "core.heroic-intervention"
+        }
+      ]
+    }
+  ]
+}

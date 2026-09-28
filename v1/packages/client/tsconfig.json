@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "jsx": "react-jsx",
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@openhammer/core": ["../core/src/index.ts"],
+      "@openhammer/core/*": ["../core/src/*"]
+    }
+  },
+  "include": ["src", "../core/src/**/*.ts"],
+  "exclude": ["../core/src/**/__tests__/**"]
+}

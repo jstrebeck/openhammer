@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/detachment",
+  "type": "object",
+  "required": ["schemaVersion", "version", "id", "name", "rule", "enhancements", "stratagems"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "number" },
+    "version": { "type": "string" },
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "aliases": { "type": "array", "items": { "type": "string" } },
+    "rule": {
+      "type": "object",
+      "required": ["name", "effects"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "paraphrase": { "type": "string" },
+        "effects": { "type": "array", "items": { "$ref": "openhammer://schemas/common#/$defs/effectDef" } }
+      }
+    },
+    "enhancements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "points", "eligibleKeywords", "effects"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "points": { "type": "integer" },
+          "eligibleKeywords": { "type": "array", "items": { "type": "string" } },
+          "excludeKeywords": { "type": "array", "items": { "type": "string" } },
+          "paraphrase": { "type": "string" },
+          "effects": { "type": "array", "items": { "$ref": "openhammer://schemas/common#/$defs/effectDef" } }
+        }
+      }
+    },
+    "stratagems": {
+      "type": "array",
+      "items": { "$ref": "openhammer://schemas/stratagems#/properties/stratagems/items" }
+    }
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "version": "2026-07",
+  "id": "am.siege-regiment",
+  "name": "Siege Regiment",
+  "rule": {
+    "name": "Artillery Support",
+    "paraphrase": "Each battle round, call in creeping barrages, incendiary bombardment or smoke shells. Not yet automated (round-start choice protocol).",
+    "effects": [
+      {
+        "id": "am.siege.artillery-support",
+        "trigger": "lifecycle.roundStart",
+        "effects": [{ "type": "script", "scriptId": "todo.am.siege.artillery-support" }],
+        "scriptId": "todo.am.siege.artillery-support"
+      }
+    ]
+  },
+  "enhancements": [
+    {
+      "id": "am.siege.legacy-sidearm",
+      "name": "Legacy Sidearm",
+      "points": 10,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer's Pistols gain +2 Attacks.",
+      "effects": [
+        {
+          "id": "am.siege.legacy-sidearm.effect",
+          "trigger": "attack.attacksCount",
+          "condition": {
+            "all": [{ "bearerIs": "attacker" }, { "weaponHasAbility": "pistol" }]
+          },
+          "effects": [{ "type": "addAttacks", "value": 2 }]
+        }
+      ]
+    },
+    {
+      "id": "am.siege.eager-advance",
+      "name": "Eager Advance",
+      "points": 20,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "The bearer's unit gains Scouts 6\". Not yet automated (granted scout moves).",
+      "effects": [
+        {
+          "id": "am.siege.eager-advance.effect",
+          "trigger": "deploy.setup",
+          "effects": [{ "type": "script", "scriptId": "todo.am.siege.eager-advance" }],
+          "scriptId": "todo.am.siege.eager-advance"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.flash-grenades",
+      "name": "Flash Grenades",
+      "points": 20,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Enemies cannot Fire Overwatch at the bearer's unit. Not yet automated (window suppression).",
+      "effects": [
+        {
+          "id": "am.siege.flash-grenades.effect",
+          "trigger": "move.completed",
+          "effects": [{ "type": "script", "scriptId": "todo.am.siege.flash-grenades" }],
+          "scriptId": "todo.am.siege.flash-grenades"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.stalwarts-honours",
+      "name": "Stalwart's Honours",
+      "points": 15,
+      "eligibleKeywords": ["Officer"],
+      "paraphrase": "Orders to the bearer's unit also apply Take Cover!. Not yet automated (order riders).",
+      "effects": [
+        {
+          "id": "am.siege.stalwarts-honours.effect",
+          "trigger": "command.start",
+          "effects": [{ "type": "script", "scriptId": "todo.am.siege.stalwarts-honours" }],
+          "scriptId": "todo.am.siege.stalwarts-honours"
+        }
+      ]
+    }
+  ],
+  "stratagems": [
+    {
+      "id": "am.siege.furious-fusillade",
+      "name": "Furious Fusillade",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "A Platoon unit's ranged weapons gain +1 Attack at half range this phase.",
+      "target": { "who": "friendly", "keyword": "Infantry" },
+      "effects": [
+        {
+          "id": "am.siege.furious-fusillade.effect",
+          "trigger": "attack.attacksCount",
+          "condition": {
+            "all": [{ "bearerIs": "attacker" }, { "targetWithinHalfRange": true }]
+          },
+          "effects": [{ "type": "addAttacks", "value": 1 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.flare-burst",
+      "name": "Flare Burst",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "activation": "proactive",
+      "paraphrase": "A Character unit re-rolls hits against visible enemies within 12\" this phase.",
+      "target": { "who": "friendly", "keyword": "Character" },
+      "effects": [
+        {
+          "id": "am.siege.flare-burst.effect",
+          "trigger": "attack.beforeHitRoll",
+          "condition": { "all": [{ "bearerIs": "attacker" }, { "targetWithin": 12 }] },
+          "effects": [{ "type": "reroll", "roll": "hit", "dice": "failed" }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.trench-fighters",
+      "name": "Trench Fighters",
+      "cost": 1,
+      "player": "either",
+      "phase": ["fight"],
+      "window": "shooting.targetsSelected",
+      "paraphrase": "Dying infantry fight back on 4+. Not yet automated (fight-on-death).",
+      "target": { "who": "friendly", "keyword": "Infantry", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "am.siege.trench-fighters.effect",
+          "trigger": "unit.modelDestroyed",
+          "effects": [{ "type": "script", "scriptId": "todo.am.siege.trench-fighters" }],
+          "scriptId": "todo.am.siege.trench-fighters"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.callous-sacrifice",
+      "name": "Callous Sacrifice",
+      "cost": 1,
+      "player": "active",
+      "phase": ["shooting"],
+      "window": "shooting.unitSelected",
+      "paraphrase": "Fire into your own melee. Not yet automated (friendly-fire protocol).",
+      "target": { "who": "friendly", "keyword": "Infantry" },
+      "effects": [
+        {
+          "id": "am.siege.callous-sacrifice.effect",
+          "trigger": "eligibility.target",
+          "effects": [{ "type": "script", "scriptId": "todo.am.siege.callous-sacrifice" }],
+          "scriptId": "todo.am.siege.callous-sacrifice"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.over-the-top",
+      "name": "Over the Top",
+      "cost": 2,
+      "player": "active",
+      "phase": ["command"],
+      "window": "lifecycle.phaseStart",
+      "paraphrase": "Move! Move! Move! for every infantry unit in earshot. Not yet automated (mass orders).",
+      "target": { "who": "friendly", "keyword": "Officer" },
+      "effects": [
+        {
+          "id": "am.siege.over-the-top.effect",
+          "trigger": "command.start",
+          "effects": [{ "type": "script", "scriptId": "todo.am.siege.over-the-top" }],
+          "scriptId": "todo.am.siege.over-the-top"
+        }
+      ]
+    },
+    {
+      "id": "am.siege.minefield",
+      "name": "Minefield",
+      "cost": 1,
+      "player": "reactive",
+      "phase": ["charge"],
+      "window": "charge.declared",
+      "paraphrase": "Chargers reaching your line strike hidden mines: -2 to their charge roll (mortal-wound rider not yet automated).",
+      "target": { "who": "friendly", "keyword": "Infantry", "fromWindowContext": true },
+      "effects": [
+        {
+          "id": "am.siege.minefield.effect",
+          "trigger": "move.chargeRoll",
+          "effects": [{ "type": "modifyRoll", "roll": "charge", "value": -2 }],
+          "duration": "phase",
+          "scope": "unit"
+        }
+      ]
+    }
+  ]
+}

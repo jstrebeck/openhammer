@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openhammer://schemas/stratagems",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "version",
+    "stratagems"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "number"
+    },
+    "version": {
+      "type": "string"
+    },
+    "stratagems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "cost",
+          "player",
+          "phase",
+          "window",
+          "effects"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "player": {
+            "type": "string",
+            "enum": [
+              "active",
+              "reactive",
+              "either"
+            ]
+          },
+          "phase": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "window": {
+            "oneOf": [
+              {
+                "$ref": "openhammer://schemas/common#/$defs/hookName"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "openhammer://schemas/common#/$defs/hookName"
+                }
+              }
+            ]
+          },
+          "paraphrase": {
+            "type": "string"
+          },
+          "condition": {
+            "$ref": "openhammer://schemas/common#/$defs/condition"
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "who"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "who": {
+                "type": "string",
+                "enum": [
+                  "friendly",
+                  "enemy"
+                ]
+              },
+              "keyword": {
+                "type": "string"
+              },
+              "condition": {
+                "$ref": "openhammer://schemas/common#/$defs/condition"
+              },
+              "allowBattleShocked": {
+                "type": "boolean"
+              },
+              "fromWindowContext": {
+                "type": "boolean"
+              }
+            }
+          },
+          "effects": {
+            "type": "array",
+            "items": {
+              "$ref": "openhammer://schemas/common#/$defs/effectDef"
+            }
+          },
+          "activation": {
+            "type": "string",
+            "enum": [
+              "window",
+              "proactive"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
